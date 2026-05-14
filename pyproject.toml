@@ -1,0 +1,47 @@
+[project]
+name = "algorithm-local-judge"
+version = "0.1.0"
+description = "Local problem judge with generated test data packs."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.136.1",
+  "python-multipart>=0.0.28",
+  "PyYAML>=6.0",
+  "uvicorn>=0.46.0",
+]
+
+[project.scripts]
+judge = "judge.cli:main"
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28.1",
+  "nuitka>=4.0.8",
+  "ruff>=0.8.0",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+  "commons",
+  "judge",
+  "judge.commands",
+  "judge.core",
+  "judge.utils",
+  "judge.web",
+  "judge.web.routes",
+]
+
+[tool.setuptools.package-data]
+"judge.web" = ["static/*"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
