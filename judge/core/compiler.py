@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,7 @@ PYTHON_SUFFIXES = {".py"}
 JAVA_SUFFIXES = {".java"}
 SUPPORTED_USER_SUFFIXES = CPP_SUFFIXES | PYTHON_SUFFIXES | JAVA_SUFFIXES
 JAVA_PUBLIC_CLASS_RE = re.compile(r"\bpublic\s+class\s+([A-Za-z_][A-Za-z0-9_]*)")
+COMPILE_OUTPUT_LIMIT = 6000
 
 
 @dataclass(frozen=True)
@@ -34,11 +36,14 @@ def compile_cpp(
     source: Path, output: Path, include_root: Path, timeout_ms: int, log_path: Path
 ) -> dict[str, Any]:
     """Compile a C++ source file into an executable."""
+    include_paths = [include_root]
+    problems_include = include_root / "problems"
+    if problems_include.exists():
+        include_paths.append(problems_include)
     command = [
         "g++",
         *COMPILE_FLAGS,
-        "-I",
-        str(include_root),
+        *(flag for include_path in include_paths for flag in ("-I", str(include_path))),
         str(source),
         "-o",
         str(output),
@@ -46,28 +51,62 @@ def compile_cpp(
     output.parent.mkdir(parents=True, exist_ok=True)
     code, _, stderr = run_command(command, timeout_ms, log_path=log_path)
     if code != 0:
-        raise JudgeError(f"compile failed: {rel(source)}\nlog: {rel(log_path)}")
+        raise JudgeError(compile_error_message("compile failed", source, log_path, stderr))
     return {"command": command, "stderr": stderr.decode("utf-8", errors="replace")}
 
 
-def compile_problem_tools(problem_id: str, root: Path | None = None) -> dict[str, Path]:
-    """Compile generator, validator, checker, and reference solution."""
+def compile_error_message(label: str, source: Path, log_path: Path, stderr: bytes) -> str:
+    """Build a compile failure message with the useful compiler output inline."""
+    text = stderr.decode("utf-8", errors="replace").strip()
+    if len(text) > COMPILE_OUTPUT_LIMIT:
+        text = text[-COMPILE_OUTPUT_LIMIT:]
+        text = f"...truncated...\n{text}"
+    message = f"{label}: {rel(source)}\nlog: {rel(log_path)}"
+    if text:
+        message += f"\n\ncompiler output:\n{text}"
+    return message
+
+
+def compile_problem_tool(
+    problem_id: str,
+    tool_name: str,
+    root: Path | None = None,
+    progress: Callable[[str], None] | None = None,
+) -> Path:
+    """Compile one problem tool and return its executable path."""
+    if tool_name not in TOOL_NAMES:
+        raise JudgeError(f"unknown problem tool: {tool_name}")
     _, _, metadata, paths = tool_paths(problem_id, root)
     if is_precompiled_problem(metadata):
-        return {name: paths[name] for name in TOOL_NAMES}
+        return paths[tool_name]
 
     root = root or repo_root()
     limits = metadata.get("limits", {})
     timeout_ms = limits.get("compileTimeoutMs", 5000)
     logs = build_root(root) / "tools" / problem_id / "logs"
-    outputs = {
-        "generator": tool_output_path(problem_id, "generator", root),
-        "validator": tool_output_path(problem_id, "validator", root),
-        "checker": tool_output_path(problem_id, "checker", root),
-        "solution": tool_output_path(problem_id, "solution", root),
-    }
-    for name in TOOL_NAMES:
-        compile_cpp(paths[name], outputs[name], root, timeout_ms, logs / f"{name}.log")
+    output = tool_output_path(problem_id, tool_name, root)
+    if progress is not None:
+        progress(f"Compiling {tool_name} tool.")
+    compile_cpp(paths[tool_name], output, root, timeout_ms, logs / f"{tool_name}.log")
+    return output
+
+
+def compile_problem_tools(
+    problem_id: str,
+    root: Path | None = None,
+    progress: Callable[[str], None] | None = None,
+) -> dict[str, Path]:
+    """Compile generator, validator, checker, and reference solution."""
+    _, _, metadata, paths = tool_paths(problem_id, root)
+    if is_precompiled_problem(metadata):
+        return {name: paths[name] for name in TOOL_NAMES}
+
+    outputs = {}
+    total = len(TOOL_NAMES)
+    for index, name in enumerate(TOOL_NAMES, start=1):
+        if progress is not None:
+            progress(f"Compiling {name} tool ({index}/{total}).")
+        outputs[name] = compile_problem_tool(problem_id, name, root, progress=None)
     return outputs
 
 
@@ -126,7 +165,8 @@ def compile_java_submission(source: Path, run_dir: Path, timeout_ms: int) -> lis
         log_path=log_path,
     )
     if code != 0:
-        raise JudgeError(f"java compile failed: {rel(source)}\nlog: {rel(log_path)}")
+        stderr = log_path.read_bytes() if log_path.exists() else b""
+        raise JudgeError(compile_error_message("java compile failed", source, log_path, stderr))
     return [java, "-cp", str(classes_dir), java_main_class(source)]
 
 
@@ -154,4 +194,7 @@ def prepare_user_submission(
         write_json(
             run_dir / "result.json", {"status": "compile_error", "compileLog": str(log_path)}
         )
-        raise JudgeError(f"compile error\nlog: {rel(log_path, root)}") from exc
+        detail = f"compile error\nlog: {rel(log_path, root)}"
+        if str(exc):
+            detail += f"\n\n{exc}"
+        raise JudgeError(detail) from exc

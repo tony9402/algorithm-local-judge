@@ -6,15 +6,12 @@ import io
 import json
 import os
 import queue
-import re
 import shutil
 import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, BinaryIO
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 from commons.generate import load_config
 from judge.core.artifacts import wrong_artifacts, wrong_diff_text
@@ -23,17 +20,24 @@ from judge.core.cases_compile import compile_problem_cases
 from judge.core.errors import JudgeError
 from judge.core.generation import cache_dir_for, generate
 from judge.core.manifest import generation_key, validate_manifest_fast
-from judge.core.pack import install_pack, installed_packs
-from judge.core.paths import cache_root, current_platform_id, rel, validate_safe_id
+from judge.core.pack import installed_packs
+from judge.core.paths import cache_root, ensure_inside, rel, validate_safe_id
 from judge.core.problem import discover_problem_ids, load_problem, tool_paths
+from judge.core.remote import (
+    download_problem_pack_from_github,
+    official_pack_repository,
+)
+from judge.core.remote import (
+    install_problem_pack as install_local_problem_pack,
+)
 from judge.core.submission import run_submission
-from judge.utils.fs import read_json
+from judge.utils.fs import read_json, write_json
 from judge.utils.text import format_size
 
-DEFAULT_OFFICIAL_PACK_REPOSITORY = "tony9402/algorithm-modules"
-GITHUB_REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SAMPLE_PROFILE = "sample"
 HIDDEN_PROFILE = "hidden"
+ARTIFACT_PREVIEW_LIMIT = 12000
+SOURCE_HISTORY_LIMIT = 50
 WEB_DEBUG_ENV = "ALJ_WEB_DEBUG"
 SSE_DONE = object()
 SAMPLE_RESPONSE_CACHE: dict[str, dict[str, Any]] = {}
@@ -93,8 +97,7 @@ def web_debug_enabled() -> bool:
 
 def install_problem_pack(archive_path: str) -> dict[str, Any]:
     """Install a problem pack and return its installed path."""
-    target = install_pack(Path(archive_path))
-    return {"installedPath": str(target), "label": rel(target)}
+    return install_local_problem_pack(Path(archive_path))
 
 
 def safe_upload_name(filename: str | None, fallback: str) -> str:
@@ -118,9 +121,135 @@ def save_upload(file_obj: BinaryIO, filename: str | None, category: str, fallbac
     return target
 
 
-def save_uploaded_source(file_obj: BinaryIO, filename: str | None) -> Path:
-    """Persist an uploaded source file and return its path."""
-    return save_upload(file_obj, filename, "sources", "main.py")
+def source_history_root() -> Path:
+    """Return the cache directory that stores source files submitted from the web UI."""
+    return cache_root() / "web-submissions"
+
+
+def source_entry_dir(source_id: str) -> Path:
+    """Return a validated source history entry directory."""
+    validate_safe_id("source id", source_id)
+    return ensure_inside(source_history_root() / source_id, cache_root())
+
+
+def create_source_target(problem_id: str, filename: str | None) -> tuple[str, Path]:
+    """Create a new source history target path for a submitted source file."""
+    validate_safe_id("problem id", problem_id)
+    source_id = str(time.time_ns())
+    target_dir = source_entry_dir(source_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return source_id, target_dir / default_filename(problem_id, filename)
+
+
+def source_history_metadata(
+    source_id: str,
+    target: Path,
+    problem_id: str,
+    source_mode: str,
+) -> dict[str, Any]:
+    """Build metadata for one cached source history entry."""
+    stat = target.stat()
+    saved_at = stat.st_mtime
+    return {
+        "sourceId": source_id,
+        "problemId": problem_id,
+        "sourceMode": source_mode,
+        "filename": target.name,
+        "language": language_from_filename(target.name),
+        "savedAt": saved_at,
+        "size": stat.st_size,
+        "sizeLabel": format_size(stat.st_size),
+        "sourcePath": str(target),
+        "sourceLabel": rel(target),
+    }
+
+
+def write_source_history_metadata(
+    source_id: str,
+    target: Path,
+    problem_id: str,
+    source_mode: str,
+) -> dict[str, Any]:
+    """Persist metadata next to one cached source file."""
+    metadata = source_history_metadata(source_id, target, problem_id, source_mode)
+    write_json(target.parent / "metadata.json", metadata)
+    return metadata
+
+
+def source_id_from_path(source: Path) -> str | None:
+    """Return the source history id for a cached source path when available."""
+    with contextlib.suppress(JudgeError):
+        cached_source = ensure_inside(source, source_history_root())
+        if cached_source.parent.parent == source_history_root():
+            return cached_source.parent.name
+    return None
+
+
+def source_history_run_summary(result: dict[str, Any]) -> dict[str, Any]:
+    """Return a compact run summary suitable for source history metadata."""
+    cases = result.get("cases") if isinstance(result.get("cases"), list) else []
+    return {
+        "runId": result.get("runId"),
+        "problemId": result.get("problemId"),
+        "profile": result.get("profile"),
+        "language": result.get("language"),
+        "status": result.get("status"),
+        "caseCount": len(cases),
+        "firstFailedCase": result.get("firstFailedCase"),
+        "metrics": result.get("metrics") or {},
+        "runLabel": result.get("runLabel"),
+        "savedAt": time.time(),
+    }
+
+
+def attach_run_to_source(source: Path, result: dict[str, Any]) -> str | None:
+    """Store the latest run result summary beside a cached source file."""
+    source_id = source_id_from_path(source)
+    if source_id is None:
+        return None
+    entry_dir = source_entry_dir(source_id)
+    metadata = source_entry_metadata(entry_dir) or source_history_metadata(
+        source_id,
+        source,
+        str(result.get("problemId") or "unknown"),
+        "unknown",
+    )
+    metadata["lastRun"] = source_history_run_summary(result)
+    write_json(entry_dir / "metadata.json", metadata)
+    return source_id
+
+
+def save_uploaded_source(
+    file_obj: BinaryIO,
+    filename: str | None,
+    problem_id: str,
+) -> Path:
+    """Persist an uploaded source file in the web source history and return its path."""
+    source_id, target = create_source_target(problem_id, filename or "main.py")
+    with target.open("wb") as output:
+        shutil.copyfileobj(file_obj, output)
+    if target.stat().st_size == 0:
+        raise JudgeError("uploaded source file is empty")
+    write_source_history_metadata(source_id, target, problem_id, "upload")
+    return target
+
+
+def save_text_source(source_text: str, filename: str | None, problem_id: str) -> Path:
+    """Persist pasted source code in the web source history and return its path."""
+    source_id, target = create_source_target(problem_id, filename)
+    target.write_text(source_text, encoding="utf-8")
+    write_source_history_metadata(source_id, target, problem_id, "text")
+    return target
+
+
+def save_existing_source(path: Path, problem_id: str, source_mode: str) -> Path:
+    """Copy an existing local source file into the web source history."""
+    source_id, target = create_source_target(problem_id, path.name)
+    shutil.copy2(path, target)
+    if target.stat().st_size == 0:
+        raise JudgeError("source file is empty")
+    write_source_history_metadata(source_id, target, problem_id, source_mode)
+    return target
 
 
 def save_uploaded_pack(file_obj: BinaryIO, filename: str | None) -> Path:
@@ -139,90 +268,12 @@ def install_uploaded_problem_pack(file_obj: BinaryIO, filename: str | None) -> d
     return result
 
 
-def official_pack_repository(repository: str | None = None) -> str:
-    """Return the configured official problem pack repository."""
-    repo = repository or os.environ.get("ALJ_OFFICIAL_PACK_REPOSITORY")
-    repo = repo or DEFAULT_OFFICIAL_PACK_REPOSITORY
-    if not GITHUB_REPOSITORY_RE.match(repo):
-        raise JudgeError("official repository must look like owner/name")
-    return repo
-
-
-def github_json(url: str) -> dict[str, Any]:
-    """Fetch a GitHub JSON document using the standard library."""
-    request = Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "algorithm-local-judge",
-        },
-    )
-    try:
-        with urlopen(request, timeout=20) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except HTTPError as exc:
-        raise JudgeError(f"GitHub request failed: HTTP {exc.code}") from exc
-    except URLError as exc:
-        raise JudgeError(f"GitHub request failed: {exc.reason}") from exc
-
-
-def select_pack_asset(assets: list[dict[str, Any]], asset_name: str | None) -> dict[str, Any]:
-    """Select a .aljpack release asset, preferring the current platform."""
-    candidates = [
-        asset
-        for asset in assets
-        if isinstance(asset.get("name"), str) and asset["name"].endswith(".aljpack")
-    ]
-    if asset_name:
-        for asset in candidates:
-            if asset["name"] == asset_name:
-                return asset
-        raise JudgeError(f"official pack asset not found: {asset_name}")
-    if not candidates:
-        raise JudgeError("official release has no .aljpack assets")
-    platform_id = current_platform_id()
-    for asset in candidates:
-        if platform_id in asset["name"]:
-            return asset
-    return candidates[0]
-
-
-def download_asset(url: str, target: Path) -> None:
-    """Download one release asset to a local file."""
-    request = Request(url, headers={"User-Agent": "algorithm-local-judge"})
-    try:
-        with urlopen(request, timeout=60) as response, target.open("wb") as output:
-            shutil.copyfileobj(response, output)
-    except HTTPError as exc:
-        raise JudgeError(f"official pack download failed: HTTP {exc.code}") from exc
-    except URLError as exc:
-        raise JudgeError(f"official pack download failed: {exc.reason}") from exc
-
-
 def download_official_problem_pack(
     repository: str | None = None,
     asset_name: str | None = None,
 ) -> dict[str, Any]:
     """Download and install a problem pack from the configured public GitHub repo."""
-    repo = official_pack_repository(repository)
-    release = github_json(f"https://api.github.com/repos/{repo}/releases/latest")
-    asset = select_pack_asset(release.get("assets", []), asset_name)
-    download_url = asset.get("browser_download_url")
-    if not isinstance(download_url, str):
-        raise JudgeError(f"official pack asset has no download URL: {asset.get('name')}")
-    target_dir = cache_root() / "web-downloads" / "packs"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target = target_dir / safe_upload_name(asset.get("name"), "official.aljpack")
-    download_asset(download_url, target)
-    result = install_problem_pack(str(target))
-    result.update(
-        {
-            "repository": repo,
-            "assetName": asset.get("name"),
-            "downloadedPath": str(target),
-        }
-    )
-    return result
+    return download_problem_pack_from_github(repository, asset_name)
 
 
 def generate_problem(problem_id: str, profile: str | None, force: bool) -> dict[str, Any]:
@@ -397,6 +448,107 @@ def default_filename(problem_id: str, filename: str | None) -> str:
     return name
 
 
+def source_file_for_entry(entry_dir: Path, metadata: dict[str, Any] | None) -> Path | None:
+    """Return the source file path for a cached source history directory."""
+    if metadata:
+        filename = Path(str(metadata.get("filename", ""))).name
+        if filename:
+            candidate = entry_dir / filename
+            if candidate.exists() and candidate.is_file():
+                return candidate
+    for candidate in sorted(entry_dir.iterdir()):
+        if candidate.is_file() and candidate.name != "metadata.json":
+            return candidate
+    return None
+
+
+def source_entry_metadata(entry_dir: Path) -> dict[str, Any] | None:
+    """Return display metadata for one cached source history entry."""
+    source_id = entry_dir.name
+    metadata_path = entry_dir / "metadata.json"
+    metadata = None
+    if metadata_path.exists():
+        with contextlib.suppress(json.JSONDecodeError, OSError):
+            loaded_metadata = read_json(metadata_path)
+            if isinstance(loaded_metadata, dict):
+                metadata = loaded_metadata
+    source_file = source_file_for_entry(entry_dir, metadata)
+    if source_file is None:
+        return None
+    if metadata is None:
+        metadata = source_history_metadata(source_id, source_file, "unknown", "unknown")
+    else:
+        metadata = dict(metadata)
+        metadata["sourceId"] = source_id
+        metadata["filename"] = source_file.name
+        metadata["language"] = metadata.get("language") or language_from_filename(source_file.name)
+        metadata["size"] = source_file.stat().st_size
+        metadata["sizeLabel"] = format_size(source_file.stat().st_size)
+        metadata["sourcePath"] = str(source_file)
+        metadata["sourceLabel"] = rel(source_file)
+        last_run = metadata.get("lastRun")
+        if isinstance(last_run, dict):
+            metrics = last_run.get("metrics")
+            if isinstance(metrics, dict):
+                max_time_ms = metrics.get("maxTimeMs")
+                max_memory_bytes = metrics.get("maxMemoryBytes")
+                if isinstance(max_time_ms, int):
+                    metrics["maxTimeLabel"] = format_duration(max_time_ms)
+                if isinstance(max_memory_bytes, int):
+                    metrics["maxMemoryLabel"] = format_size(max_memory_bytes)
+    return metadata
+
+
+def list_source_history(limit: int = SOURCE_HISTORY_LIMIT) -> dict[str, Any]:
+    """Return recently submitted web source files without loading their full contents."""
+    root = source_history_root()
+    if not root.exists():
+        return {"sources": []}
+    entries = []
+    for entry_dir in sorted(root.iterdir(), key=lambda path: path.stat().st_mtime, reverse=True):
+        if not entry_dir.is_dir():
+            continue
+        metadata = source_entry_metadata(entry_dir)
+        if metadata is not None:
+            entries.append(metadata)
+        if len(entries) >= limit:
+            break
+    return {"sources": entries}
+
+
+def source_history_detail(source_id: str) -> dict[str, Any]:
+    """Return source code text for one cached source history entry."""
+    entry_dir = source_entry_dir(source_id)
+    if not entry_dir.exists():
+        raise JudgeError(f"source history entry not found: {source_id}")
+    metadata = source_entry_metadata(entry_dir)
+    if metadata is None:
+        raise JudgeError(f"source history entry has no source file: {source_id}")
+    source_file = source_file_for_entry(entry_dir, metadata)
+    if source_file is None:
+        raise JudgeError(f"source history entry has no source file: {source_id}")
+    source_file = ensure_inside(source_file, source_history_root())
+    last_run_result = None
+    last_run = metadata.get("lastRun")
+    if isinstance(last_run, dict) and isinstance(last_run.get("runId"), str):
+        with contextlib.suppress(JudgeError, json.JSONDecodeError, OSError):
+            last_run_result = run_result(last_run["runId"])
+    return {
+        **metadata,
+        "lastRunResult": last_run_result,
+        "sourceText": source_file.read_text(encoding="utf-8", errors="replace"),
+    }
+
+
+def delete_source_history(source_id: str) -> dict[str, Any]:
+    """Delete one cached source history entry."""
+    entry_dir = source_entry_dir(source_id)
+    if not entry_dir.exists():
+        raise JudgeError(f"source history entry not found: {source_id}")
+    shutil.rmtree(entry_dir)
+    return {"deleted": True, "sourceId": source_id}
+
+
 def source_path_from_request(
     problem_id: str,
     source_mode: str,
@@ -411,7 +563,7 @@ def source_path_from_request(
         path = Path(source_path).expanduser()
         if not path.exists():
             raise JudgeError(f"source file not found: {path}")
-        return path
+        return save_existing_source(path, problem_id, "path")
 
     if source_mode == "upload":
         if not source_path:
@@ -419,22 +571,23 @@ def source_path_from_request(
         path = Path(source_path)
         if not path.exists():
             raise JudgeError(f"uploaded source file not found: {path}")
-        return path
+        with contextlib.suppress(JudgeError):
+            return ensure_inside(path, source_history_root())
+        return save_existing_source(path, problem_id, "upload")
 
     if not source_text:
         raise JudgeError("source text is required")
-    validate_safe_id("problem id", problem_id)
-    name = default_filename(problem_id, filename)
-    target_dir = cache_root() / "web-submissions" / f"{int(time.time() * 1000)}"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target = target_dir / name
-    target.write_text(source_text, encoding="utf-8")
-    return target
+    return save_text_source(source_text, filename, problem_id)
 
 
-def build_run_result(run_dir: Path, source: Path, message: str) -> dict[str, Any]:
-    """Build a web response from a completed run directory."""
-    result = read_json(run_dir / "result.json")
+def enrich_run_result(
+    result: dict[str, Any],
+    run_dir: Path | None = None,
+    source: Path | None = None,
+    message: str | None = None,
+) -> dict[str, Any]:
+    """Add web-facing display fields to a saved run result."""
+    result = dict(result)
     first_failed = next((case for case in result.get("cases", []) if case["status"] != "ok"), None)
     metrics = result.get("metrics") or {}
     max_time_ms = metrics.get("maxTimeMs")
@@ -445,16 +598,24 @@ def build_run_result(run_dir: Path, source: Path, message: str) -> dict[str, Any
         metrics["maxMemoryLabel"] = format_size(max_memory_bytes)
     else:
         metrics["maxMemoryLabel"] = "Unavailable"
-    result.update(
-        {
-            "runDir": str(run_dir),
-            "runLabel": rel(run_dir),
-            "language": result.get("language") or language_from_filename(source.name),
-            "message": message.strip(),
-            "firstFailedCase": first_failed["case"] if first_failed else None,
-            "metrics": metrics,
-        }
-    )
+    if run_dir is not None:
+        result["runDir"] = str(run_dir)
+        result["runLabel"] = rel(run_dir)
+    if source is not None:
+        result["language"] = result.get("language") or language_from_filename(source.name)
+    if message is not None:
+        result["message"] = message.strip()
+    result["firstFailedCase"] = first_failed["case"] if first_failed else None
+    result["metrics"] = metrics
+    return result
+
+
+def build_run_result(run_dir: Path, source: Path, message: str) -> dict[str, Any]:
+    """Build a web response from a completed run directory."""
+    result = enrich_run_result(read_json(run_dir / "result.json"), run_dir, source, message)
+    source_id = attach_run_to_source(source, result)
+    if source_id is not None:
+        result["sourceId"] = source_id
     return result
 
 
@@ -488,7 +649,7 @@ def run_uploaded_problem(
     filename: str | None,
 ) -> dict[str, Any]:
     """Judge an uploaded source file and return run result data."""
-    source = save_uploaded_source(file_obj, filename)
+    source = save_uploaded_source(file_obj, filename, problem_id)
     return run_problem(problem_id, profile, "upload", str(source), None, None)
 
 
@@ -542,17 +703,11 @@ def save_source_for_stream(
     if source_mode == "upload":
         if file_obj is None:
             raise JudgeError("source file upload is required")
-        return save_uploaded_source(file_obj, upload_filename)
+        return save_uploaded_source(file_obj, upload_filename, problem_id)
     if source_mode == "text":
         if not source_text:
             raise JudgeError("source text is required")
-        validate_safe_id("problem id", problem_id)
-        name = default_filename(problem_id, text_filename)
-        target_dir = cache_root() / "web-submissions" / f"{int(time.time() * 1000)}"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target = target_dir / name
-        target.write_text(source_text, encoding="utf-8")
-        return target
+        return save_text_source(source_text, text_filename, problem_id)
     raise JudgeError(f"unsupported source mode: {source_mode}")
 
 
@@ -569,17 +724,36 @@ def current_web_config() -> dict[str, Any]:
 def run_result(run_id: str) -> dict[str, Any]:
     """Return a saved run result JSON object."""
     validate_safe_id("run id", run_id)
-    result_path = cache_root() / "runs" / run_id / "result.json"
+    run_dir = cache_root() / "runs" / run_id
+    result_path = run_dir / "result.json"
     if not result_path.exists():
         raise JudgeError(f"run result not found: {run_id}")
-    return read_json(result_path)
+    return enrich_run_result(read_json(result_path), run_dir)
 
 
-def wrong_case(run_id: str, case_id: str) -> dict[str, str]:
+def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dict[str, Any]:
+    """Return a display-safe artifact preview and truncation metadata."""
+    if len(text) <= limit:
+        return {"text": text, "truncated": False, "omittedChars": 0}
+    omitted = len(text) - limit
+    preview = text[:limit].rstrip()
+    preview += f"\n\n... truncated after {limit} chars, omitted {omitted} chars ..."
+    return {"text": preview, "truncated": True, "omittedChars": omitted}
+
+
+def wrong_case(run_id: str, case_id: str) -> dict[str, Any]:
     """Return wrong-answer artifacts for one run case."""
-    data = wrong_artifacts(run_id, case_id)
-    data["diff"] = wrong_diff_text(run_id, case_id)
-    return data
+    raw_data = wrong_artifacts(run_id, case_id)
+    raw_data["diff"] = wrong_diff_text(run_id, case_id)
+    result: dict[str, Any] = {"previewLimit": ARTIFACT_PREVIEW_LIMIT, "truncation": {}}
+    for key, value in raw_data.items():
+        preview = preview_artifact_text(value)
+        result[key] = preview["text"]
+        result["truncation"][key] = {
+            "truncated": preview["truncated"],
+            "omittedChars": preview["omittedChars"],
+        }
+    return result
 
 
 def cache_status() -> dict[str, Any]:
@@ -589,6 +763,9 @@ def cache_status() -> dict[str, Any]:
     runs = data["runs"]
     if isinstance(runs, dict):
         runs["sizeLabel"] = format_size(int(runs["size"]))
+    sources = data.get("sources")
+    if isinstance(sources, dict):
+        sources["sizeLabel"] = format_size(int(sources["size"]))
     for problem in data["problems"]:
         problem["sizeLabel"] = format_size(int(problem["size"]))
     return data

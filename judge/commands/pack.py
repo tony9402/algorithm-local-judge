@@ -16,6 +16,11 @@ def handle(args: argparse.Namespace) -> int:
             args.pack_id,
             args.platform or current_platform_id(),
             Path(args.out),
+            args.verify_profile,
+        )
+        print(
+            "Verified solution expectations: "
+            f"{len(result.solution_checks)} solution(s) on profile {args.verify_profile}"
         )
         print(f"Built pack: {rel(result.archive_path)}")
         return 0

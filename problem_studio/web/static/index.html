@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Problem Studio</title>
+    <link rel="stylesheet" href="/static/vendor/codemirror/codemirror.min.css?v=5.65.16" />
+    <link rel="stylesheet" href="/static/vendor/codemirror/addon/dialog/dialog.min.css?v=5.65.16" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260519-01" />
+  </head>
+  <body>
+    <button
+      id="sidebarToggle"
+      class="sidebar-toggle"
+      aria-controls="studioSidebar"
+      aria-expanded="false"
+      type="button"
+    >
+      <span class="sidebar-toggle-icon" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+      <span class="mobile-header-copy">
+        <span id="mobileHeaderKicker">Problem Studio</span>
+        <strong id="mobileHeaderTitle">문제를 선택하세요</strong>
+      </span>
+      <span id="mobileHeaderMeta" class="mobile-header-meta">문제 목록</span>
+    </button>
+    <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+    <div id="alertStack" class="alert-stack" aria-live="polite"></div>
+    <div class="shell">
+      <aside id="studioSidebar" class="sidebar">
+        <header class="sidebar-header">
+          <div>
+            <h1>Problem Studio</h1>
+            <p id="workspaceLabel">문제 제작 워크스페이스</p>
+          </div>
+          <button id="sidebarClose" class="icon sidebar-close" aria-label="문제 패널 닫기" type="button">
+            ×
+          </button>
+        </header>
+
+        <section class="sidebar-actions">
+          <button id="newProblemButton" class="primary full" type="button">문제 추가</button>
+          <button id="workspaceBuildAllButton" class="workspace-bulk-button full" type="button">
+            전체 문제 테스트/팩 빌드
+          </button>
+        </section>
+
+        <section>
+          <div class="section-title">문제</div>
+          <div id="problemList" class="list muted">Loading...</div>
+        </section>
+
+        <section>
+          <div class="section-title">워크스페이스</div>
+          <div id="workspaceStatus" class="status-text muted">Loading...</div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <section class="toolbar panel">
+          <div>
+            <h2 id="problemTitle">문제를 선택하세요</h2>
+            <p id="problemMeta">문제를 만들거나 선택하면 제작을 시작할 수 있습니다.</p>
+          </div>
+          <div class="toolbar-actions">
+            <div id="globalTaskStatus" class="global-task-status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="studio-tabs panel">
+          <div class="tab-list" role="tablist" aria-label="Problem authoring areas">
+            <button class="tab-button active" data-tab="info" role="tab" aria-label="문제 정보" aria-selected="true" type="button">
+              <span class="tab-marker" aria-hidden="true">1</span>
+              <span class="tab-copy">
+                <span class="tab-label">문제 정보</span>
+                <span class="tab-hint">메타데이터</span>
+              </span>
+            </button>
+            <button class="tab-button" data-tab="generator" role="tab" aria-label="데이터 생성" aria-selected="false" type="button">
+              <span class="tab-marker" aria-hidden="true">2</span>
+              <span class="tab-copy">
+                <span class="tab-label">데이터 생성</span>
+                <span class="tab-hint">케이스 구성</span>
+              </span>
+            </button>
+            <button class="tab-button" data-tab="validator" role="tab" aria-label="데이터 벨리데이션" aria-selected="false" type="button">
+              <span class="tab-marker" aria-hidden="true">3</span>
+              <span class="tab-copy">
+                <span class="tab-label">데이터 벨리데이션</span>
+                <span class="tab-hint">입력 조건 검증</span>
+              </span>
+            </button>
+            <button class="tab-button" data-tab="checker" role="tab" aria-label="채점기" aria-selected="false" type="button">
+              <span class="tab-marker" aria-hidden="true">4</span>
+              <span class="tab-copy">
+                <span class="tab-label">채점기</span>
+                <span class="tab-hint">checker/정답</span>
+              </span>
+            </button>
+            <button class="tab-button" data-tab="solutions" role="tab" aria-label="솔루션" aria-selected="false" type="button">
+              <span class="tab-marker" aria-hidden="true">5</span>
+              <span class="tab-copy">
+                <span class="tab-label">솔루션</span>
+                <span class="tab-hint">기대 결과</span>
+              </span>
+            </button>
+            <button class="tab-button" data-tab="build" role="tab" aria-label="검증과 빌드" aria-selected="false" type="button">
+              <span class="tab-marker" aria-hidden="true">6</span>
+              <span class="tab-copy">
+                <span class="tab-label">검증/빌드</span>
+                <span class="tab-hint">전체 테스트/팩</span>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section class="studio-layout">
+          <div class="panel task-panel">
+            <div class="task-copy">
+              <h2 id="taskTitle">문제 정보</h2>
+              <p id="taskDescription">문제를 선택하면 제작 작업을 시작할 수 있습니다.</p>
+            </div>
+
+            <div id="metadataForm" class="metadata-form metadata-workbench hidden">
+              <section class="metadata-card metadata-card-primary">
+                <div class="metadata-card-heading">
+                  <div>
+                    <strong>기본 정보</strong>
+                    <p>목록과 팩 메타데이터에 표시되는 값입니다.</p>
+                  </div>
+                  <span id="metadataProblemId" class="metadata-id-chip">-</span>
+                </div>
+                <label>
+                  문제 번호
+                  <input id="metadataProblemIdInput" placeholder="01" />
+                  <span class="field-help">폴더명과 problem.json의 problemId가 함께 변경됩니다.</span>
+                </label>
+                <label>
+                  제목
+                  <input id="metadataTitle" placeholder="문제 제목" />
+                  <span class="field-help">문제 목록과 생성된 팩에 표시됩니다.</span>
+                </label>
+                <div class="form-grid">
+                  <label>
+                    폴더
+                    <input id="metadataFolder" placeholder="기본" />
+                    <span class="field-help">비우면 기본 폴더에 표시됩니다.</span>
+                  </label>
+                  <label>
+                    버전
+                    <input id="metadataVersion" type="number" min="1" />
+                    <span class="field-help">팩 버전으로 사용됩니다.</span>
+                  </label>
+                </div>
+                <label>
+                  기본 프로필
+                  <input id="metadataDefaultProfile" list="metadataProfileOptions" />
+                  <datalist id="metadataProfileOptions">
+                    <option value="sample"></option>
+                    <option value="hidden"></option>
+                    <option value="full"></option>
+                  </datalist>
+                  <span class="field-help">주로 검증/빌드에 사용할 기본 데이터 프로필입니다.</span>
+                </label>
+              </section>
+
+              <section class="metadata-card">
+                <div class="metadata-card-heading">
+                  <div>
+                    <strong>실행 제한</strong>
+                    <p>컴파일, 데이터 생성, 기준 정답, 사용자 코드 실행 시간을 밀리초로 관리합니다.</p>
+                  </div>
+                </div>
+                <div class="metadata-limit-grid">
+                  <label>
+                    컴파일
+                    <span class="number-with-unit">
+                      <input id="metadataCompileTimeout" type="number" min="100" step="100" />
+                      <span>ms</span>
+                    </span>
+                  </label>
+                  <label>
+                    데이터 생성
+                    <span class="number-with-unit">
+                      <input id="metadataGenerationTimeout" type="number" min="100" step="100" />
+                      <span>ms</span>
+                    </span>
+                  </label>
+                  <label>
+                    기준 정답
+                    <span class="number-with-unit">
+                      <input id="metadataSolutionTimeout" type="number" min="100" step="100" />
+                      <span>ms</span>
+                    </span>
+                  </label>
+                  <label>
+                    사용자 코드
+                    <span class="number-with-unit">
+                      <input id="metadataUserTimeout" type="number" min="100" step="100" />
+                      <span>ms</span>
+                    </span>
+                  </label>
+                </div>
+              </section>
+
+              <details class="metadata-card metadata-details">
+                <summary>
+                  <span>도구 경로</span>
+                  <small>기본 파일 구조를 유지한다면 건드릴 필요 없습니다.</small>
+                </summary>
+                <div class="metadata-tools-grid">
+                  <label>
+                    Generator
+                    <input id="metadataToolGenerator" />
+                  </label>
+                  <label>
+                    Cases YAML
+                    <input id="metadataToolGeneratorConfig" />
+                  </label>
+                  <label>
+                    Validator
+                    <input id="metadataToolValidator" />
+                  </label>
+                  <label>
+                    Checker
+                    <input id="metadataToolChecker" />
+                  </label>
+                  <label>
+                    기준 정답
+                    <input id="metadataToolSolution" />
+                  </label>
+                </div>
+              </details>
+
+              <div
+                id="metadataValidationSummary"
+                class="metadata-validation-summary"
+                aria-live="polite"
+              ></div>
+            </div>
+
+            <div id="tabActions" class="action-grid"></div>
+            <div id="buildPanel" class="build-panel hidden">
+              <div class="form-note">
+                <strong>팩 빌드 조건</strong>
+                <span id="buildValidationStatus">전체 테스트를 통과한 뒤 현재 문제 팩을 생성합니다.</span>
+              </div>
+              <label>
+                Pack ID
+                <input id="packIdInput" placeholder="basic" />
+              </label>
+              <label>
+                검증 프로필
+                <input id="packVerifyProfileInput" value="hidden" />
+              </label>
+              <div class="build-output-note">
+                <span>출력 위치</span>
+                <strong id="packOutputLabel">dist/packs</strong>
+              </div>
+              <a id="packDownloadLink" class="download-link hidden" href="#" download>팩 다운로드</a>
+            </div>
+            <input
+              id="solutionUploadInput"
+              class="hidden-input"
+              type="file"
+              multiple
+              accept=".cpp,.cc,.cxx,.py,.java"
+            />
+
+            <div class="resource-header">
+              <div>
+                <div class="resource-title">작업 대상</div>
+                <div id="resourceSummary" class="resource-summary">문제를 선택하세요.</div>
+              </div>
+              <input
+                id="resourceFilterInput"
+                class="resource-filter hidden"
+                type="search"
+                placeholder="파일 필터"
+                autocomplete="off"
+              />
+            </div>
+            <div id="tabFiles" class="resource-list muted">문제를 선택하세요.</div>
+            <div
+              id="solutionValidationSummary"
+              class="solution-validation-summary hidden"
+              aria-live="polite"
+            ></div>
+          </div>
+
+          <div class="panel editor-panel">
+            <div id="buildDashboard" class="build-dashboard hidden" aria-live="polite">
+              <section id="buildDashboardHero" class="build-dashboard-hero">
+                <span>검증 상태</span>
+                <h2 id="buildDashboardTitle">전체 테스트 필요</h2>
+                <p id="buildDashboardSummary">팩 빌드 전에 현재 문제의 전체 테스트를 실행해야 합니다.</p>
+              </section>
+              <div class="build-dashboard-grid">
+                <section>
+                  <span>최근 전체 테스트</span>
+                  <strong id="buildDashboardTestState">대기</strong>
+                  <p id="buildDashboardTestDetail">아직 통과 기록이 없습니다.</p>
+                </section>
+                <section>
+                  <span>출력 폴더</span>
+                  <strong id="buildDashboardOutput">dist/packs</strong>
+                  <p>웹에서 완료된 팩을 바로 받을 수 있습니다.</p>
+                </section>
+                <section>
+                  <span>검증 프로필</span>
+                  <strong id="buildDashboardProfile">hidden</strong>
+                  <p>팩 빌드 시 솔루션 기대 결과 검증에 사용됩니다.</p>
+                </section>
+                <section>
+                  <span>최근 팩</span>
+                  <strong id="buildDashboardPack">아직 없음</strong>
+                  <a id="buildDashboardDownloadLink" class="download-link hidden" href="#" download>다운로드</a>
+                </section>
+              </div>
+            </div>
+            <div class="panel-heading">
+              <div>
+                <h2 id="fileTitle">파일 없음</h2>
+                <p id="fileStatus">파일을 열면 여기에서 편집할 수 있습니다.</p>
+              </div>
+              <div class="editor-heading-actions">
+                <button
+                  id="editorSettingsButton"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="editorSettingsPanel"
+                >
+                  설정
+                </button>
+                <span id="editorModeBadge" class="editor-mode-badge">기본</span>
+                <button id="saveFileButton" class="primary" type="button">저장</button>
+              </div>
+            </div>
+            <div
+              id="editorSettingsPanel"
+              class="editor-settings-panel hidden"
+              role="dialog"
+              aria-label="에디터 설정"
+            >
+              <div class="editor-settings-title">에디터 설정</div>
+              <div class="editor-setting-row">
+                <span>입력 방식</span>
+                <div class="segmented-control" role="group" aria-label="입력 방식">
+                  <button id="editorModeDefault" class="active" type="button" data-editor-mode="default">
+                    기본
+                  </button>
+                  <button id="editorModeVim" type="button" data-editor-mode="vim">Vim</button>
+                </div>
+              </div>
+              <div class="editor-setting-row">
+                <span>Tab</span>
+                <span class="setting-chip">4 spaces</span>
+              </div>
+            </div>
+            <div id="codeEditor" class="code-editor" data-language="text">
+              <div id="editorLineNumbers" class="editor-line-numbers" aria-hidden="true">1</div>
+              <div class="editor-code-layer">
+                <pre id="codeHighlight" class="code-highlight" aria-hidden="true"></pre>
+                <textarea id="fileEditor" spellcheck="false" aria-label="파일 편집기"></textarea>
+              </div>
+              <div id="editorStatusBar" class="editor-status-bar" aria-live="polite">
+                <span id="editorStatusMode" class="editor-status-mode">기본</span>
+                <span id="editorStatusPosition">Ln 1, Col 1</span>
+                <span id="editorStatusCommand" class="editor-status-command"></span>
+                <span id="editorStatusSearch" class="editor-status-search"></span>
+                <span class="editor-status-spacer"></span>
+                <span id="editorStatusFile">text · 4 spaces</span>
+              </div>
+              <div id="editorCommandLine" class="editor-command-line hidden">
+                <span id="editorCommandPrefix">:</span>
+                <input
+                  id="editorCommandInput"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label="Vim 명령 입력"
+                />
+              </div>
+            </div>
+            <section id="lastRunPanel" class="last-run-panel hidden" aria-live="polite">
+              <div>
+                <span class="last-run-kicker">실행 결과</span>
+                <strong id="lastRunTitle">테스트 결과</strong>
+                <p id="lastRunSummary">아직 실행 결과가 없습니다.</p>
+              </div>
+              <button id="lastRunClose" class="icon" aria-label="테스트 결과 닫기" type="button">×</button>
+            </section>
+          </div>
+
+        </section>
+      </main>
+    </div>
+
+    <!-- Runtime progress surface -->
+    <section
+      id="loadingOverlay"
+      class="loading-overlay hidden"
+      aria-live="polite"
+      aria-modal="true"
+      role="alert"
+    >
+      <div class="loading-card">
+        <div class="loading-content">
+          <div class="loading-title-row">
+            <strong id="loadingTitle">로딩 중</strong>
+            <div class="spinner" aria-hidden="true"></div>
+          </div>
+          <p id="loadingMessage">작업을 처리하는 중입니다.</p>
+          <div id="progressPanel" class="progress-panel hidden">
+            <div class="progress-bar" aria-hidden="true">
+              <span id="progressBarFill"></span>
+            </div>
+            <div id="progressSummary" class="progress-summary">
+              단계별 진행 상황을 준비하고 있습니다.
+            </div>
+            <ol id="progressSteps" class="progress-steps"></ol>
+            <div class="progress-insight">
+              <strong id="progressInsightTitle">현재 작업</strong>
+              <p id="progressInsightBody">전체 테스트를 준비하고 있습니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Problem management dialogs -->
+    <section id="newProblemModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="panel-heading">
+          <h2>문제 만들기</h2>
+          <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+        </div>
+        <label>
+          문제 ID
+          <input id="newProblemId" placeholder="graph-shortest-path" />
+        </label>
+        <label>
+          제목
+          <input id="newProblemTitle" placeholder="새 문제" />
+        </label>
+        <label>
+          폴더
+          <input id="newProblemFolder" placeholder="기본" />
+        </label>
+        <details class="metadata-card metadata-details new-problem-settings">
+          <summary>
+            <span>초기 설정</span>
+            <small>나중에 문제 정보에서 바꿀 수 있습니다.</small>
+          </summary>
+          <div class="metadata-tools-grid">
+            <div class="form-grid">
+              <label>
+                버전
+                <input id="newProblemVersion" type="number" min="1" value="1" />
+              </label>
+              <label>
+                기본 프로필
+                <input id="newProblemDefaultProfile" list="metadataProfileOptions" value="hidden" />
+              </label>
+            </div>
+            <div class="metadata-limit-grid">
+              <label>
+                컴파일
+                <span class="number-with-unit">
+                  <input id="newProblemCompileTimeout" type="number" min="100" step="100" value="5000" />
+                  <span>ms</span>
+                </span>
+              </label>
+              <label>
+                데이터 생성
+                <span class="number-with-unit">
+                  <input id="newProblemGenerationTimeout" type="number" min="100" step="100" value="5000" />
+                  <span>ms</span>
+                </span>
+              </label>
+              <label>
+                기준 정답
+                <span class="number-with-unit">
+                  <input id="newProblemSolutionTimeout" type="number" min="100" step="100" value="2000" />
+                  <span>ms</span>
+                </span>
+              </label>
+              <label>
+                사용자 코드
+                <span class="number-with-unit">
+                  <input id="newProblemUserTimeout" type="number" min="100" step="100" value="2000" />
+                  <span>ms</span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </details>
+        <button id="createProblemButton" class="primary" type="button">만들기</button>
+      </div>
+    </section>
+
+    <section id="deleteProblemModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="panel-heading">
+          <div>
+            <h2>문제 삭제</h2>
+            <p id="deleteProblemDescription">선택한 문제를 삭제합니다.</p>
+          </div>
+          <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+        </div>
+        <div class="danger-note">
+          문제 폴더와 내부 파일이 삭제됩니다. 되돌릴 수 없습니다.
+        </div>
+        <label>
+          확인 문구
+          <input id="deleteProblemConfirmInput" placeholder="확인했습니다" autocomplete="off" />
+        </label>
+        <button id="deleteProblemButton" class="danger full" type="button" disabled>
+          문제 삭제
+        </button>
+      </div>
+    </section>
+
+    <!-- Solution editing dialogs -->
+    <section id="solutionCreateModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-content-wide solution-editor-modal">
+        <div class="panel-heading">
+          <h2>새 솔루션 만들기</h2>
+          <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+        </div>
+        <label class="solution-editor-name">
+          솔루션 이름
+          <input id="solutionCreateName" placeholder="wrong_solution" />
+          <span id="solutionCreateNameError" class="field-error"></span>
+        </label>
+        <div class="form-grid solution-editor-options">
+          <label>
+            기대 결과
+            <select id="solutionCreateExpected">
+              <option value="wa">WA</option>
+              <option value="ac">AC</option>
+              <option value="tle">TLE</option>
+              <option value="mle">MLE</option>
+            </select>
+          </label>
+          <label>
+            언어
+            <select id="solutionCreateLanguage">
+              <option value="cpp">C++</option>
+              <option value="python">Python</option>
+              <option value="java">Java</option>
+            </select>
+          </label>
+        </div>
+        <div id="solutionCreatePreview" class="preview-line">wrong_solution.wa.cpp</div>
+        <label class="solution-editor-source">
+          <span class="source-section-label">초기 소스</span>
+          <div class="modal-editor-toolbar">
+            <span>에디터</span>
+            <div class="segmented-control">
+              <button type="button" data-editor-mode="default">기본</button>
+              <button type="button" data-editor-mode="vim">Vim</button>
+            </div>
+          </div>
+          <textarea
+            id="solutionCreateSource"
+            class="source-modal-editor"
+            spellcheck="false"
+            placeholder="비워두면 언어별 기본 템플릿으로 생성됩니다."
+          ></textarea>
+        </label>
+        <button id="solutionCreateButton" class="primary" type="button">솔루션 파일 생성</button>
+      </div>
+    </section>
+
+    <section id="solutionEditModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-content-wide solution-editor-modal">
+        <div class="panel-heading">
+          <div>
+            <h2>솔루션 편집</h2>
+            <p id="solutionEditPath">solutions/example.wa.cpp</p>
+          </div>
+          <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+        </div>
+        <label class="solution-editor-name">
+          솔루션 이름
+          <input id="solutionName" placeholder="wrong_solution" />
+          <span id="solutionNameError" class="field-error"></span>
+        </label>
+        <div class="form-grid solution-editor-options">
+          <label>
+            기대 결과
+            <select id="solutionExpected">
+              <option value="wa">WA</option>
+              <option value="ac">AC</option>
+              <option value="tle">TLE</option>
+              <option value="mle">MLE</option>
+            </select>
+          </label>
+          <label>
+            언어
+            <select id="solutionLanguage">
+              <option value="cpp">C++</option>
+              <option value="python">Python</option>
+              <option value="java">Java</option>
+            </select>
+          </label>
+        </div>
+        <div id="solutionRenamePreview" class="preview-line">wrong_solution.wa.cpp</div>
+        <label class="solution-editor-source">
+          <span class="source-section-label">소스</span>
+          <div class="modal-editor-toolbar">
+            <span>에디터</span>
+            <div class="segmented-control">
+              <button type="button" data-editor-mode="default">기본</button>
+              <button type="button" data-editor-mode="vim">Vim</button>
+            </div>
+          </div>
+          <textarea id="solutionEditSource" class="source-modal-editor" spellcheck="false"></textarea>
+        </label>
+        <button id="solutionRenameButton" class="primary" type="button">저장</button>
+      </div>
+    </section>
+
+    <!-- Workspace build and result dialogs -->
+    <section id="workspaceBuildModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content workspace-build-modal">
+        <div class="panel-heading">
+          <div>
+            <h2>전체 문제 테스트/팩 빌드</h2>
+            <p>선택한 문제를 병렬로 검증한 뒤 하나의 팩으로 생성합니다.</p>
+          </div>
+          <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Pack ID
+            <input id="bulkPackIdInput" value="basic" />
+          </label>
+          <label>
+            검증 프로필
+            <input id="bulkVerifyProfileInput" value="hidden" />
+          </label>
+        </div>
+        <label>
+          병렬 워커 수
+          <input id="bulkMaxWorkersInput" type="number" min="1" max="16" placeholder="자동" />
+        </label>
+        <div class="workspace-build-toolbar">
+          <strong>팩에 포함할 문제</strong>
+          <button id="bulkSelectAllButton" type="button">전체 선택</button>
+        </div>
+        <div id="bulkProblemList" class="bulk-problem-list"></div>
+        <button id="workspaceBuildStartButton" class="primary" type="button">
+          선택한 문제로 팩 빌드
+        </button>
+      </div>
+    </section>
+
+    <section id="solutionCasesModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-content-wide solution-cases-modal">
+        <div class="panel-heading">
+          <div>
+            <h2>채점 결과</h2>
+            <p id="solutionCasesTitle">solutions/example.wa.cpp</p>
+            <p id="solutionCasesSubtitle">테스트 케이스별 결과</p>
+          </div>
+          <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+        </div>
+        <div id="solutionCasesBody" class="solution-cases-body"></div>
+      </div>
+    </section>
+
+    <script src="/static/vendor/codemirror/codemirror.min.js?v=5.65.16"></script>
+    <script src="/static/vendor/codemirror/addon/dialog/dialog.min.js?v=5.65.16"></script>
+    <script src="/static/vendor/codemirror/addon/search/searchcursor.min.js?v=5.65.16"></script>
+    <script src="/static/vendor/codemirror/keymap/vim.min.js?v=5.65.16"></script>
+    <script src="/static/vendor/codemirror/mode/clike/clike.min.js?v=5.65.16"></script>
+    <script src="/static/vendor/codemirror/mode/python/python.min.js?v=5.65.16"></script>
+    <script src="/static/vendor/codemirror/mode/javascript/javascript.min.js?v=5.65.16"></script>
+    <script src="/static/vendor/codemirror/mode/yaml/yaml.min.js?v=5.65.16"></script>
+    <script type="module" src="/static/app.js?v=20260519-02"></script>
+  </body>
+</html>

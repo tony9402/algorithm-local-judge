@@ -29,6 +29,7 @@ help:
 	@echo ""
 	@echo "Problem authoring targets live in problems/Makefile:"
 	@echo "  make -C problems help"
+	@echo "  make -C problems testlib-link"
 	@echo "  make -C problems build-pack PROBLEM=06 PACK_ID=basic"
 	@echo ""
 	@echo "Examples:"

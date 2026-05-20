@@ -68,6 +68,34 @@ class JudgeStructureTest(unittest.TestCase):
         subparsers_action = next(action for action in parser._actions if action.dest == "command")
         self.assertEqual(set(subparsers_action.choices), set(COMMAND_HANDLERS))
 
+    def test_problem_install_parser_accepts_github_source(self) -> None:
+        """The easy problem installer should accept repository and asset inputs."""
+        parser = build_parser()
+        args = parser.parse_args(
+            normalize_argv(
+                [
+                    "problem",
+                    "install",
+                    "tony9402/algorithm-modules",
+                    "--asset",
+                    "basic-1-macos-arm64.aljpack",
+                ]
+            )
+        )
+
+        self.assertEqual(args.command, "problem")
+        self.assertEqual(args.problem_command, "install")
+        self.assertEqual(args.source, "tony9402/algorithm-modules")
+        self.assertEqual(args.asset, "basic-1-macos-arm64.aljpack")
+
+    def test_web_parser_opens_browser_by_default(self) -> None:
+        """`judge web` should open the browser unless explicitly disabled."""
+        parser = build_parser()
+
+        self.assertTrue(parser.parse_args(normalize_argv(["web"])).open)
+        self.assertTrue(parser.parse_args(normalize_argv(["web", "--open"])).open)
+        self.assertFalse(parser.parse_args(normalize_argv(["web", "--no-open"])).open)
+
     def test_validate_safe_id_rejects_path_escape(self) -> None:
         """Safe id validation should reject path traversal tokens."""
         with self.assertRaises(JudgeError):

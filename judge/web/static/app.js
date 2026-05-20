@@ -5,15 +5,20 @@ const state = {
   artifacts: null,
   selectedArtifact: "input",
   cache: null,
+  sources: [],
   debugLogs: [],
+  generationProgress: { current: 0, total: 0 },
   sampleLoadToken: 0,
   sampleCache: {},
+  isBusy: false,
   config: {
     sampleProfile: "sample",
     judgeProfile: "hidden",
     webDebug: false,
   },
 };
+
+const ARTIFACT_PREVIEW_LIMIT = 12000;
 
 const optional = (id) => document.getElementById(id);
 const $ = (id) => {
@@ -38,13 +43,14 @@ function on(id, eventName, handler) {
 }
 
 function setBusy(isBusy) {
+  state.isBusy = isBusy;
   setDisabled("addProblemButton", isBusy);
   setDisabled("cacheManageButton", isBusy);
-  setDisabled("casesCompileButton", isBusy);
-  setDisabled("generateButton", isBusy);
-  setDisabled("runButton", isBusy);
-  setDisabled("uploadPackButton", isBusy);
-  setDisabled("downloadPackButton", isBusy);
+  setDisabled("cachePreviewButton", isBusy);
+  setDisabled("cacheClearRunsButton", isBusy);
+  setDisabled("cacheClearAllButton", isBusy);
+  updateActionState();
+  updatePackActionState();
 }
 
 function setBadge(label, className = "neutral") {
@@ -56,6 +62,21 @@ function setBadge(label, className = "neutral") {
 function setStatusCard(key, value, meta = "-") {
   setText(`${key}StatusValue`, value);
   setText(`${key}StatusMeta`, meta);
+}
+
+function showToast(message, className = "success", timeoutMs = 2800) {
+  const host = optional("toastHost");
+  if (!host) return;
+  const toast = document.createElement("div");
+  toast.className = `toast ${className}`;
+  toast.setAttribute("role", "status");
+  toast.textContent = message;
+  host.appendChild(toast);
+  window.setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-8px)";
+    window.setTimeout(() => toast.remove(), 180);
+  }, timeoutMs);
 }
 
 function sampleProfile() {
@@ -103,6 +124,7 @@ function resetRunStatus(message = "Ready.") {
   setStatusCard("data", "Idle", "Hidden judge data");
   setStatusCard("judge", "Idle");
   setStatusCard("run", "-", "No run");
+  hideGenerationProgress();
   setSummary(message, "result-summary muted");
 }
 
@@ -164,16 +186,171 @@ function languageFromName(name) {
   return "Unknown";
 }
 
+function sourceTextReady() {
+  const input = optional("sourceTextInput");
+  return Boolean(input?.value.trim());
+}
+
+function sourceUploadReady() {
+  return Boolean(optional("sourceFileInput")?.files[0]);
+}
+
+function hasSelectedProblem() {
+  return Boolean(state.selectedProblem || optional("problemSelect")?.value);
+}
+
+function hasRunnableSource() {
+  return state.sourceMode === "upload" ? sourceUploadReady() : sourceTextReady();
+}
+
+function sourceReadinessText() {
+  if (!hasSelectedProblem()) return "Install a problem first";
+  if (!hasRunnableSource()) {
+    return state.sourceMode === "upload" ? "Source file needed" : "Source code needed";
+  }
+  return `${activeSourceName()} ready`;
+}
+
+function updateActionState() {
+  const hasProblem = hasSelectedProblem();
+  const hasSource = hasRunnableSource();
+  setDisabled("casesCompileButton", state.isBusy || !hasProblem);
+  setDisabled("generateButton", state.isBusy || !hasProblem);
+  setDisabled("runButton", state.isBusy || !hasProblem || !hasSource);
+
+  const readiness = optional("sourceReadiness");
+  if (readiness) {
+    readiness.textContent = sourceReadinessText();
+    readiness.classList.toggle("ready", hasProblem && hasSource);
+  }
+}
+
+function syncFilenamePlaceholder() {
+  const input = optional("filenameInput");
+  const hint = optional("languageHint");
+  if (input && hint) input.placeholder = hint.value || "main.cpp";
+}
+
 function updateLanguageBadge() {
   const name =
     state.sourceMode === "upload"
-      ? $("sourceFileInput").files[0]?.name
+      ? $("sourceFileInput").files[0]?.name || ""
       : $("filenameInput").value || $("languageHint").value;
-  setText("languageBadge", languageFromName(name));
+  const language = name ? languageFromName(name) : "No source";
+  setText("languageBadge", language);
+  setText("editorFileLabel", name || "main.py");
+  setText("editorLanguageLabel", language);
+  updateCodeHighlight();
+  updateActionState();
+}
+
+function activeSourceName() {
+  if (state.sourceMode === "upload") return $("sourceFileInput").files[0]?.name || "source";
+  return $("filenameInput").value.trim() || $("languageHint").value || "source";
+}
+
+function updateEditorLineNumbers() {
+  const input = optional("sourceTextInput");
+  const gutter = optional("sourceLineNumbers");
+  if (!input || !gutter) return;
+  const lineCount = Math.max(1, input.value.split("\n").length);
+  const numbers = [];
+  for (let index = 1; index <= lineCount; index += 1) {
+    numbers.push(String(index));
+  }
+  gutter.textContent = numbers.join("\n");
+}
+
+function escapeHtml(value) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function highlightToken(token, language) {
+  const isComment = token.startsWith("//") || token.startsWith("/*") || token.startsWith("#");
+  if (isComment) return `<span class="hl-comment">${token}</span>`;
+  if (token.startsWith('"') || token.startsWith("'")) {
+    return `<span class="hl-string">${token}</span>`;
+  }
+  if (/^\d/.test(token)) return `<span class="hl-number">${token}</span>`;
+  return `<span class="hl-keyword">${token}</span>`;
+}
+
+function highlightCode(source, language) {
+  const escaped = escapeHtml(source || " ");
+  const commonNumber = "\\b\\d+(?:\\.\\d+)?\\b";
+  const cppKeywords =
+    "alignas|alignof|auto|bool|break|case|catch|char|class|const|constexpr|continue|decltype|default|delete|do|double|else|enum|explicit|extern|false|float|for|friend|if|inline|int|long|namespace|new|nullptr|operator|private|protected|public|return|short|signed|sizeof|static|struct|switch|template|this|throw|true|try|typedef|typename|using|void|while|vector|string|pair|map|set|queue|stack|priority_queue";
+  const javaKeywords =
+    "abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|false|final|finally|float|for|if|implements|import|instanceof|int|interface|long|new|null|package|private|protected|public|return|short|static|super|switch|this|throw|throws|true|try|void|while|String|System";
+  const pyKeywords =
+    "False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|print|range|len|int|str|list|dict|set|tuple";
+  const languageKey = (language || "").toLowerCase();
+  const keywordPattern = languageKey.includes("python")
+    ? pyKeywords
+    : languageKey.includes("java")
+      ? javaKeywords
+      : cppKeywords;
+  const tokenPattern = languageKey.includes("python")
+    ? new RegExp(
+        `(#.*|"""[\\s\\S]*?"""|'''[\\s\\S]*?'''|"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'|\\b(?:${keywordPattern})\\b|${commonNumber})`,
+        "g"
+      )
+    : new RegExp(
+        `(//.*|/\\*[\\s\\S]*?\\*/|"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'|\\b(?:${keywordPattern})\\b|${commonNumber})`,
+        "g"
+      );
+  return escaped.replace(tokenPattern, (token) => highlightToken(token, languageKey));
+}
+
+function updateCodeHighlight() {
+  const input = optional("sourceTextInput");
+  const highlight = optional("sourceHighlight");
+  if (!input || !highlight) return;
+  highlight.innerHTML = highlightCode(input.value, $("editorLanguageLabel").textContent);
+}
+
+function updateEditorView() {
+  updateEditorLineNumbers();
+  updateCodeHighlight();
+}
+
+function syncEditorScroll() {
+  const input = optional("sourceTextInput");
+  const gutter = optional("sourceLineNumbers");
+  const highlight = optional("sourceHighlight");
+  if (!input || !gutter) return;
+  gutter.scrollTop = input.scrollTop;
+  if (highlight) {
+    highlight.scrollTop = input.scrollTop;
+    highlight.scrollLeft = input.scrollLeft;
+  }
+}
+
+function insertEditorText(text) {
+  const input = $("sourceTextInput");
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  input.value = `${input.value.slice(0, start)}${text}${input.value.slice(end)}`;
+  input.selectionStart = start + text.length;
+  input.selectionEnd = start + text.length;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function clearSourceInputs() {
+  const fileInput = optional("sourceFileInput");
+  const filenameInput = optional("filenameInput");
+  const sourceTextInput = optional("sourceTextInput");
+  if (fileInput) fileInput.value = "";
+  if (filenameInput) filenameInput.value = "";
+  if (sourceTextInput) sourceTextInput.value = "";
+  updateLanguageBadge();
+  updateEditorView();
+  syncEditorScroll();
 }
 
 function renderProblems(problems) {
   state.problems = problems;
+  document.body.classList.toggle("has-problems", problems.length > 0);
   const list = $("problemList");
   const select = $("problemSelect");
   list.innerHTML = "";
@@ -183,6 +360,7 @@ function renderProblems(problems) {
     list.textContent = "No problems installed.";
     list.classList.add("muted");
     renderSamples(null);
+    updateActionState();
     return;
   }
   list.classList.remove("muted");
@@ -191,6 +369,7 @@ function renderProblems(problems) {
     item.className = "list-item";
     item.type = "button";
     item.dataset.problemId = problem.problemId;
+    item.setAttribute("aria-pressed", "false");
     item.innerHTML = `<strong>${problem.problemId} ${problem.title || ""}</strong><span>v${problem.version ?? ""}</span>`;
     item.addEventListener("click", () => {
       select.value = problem.problemId;
@@ -231,10 +410,12 @@ function renderPacks(packs) {
 
 function renderCache(cache) {
   state.cache = cache;
+  const sources = cache.sources || { count: 0 };
   $("cacheSummary").innerHTML = `
     <div>Total ${cache.totalSizeLabel}</div>
     <div>Problem caches ${cache.problems.length}</div>
     <div>Runs ${cache.runs.count}</div>
+    <div>Sources ${sources.count}</div>
   `;
   renderCacheModalSummary(cache);
 }
@@ -250,6 +431,7 @@ function clearSampleCache(problemId = null) {
 function renderCacheModalSummary(cache) {
   const summary = optional("cacheModalSummary");
   if (!cache || !summary) return;
+  const sources = cache.sources || { count: 0, sizeLabel: "0 B" };
   summary.innerHTML = `
     <div class="status-card">
       <span>Total</span>
@@ -266,20 +448,128 @@ function renderCacheModalSummary(cache) {
       <strong>${cache.runs.count}</strong>
       <small>${cache.runs.sizeLabel || "0 B"}</small>
     </div>
+    <div class="status-card">
+      <span>Sources</span>
+      <strong>${sources.count}</strong>
+      <small>${sources.sizeLabel || "0 B"}</small>
+    </div>
   `;
+}
+
+function formatSavedAt(savedAt) {
+  if (!savedAt) return "saved source";
+  return new Date(savedAt * 1000).toLocaleString();
+}
+
+function renderSourceHistory(data) {
+  const list = optional("sourceHistoryList");
+  if (!list) return;
+  const allSources = data?.sources || [];
+  state.sources = allSources;
+  const sources = state.selectedProblem
+    ? allSources.filter((source) => source.problemId === state.selectedProblem)
+    : allSources;
+  list.innerHTML = "";
+  if (!sources.length) {
+    list.textContent = allSources.length ? "No cached sources for this problem." : "No cached sources.";
+    list.classList.add("muted");
+    return;
+  }
+  list.classList.remove("muted");
+  for (const source of sources) {
+    const item = document.createElement("article");
+    item.className = "source-history-item";
+
+    const text = document.createElement("div");
+    text.className = "source-history-text";
+    const title = document.createElement("strong");
+    title.textContent = source.filename || "source";
+    const meta = document.createElement("span");
+    const status = source.lastRun?.status ? ` · ${source.lastRun.status.replaceAll("_", " ")}` : "";
+    meta.textContent = `${source.problemId || "unknown"} · ${source.language || "Unknown"} · ${
+      source.sizeLabel || "0 B"
+    }${status} · ${formatSavedAt(source.savedAt)}`;
+    text.appendChild(title);
+    text.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "source-history-actions";
+
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.textContent = "Use Code";
+    openButton.addEventListener("click", () => {
+      void withErrors(() => loadCachedSource(source.sourceId));
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "danger";
+    deleteButton.textContent = "Delete";
+    deleteButton.addEventListener("click", () => {
+      void withErrors(() => deleteCachedSource(source.sourceId, source.filename || "source"));
+    });
+
+    actions.appendChild(openButton);
+    actions.appendChild(deleteButton);
+
+    item.appendChild(text);
+    item.appendChild(actions);
+    list.appendChild(item);
+  }
+}
+
+async function refreshSourceHistory() {
+  const data = await api("/api/sources");
+  renderSourceHistory(data);
+}
+
+async function loadCachedSource(sourceId) {
+  const source = await api(`/api/sources/${encodeURIComponent(sourceId)}`);
+  if (source.problemId && state.problems.some((problem) => problem.problemId === source.problemId)) {
+    state.selectedProblem = source.problemId;
+    $("problemSelect").value = source.problemId;
+    renderProblemSelection();
+    await loadSamples();
+  }
+  setMode("text");
+  $("filenameInput").value = source.filename || "";
+  $("sourceTextInput").value = source.sourceText || "";
+  updateLanguageBadge();
+  updateEditorView();
+  syncEditorScroll();
+  if (source.lastRunResult) {
+    await restoreRunResult(source.lastRunResult);
+  } else {
+    resetRunStatus("Cached source loaded. No previous run result.");
+  }
+  showToast(`Cached source loaded: ${source.filename || sourceId}`);
+}
+
+async function deleteCachedSource(sourceId, filename) {
+  await api(`/api/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
+  showToast(`Cached source deleted: ${filename}`);
+  await refreshSecondaryData();
 }
 
 function renderProblemSelection() {
   const problemId = state.selectedProblem;
   for (const item of $("problemList").querySelectorAll(".list-item")) {
-    item.classList.toggle("active", item.dataset.problemId === problemId);
+    const isActive = item.dataset.problemId === problemId;
+    item.classList.toggle("active", isActive);
+    item.setAttribute("aria-pressed", String(isActive));
   }
+  updateActionState();
 }
 
 async function handleProblemChange() {
   const problemId = $("problemSelect").value;
   state.selectedProblem = problemId;
   renderProblemSelection();
+  clearSourceInputs();
+  state.artifacts = null;
+  $("wrongPanel").classList.add("hidden");
+  renderSourceHistory({ sources: state.sources });
   resetRunStatus("Problem changed. Hidden cases will be used for Run.");
   await loadSamples();
 }
@@ -427,9 +717,14 @@ async function refresh() {
 
 async function refreshSecondaryData() {
   try {
-    const [packs, cache] = await Promise.all([api("/api/packs"), api("/api/cache")]);
+    const [packs, cache, sources] = await Promise.all([
+      api("/api/packs"),
+      api("/api/cache"),
+      api("/api/sources"),
+    ]);
     renderPacks(packs);
     renderCache(cache);
+    renderSourceHistory(sources);
   } catch (error) {
     showError(error.message);
   }
@@ -529,6 +824,28 @@ async function compileCasesOnly() {
   await compileCasesData({ showSuccess: true });
 }
 
+function setGenerationProgress(current, total, label = "Data generation") {
+  const progress = optional("generationProgress");
+  if (!progress) return;
+  const safeTotal = Math.max(0, Number(total) || 0);
+  const safeCurrent = Math.min(Math.max(0, Number(current) || 0), safeTotal || 0);
+  state.generationProgress = { current: safeCurrent, total: safeTotal };
+  const percent = safeTotal ? Math.round((safeCurrent / safeTotal) * 100) : 0;
+  progress.classList.remove("hidden");
+  progress.setAttribute("aria-valuemax", String(safeTotal));
+  progress.setAttribute("aria-valuenow", String(safeCurrent));
+  setText("generationProgressText", `${safeCurrent} / ${safeTotal}`);
+  const fill = optional("generationProgressFill");
+  if (fill) fill.style.width = `${percent}%`;
+  const labelElement = progress.querySelector(".progress-heading span");
+  if (labelElement) labelElement.textContent = label;
+}
+
+function hideGenerationProgress() {
+  optional("generationProgress")?.classList.add("hidden");
+  state.generationProgress = { current: 0, total: 0 };
+}
+
 async function generateData() {
   clearDebugLog();
   setBadge("Generating", "neutral");
@@ -538,7 +855,9 @@ async function generateData() {
   setSummary("Preparing hidden test data.", "result-summary");
   const compileResult = await compileCasesData({ showSuccess: false });
   if (!compileResult.valid) return;
-  setStatusCard("data", "Generating", judgeProfile());
+  const totalCases = compileResult.profiles[0]?.caseCount ?? 0;
+  setGenerationProgress(0, totalCases, "Data generation");
+  setStatusCard("data", "Generating", `0 / ${totalCases} hidden case(s)`);
   const result = await streamRequest("/api/generate/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -548,6 +867,7 @@ async function generateData() {
       force: $("forceGenerateInput").checked,
     }),
   });
+  setGenerationProgress(result.caseCount, result.caseCount, "Data generation");
   setStatusCard("data", "Generated", `${result.caseCount} hidden case(s)`);
   setSummary(`Hidden test data ready: ${result.label}`, "result-summary success");
   setBadge("Generated", "accepted");
@@ -562,18 +882,31 @@ function appendRunLog(message) {
 }
 
 function updateProgressFromLog(message) {
+  const generatedCase = message.match(/Validating generated case .+ \((\d+)\/(\d+)\)\./);
   if (message.includes("Compiling cases.yml")) {
     setStatusCard("cases", "Checking", `${judgeProfile()} cases.yml`);
   } else if (message.includes("Preparing generator tools")) {
     setStatusCard("data", "Preparing", judgeProfile());
   } else if (message.includes("Generating input cases")) {
-    setStatusCard("data", "Generating", judgeProfile());
+    const total = state.generationProgress.total;
+    setGenerationProgress(0, total, "Data generation");
+    setStatusCard("data", "Generating", total ? `0 / ${total} hidden case(s)` : judgeProfile());
+  } else if (generatedCase) {
+    const current = Number(generatedCase[1]);
+    const total = Number(generatedCase[2]);
+    setGenerationProgress(current, total, "Data generation");
+    setStatusCard("data", "Generating", `${current} / ${total} hidden case(s)`);
   } else if (message.includes("Generated data")) {
+    const { total } = state.generationProgress;
+    if (total) setGenerationProgress(total, total, "Data generation");
     setStatusCard("data", "Generated", judgeProfile());
+  } else if (message.includes("Using cached data")) {
+    hideGenerationProgress();
+    setStatusCard("data", "Ready", judgeProfile());
   } else if (message.includes("Preparing submission file")) {
-    setStatusCard("judge", "Preparing", $("sourceFileInput").files[0]?.name || "source");
+    setStatusCard("judge", "Preparing", activeSourceName());
   } else if (message.includes("Compiling or preparing user submission")) {
-    setStatusCard("judge", "Compiling", $("sourceFileInput").files[0]?.name || "source");
+    setStatusCard("judge", "Compiling", activeSourceName());
   } else if (message.includes("Running case")) {
     setStatusCard("judge", "Running", message.replace("Running case ", ""));
   } else if (message.includes("Accepted after")) {
@@ -650,6 +983,33 @@ async function streamRun(formData) {
   });
 }
 
+function resultCaseCount(result) {
+  if (Number.isFinite(result.caseCount)) return result.caseCount;
+  return result.cases?.length || 0;
+}
+
+async function restoreRunResult(result) {
+  state.artifacts = null;
+  $("wrongPanel").classList.add("hidden");
+  hideGenerationProgress();
+  setBadge(result.status.replaceAll("_", " "), statusClassName(result.status));
+  setText("resultMeta", `${result.problemId} · ${result.profile} · ${result.language} · ${result.runId}`);
+  setStatusCard("data", "Ready", result.profile);
+  setStatusCard(
+    "judge",
+    result.status.replaceAll("_", " "),
+    `${resultCaseCount(result)} hidden case(s)`
+  );
+  setStatusCard("run", result.runId, runMetricsText(result));
+  setSummary(
+    runSummary(result),
+    result.status === "accepted" ? "result-summary success" : "result-summary error"
+  );
+  if (result.firstFailedCase) {
+    await loadWrongCase(result.runId, result.firstFailedCase);
+  }
+}
+
 async function runSubmission() {
   state.artifacts = null;
   $("wrongPanel").classList.add("hidden");
@@ -661,6 +1021,8 @@ async function runSubmission() {
   setSummary("Judging submission with hidden cases.", "result-summary");
   const compileResult = await compileCasesData({ showSuccess: false });
   if (!compileResult.valid) return;
+  const totalCases = compileResult.profiles[0]?.caseCount ?? 0;
+  setGenerationProgress(0, totalCases, "Data generation");
   const result = await streamRun(runFormData());
   if (!result) throw new Error("Run finished without a result.");
   setBadge(result.status.replaceAll("_", " "), statusClassName(result.status));
@@ -669,7 +1031,7 @@ async function runSubmission() {
   setStatusCard(
     "judge",
     result.status.replaceAll("_", " "),
-    `${result.cases.length} hidden case(s)`
+    `${resultCaseCount(result)} hidden case(s)`
   );
   setStatusCard("run", result.runId, runMetricsText(result));
   setSummary(runSummary(result), result.status === "accepted" ? "result-summary success" : "result-summary error");
@@ -678,6 +1040,7 @@ async function runSubmission() {
   if (result.firstFailedCase) {
     await loadWrongCase(result.runId, result.firstFailedCase);
   }
+  await refreshSecondaryData();
 }
 
 function statusClassName(status) {
@@ -686,13 +1049,14 @@ function statusClassName(status) {
   if (status === "compile_error") return "compile";
   if (status === "runtime_error") return "runtime";
   if (status === "time_limit") return "time";
+  if (status === "memory_limit") return "memory";
   return "neutral";
 }
 
 function runSummary(result) {
   const metrics = runMetricsText(result);
   if (result.status === "accepted") {
-    return `Accepted after ${result.cases.length} hidden case(s). ${metrics}`;
+    return `Accepted after ${resultCaseCount(result)} hidden case(s). ${metrics}`;
   }
   const failed = result.firstFailedCase ? ` on case ${result.firstFailedCase}` : "";
   return `${result.status.replaceAll("_", " ")}${failed}. ${metrics}`;
@@ -716,13 +1080,30 @@ async function loadWrongCase(runId, caseId) {
 
 function renderArtifact() {
   if (!state.artifacts) return;
-  $("artifactOutput").textContent = state.artifacts[state.selectedArtifact] || "";
+  const key = state.selectedArtifact;
+  $("artifactOutput").textContent = state.artifacts[key] || "";
+  const notice = optional("artifactNotice");
+  const truncation = state.artifacts.truncation?.[key];
+  if (notice) {
+    if (truncation?.truncated) {
+      notice.textContent = `긴 데이터라 앞 ${state.artifacts.previewLimit || ARTIFACT_PREVIEW_LIMIT}자만 표시합니다. 생략된 문자: ${truncation.omittedChars}`;
+      notice.classList.remove("hidden");
+    } else {
+      notice.classList.add("hidden");
+      notice.textContent = "";
+    }
+  }
   for (const button of document.querySelectorAll(".artifact-tab")) {
     button.classList.toggle("active", button.dataset.artifact === state.selectedArtifact);
   }
 }
 
 async function cacheClear(dryRun, options) {
+  if (!dryRun && !confirmCacheClear(options)) {
+    $("cacheOutput").textContent = "Cleanup canceled.";
+    $("cacheOutput").className = "modal-status muted";
+    return;
+  }
   $("cacheOutput").textContent = dryRun ? "Calculating cleanup preview..." : "Cleaning cache...";
   $("cacheOutput").className = "modal-status";
   const result = await api("/api/cache/clear", {
@@ -731,14 +1112,30 @@ async function cacheClear(dryRun, options) {
   });
   const count = result.targets.length;
   if (dryRun) {
-    $("cacheOutput").textContent = `${count} target(s), ${result.totalSizeLabel}`;
+    $("cacheOutput").textContent = formatCacheClearResult(result, `Will delete ${count} target(s)`);
     $("cacheOutput").className = "modal-status";
   } else {
-    $("cacheOutput").textContent = `Deleted ${count} target(s), ${result.totalSizeLabel}`;
+    $("cacheOutput").textContent = formatCacheClearResult(result, `Deleted ${count} target(s)`);
     $("cacheOutput").className = "modal-status success";
     clearSampleCache(options.problem || null);
   }
   await refresh();
+}
+
+function confirmCacheClear(options) {
+  const target = options.all_entries ? "all cache entries" : "run artifacts";
+  return window.confirm(`Delete ${target}? This cannot be undone.`);
+}
+
+function formatCacheClearResult(result, heading) {
+  const targets = result.targets || [];
+  if (!targets.length) return `${heading}, ${result.totalSizeLabel}\nNo matching cache targets.`;
+  const visibleTargets = targets.slice(0, 8).map((target) => {
+    const label = target.label === "." ? "entire cache root" : target.label;
+    return `- ${label}`;
+  });
+  const omitted = targets.length > visibleTargets.length ? `\n- ...and ${targets.length - visibleTargets.length} more` : "";
+  return `${heading}, ${result.totalSizeLabel}\n${visibleTargets.join("\n")}${omitted}`;
 }
 
 async function withErrors(action) {
@@ -753,12 +1150,10 @@ async function withErrors(action) {
 }
 
 function showError(message) {
-  setBadge("Error", "wrong");
-  setSummary(message, "result-summary error");
-  state.debugLogs.push(`Error: ${message}`);
-  renderDebugLog();
   const packModal = optional("packModal");
   const cacheModal = optional("cacheModal");
+  const packOpen = packModal && !packModal.classList.contains("hidden");
+  const cacheOpen = cacheModal && !cacheModal.classList.contains("hidden");
   if (packModal && !packModal.classList.contains("hidden")) {
     $("packStatus").textContent = message;
     $("packStatus").className = "modal-status error";
@@ -767,6 +1162,14 @@ function showError(message) {
     $("cacheOutput").textContent = message;
     $("cacheOutput").className = "modal-status error";
   }
+  if (packOpen || cacheOpen) {
+    showToast(message, "error");
+    return;
+  }
+  setBadge("Error", "wrong");
+  setSummary(message, "result-summary error");
+  state.debugLogs.push(`Error: ${message}`);
+  renderDebugLog();
 }
 
 function openModal(id) {
@@ -787,9 +1190,17 @@ function setMode(mode) {
   state.sourceMode = mode;
   $("uploadModeButton").classList.toggle("active", mode === "upload");
   $("textModeButton").classList.toggle("active", mode === "text");
+  $("uploadModeButton").setAttribute("aria-selected", String(mode === "upload"));
+  $("textModeButton").setAttribute("aria-selected", String(mode === "text"));
   $("uploadSourcePanel").classList.toggle("hidden", mode !== "upload");
   $("textSourcePanel").classList.toggle("hidden", mode !== "text");
   updateLanguageBadge();
+}
+
+function updatePackActionState() {
+  const fileInput = optional("packFileInput");
+  setDisabled("uploadPackButton", state.isBusy || !fileInput?.files?.length);
+  setDisabled("downloadPackButton", state.isBusy);
 }
 
 function bindDropZone() {
@@ -832,12 +1243,28 @@ function bindEvents() {
   on("sourceFileInput", "change", updateLanguageBadge);
   on("filenameInput", "input", updateLanguageBadge);
   on("languageHint", "change", () => {
+    syncFilenamePlaceholder();
     if (!$("filenameInput").value.trim()) updateLanguageBadge();
   });
+  on("sourceTextInput", "input", () => {
+    updateEditorView();
+    updateActionState();
+  });
+  on("sourceTextInput", "scroll", syncEditorScroll);
+  const sourceTextInput = optional("sourceTextInput");
+  if (sourceTextInput) {
+    sourceTextInput.addEventListener("keydown", (event) => {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        insertEditorText("  ");
+      }
+    });
+  }
   on("uploadModeButton", "click", () => setMode("upload"));
   on("textModeButton", "click", () => setMode("text"));
   on("uploadPackButton", "click", () => withErrors(uploadPack));
   on("downloadPackButton", "click", () => withErrors(downloadOfficialPack));
+  on("packFileInput", "change", updatePackActionState);
   on("casesCompileButton", "click", () => withErrors(compileCasesOnly));
   on("generateButton", "click", () => withErrors(generateData));
   on("runButton", "click", () => withErrors(runSubmission));
@@ -854,6 +1281,10 @@ function bindEvents() {
     });
   }
   bindDropZone();
+  syncFilenamePlaceholder();
+  updateEditorView();
+  updateActionState();
+  updatePackActionState();
 }
 
 bindEvents();

@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 judge = "judge.cli:main"
+problem-studio = "problem_studio.cli:main"
 
 [dependency-groups]
 dev = [
@@ -34,10 +35,16 @@ packages = [
   "judge.utils",
   "judge.web",
   "judge.web.routes",
+  "problem_studio",
+  "problem_studio.commands",
+  "problem_studio.core",
+  "problem_studio.web",
+  "problem_studio.web.routes",
 ]
 
 [tool.setuptools.package-data]
 "judge.web" = ["static/*"]
+"problem_studio.web" = ["static/*", "static/app/*.js"]
 
 [tool.ruff]
 line-length = 99

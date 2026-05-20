@@ -34,12 +34,25 @@ class ProblemPackTest(unittest.TestCase):
             )
 
             self.assertTrue(result.archive_path.exists())
+            self.assertTrue(result.solution_checks)
+            self.assertTrue(all(check["passed"] for check in result.solution_checks))
             pack = verify_pack(result.archive_path)
             self.assertEqual(pack["packId"], "basic")
             self.assertEqual(pack["supportedPlatforms"], [current_platform_id()])
+            self.assertEqual(pack["problems"], ["06"])
 
             with tarfile.open(result.archive_path, "r:*") as archive:
                 names = archive.getnames()
+            self.assertEqual(
+                sorted(
+                    {
+                        Path(name).parts[2]
+                        for name in names
+                        if len(Path(name).parts) > 2 and Path(name).parts[1] == "problems"
+                    }
+                ),
+                ["06"],
+            )
             self.assertFalse(
                 [name for name in names if Path(name).suffix.lower() in {".cpp", ".hpp", ".h"}]
             )

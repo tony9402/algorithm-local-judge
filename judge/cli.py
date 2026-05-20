@@ -11,6 +11,7 @@ from judge.commands import diff as diff_command
 from judge.commands import generate as generate_command
 from judge.commands import list as list_command
 from judge.commands import pack as pack_command
+from judge.commands import problem as problem_command
 from judge.commands import run as run_command
 from judge.commands import show as show_command
 from judge.commands import web as web_command
@@ -27,6 +28,7 @@ COMMAND_HANDLERS = {
     "diff": diff_command.handle,
     "cache": cache_command.handle,
     "pack": pack_command.handle,
+    "problem": problem_command.handle,
     "web": web_command.handle,
 }
 RUN_GLOBAL_OPTIONS_WITH_VALUES = {"--problem", "--profile"}
@@ -105,6 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
     pack_build.add_argument("--pack-id", required=True)
     pack_build.add_argument("--platform", default=current_platform_id())
     pack_build.add_argument("--out", default="dist/packs")
+    pack_build.add_argument("--verify-profile", default="hidden")
     pack_verify = pack_sub.add_parser("verify", allow_abbrev=False)
     pack_verify.add_argument("archive")
     pack_install = pack_sub.add_parser("install", allow_abbrev=False)
@@ -113,10 +116,19 @@ def build_parser() -> argparse.ArgumentParser:
     pack_remove = pack_sub.add_parser("remove", allow_abbrev=False)
     pack_remove.add_argument("pack_id")
 
+    problem_parser = add_parser(subparsers, "problem")
+    problem_sub = problem_parser.add_subparsers(dest="problem_command", required=True)
+    problem_install = problem_sub.add_parser("install", allow_abbrev=False)
+    problem_install.add_argument("source", nargs="?")
+    problem_install.add_argument("--asset")
+    problem_sub.add_parser("list", allow_abbrev=False)
+
     web_parser = add_parser(subparsers, "web")
     web_parser.add_argument("--host", default="127.0.0.1")
     web_parser.add_argument("--port", type=int, default=8765)
-    web_parser.add_argument("--open", action="store_true")
+    web_open = web_parser.add_mutually_exclusive_group()
+    web_open.add_argument("--open", dest="open", action="store_true", default=True)
+    web_open.add_argument("--no-open", dest="open", action="store_false")
     web_parser.add_argument("--debug", action="store_true")
 
     return parser

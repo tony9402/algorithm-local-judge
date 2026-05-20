@@ -408,7 +408,13 @@ def run_generator(generator: Path, case: Mapping[str, Any]) -> str:
     result = subprocess.run(command, text=True, capture_output=True, check=False)
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
-        raise RuntimeError(f"generator failed for case {case.get('name')}")
+        detail = (
+            f"generator failed for case {case.get('name')} "
+            f"(runtime error, exit code {result.returncode})"
+        )
+        if result.stderr.strip():
+            detail = f"{detail}: {result.stderr.strip()}"
+        raise RuntimeError(detail)
     return result.stdout
 
 

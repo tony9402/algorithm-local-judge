@@ -26,6 +26,7 @@ def cache_status_data(root: Path | None = None) -> dict[str, object]:
     base = cache_root(root)
     problems = base / "problems"
     runs = base / "runs"
+    sources = base / "web-submissions"
     problem_entries = []
     if problems.exists():
         for problem_dir in sorted(path for path in problems.iterdir() if path.is_dir()):
@@ -38,12 +39,16 @@ def cache_status_data(root: Path | None = None) -> dict[str, object]:
                 }
             )
     run_entries = [path for path in runs.iterdir() if path.is_dir()] if runs.exists() else []
+    source_entries = (
+        [path for path in sources.iterdir() if path.is_dir()] if sources.exists() else []
+    )
     return {
         "path": str(base),
         "exists": base.exists(),
         "totalSize": path_size(base),
         "problems": problem_entries,
         "runs": {"count": len(run_entries), "size": path_size(runs)},
+        "sources": {"count": len(source_entries), "size": path_size(sources)},
     }
 
 
@@ -53,6 +58,7 @@ def cache_status(root: Path | None = None) -> None:
     display_root = root or repo_root()
     problems = base / "problems"
     runs = base / "runs"
+    sources = base / "web-submissions"
     print(f"cache: {rel(base, display_root)}")
     if not base.exists():
         print("status: empty")
@@ -71,6 +77,11 @@ def cache_status(root: Path | None = None) -> None:
         print(f"runs: {len(entries)} run(s), {format_size(path_size(runs))}")
     else:
         print("runs: 0")
+    if sources.exists():
+        entries = [path for path in sources.iterdir() if path.is_dir()]
+        print(f"sources: {len(entries)} source(s), {format_size(path_size(sources))}")
+    else:
+        print("sources: 0")
 
 
 def clear_targets(
@@ -106,6 +117,8 @@ def clear_targets(
                 targets.append(problem_base)
         if runs:
             targets.append(base / "runs")
+            targets.append(base / "web-submissions")
+            targets.append(base / "web-uploads" / "sources")
     return [ensure_inside(path, base) for path in targets if path.exists()]
 
 

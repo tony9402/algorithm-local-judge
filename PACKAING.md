@@ -230,10 +230,10 @@ build/standalone/macos-arm64/algorithm-local-judge/bin/judge \
 
 ```bash
 build/standalone/macos-arm64/algorithm-local-judge/bin/judge web
-build/standalone/macos-arm64/algorithm-local-judge/bin/judge web --open
+build/standalone/macos-arm64/algorithm-local-judge/bin/judge web --no-open
 ```
 
-웹 UI는 기본적으로 `127.0.0.1:8765`에 bind되며, problem pack 파일 업로드 설치, 공식 GitHub release pack 다운로드 설치, 데이터 생성, 소스 파일 업로드 제출, 코드 붙여넣기 제출, 실시간 생성/채점 로그, 오답 데이터 확인, cache 삭제를 지원한다.
+`judge web`은 기본적으로 브라우저를 함께 연다. 브라우저 자동 실행 없이 서버만 띄우려면 `--no-open`을 사용한다. 웹 UI는 기본적으로 `127.0.0.1:8765`에 bind되며, problem pack 파일 업로드 설치, 공식 GitHub release pack 다운로드 설치, 데이터 생성, 소스 파일 업로드 제출, 코드 붙여넣기 제출, 실시간 생성/채점 로그, 오답 데이터 확인, cache 삭제를 지원한다.
 
 ## 8. 독립 환경 검증
 
@@ -301,6 +301,7 @@ dist/packs/basic-1-macos-arm64.aljpack
 ```bash
 tar -xzf algorithm-local-judge-0.1.0-macos-arm64.tar.gz
 algorithm-local-judge/bin/judge pack install basic-1-macos-arm64.aljpack
+algorithm-local-judge/bin/judge problem install tony9402/algorithm-modules
 algorithm-local-judge/bin/judge list
 algorithm-local-judge/bin/judge --problem 06 --profile sample main.cpp
 ```
@@ -457,21 +458,21 @@ algorithm-local-judge/bin/judge show <run-id> <case-id>
 macOS/Linux:
 
 ```bash
-algorithm-local-judge/bin/judge web --open
+algorithm-local-judge/bin/judge web
 ```
 
 Windows PowerShell:
 
 ```powershell
-.\algorithm-local-judge\bin\judge.exe web --open
+.\algorithm-local-judge\bin\judge.exe web
 ```
 
-브라우저가 자동으로 열리지 않으면 `http://127.0.0.1:8765`에 접속한다. 웹 UI에서는 소스 파일을 업로드하거나 소스 코드를 직접 붙여넣어 C++/Python/Java 제출을 채점할 수 있다. Generate 중에는 입력 생성, validator, answer 생성, self-check 단계가 표시되고, 채점 중에는 컴파일, 데이터 준비, case 실행 상태가 실시간 로그로 표시된다.
+`judge web`은 기본적으로 브라우저를 함께 연다. 브라우저가 자동으로 열리지 않으면 `http://127.0.0.1:8765`에 접속한다. 브라우저 자동 실행 없이 서버만 실행하려면 `--no-open`을 사용한다. 웹 UI에서는 소스 파일을 업로드하거나 소스 코드를 직접 붙여넣어 C++/Python/Java 제출을 채점할 수 있다. Generate 중에는 입력 생성, validator, answer 생성, self-check 단계가 표시되고, 채점 중에는 컴파일, 데이터 준비, case 실행 상태가 실시간 로그로 표시된다.
 
 공식 problem pack 저장소는 기본값으로 `tony9402/algorithm-modules`를 사용한다. 다른 저장소를 기본값으로 사용하려면 다음처럼 실행한다.
 
 ```bash
-ALJ_OFFICIAL_PACK_REPOSITORY=owner/name algorithm-local-judge/bin/judge web --open
+ALJ_OFFICIAL_PACK_REPOSITORY=owner/name algorithm-local-judge/bin/judge web
 ```
 
 ### 11.6 틀린 데이터 확인

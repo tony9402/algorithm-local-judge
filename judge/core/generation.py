@@ -68,15 +68,15 @@ def generate(
     emit(f"Compiling cases.yml for profile {profile}.")
     ensure_cases_compiled(problem_id, profile, root)
     emit(f"Preparing generator tools for problem {problem_id}.")
-    outputs = compile_problem_tools(problem_id, root)
+    outputs = compile_problem_tools(problem_id, root, progress=progress)
     key = generation_key(problem_id, profile, root)
-    final_dir = cache_dir_for(problem_id, key)
+    final_dir = cache_dir_for(problem_id, key, root)
     if final_dir.exists() and validate_manifest(final_dir, problem_id, profile, key) and not force:
         emit(f"Using cached data at {rel(final_dir, display_root)}.")
         print(f"Using cached data: {rel(final_dir, display_root)}")
         return final_dir
 
-    lock_dir = acquire_generation_lock(problem_id, profile, key)
+    lock_dir = acquire_generation_lock(problem_id, profile, key, root)
     if final_dir.exists() and validate_manifest(final_dir, problem_id, profile, key) and not force:
         shutil.rmtree(lock_dir)
         emit(f"Using cached data at {rel(final_dir, display_root)}.")
@@ -84,7 +84,7 @@ def generate(
         return final_dir
 
     operation_id = f"generate-{problem_id}-{os.getpid()}-{int(time.time() * 1000)}"
-    tmp_dir = cache_root() / "tmp" / operation_id
+    tmp_dir = cache_root(root) / "tmp" / operation_id
     cases_dir = tmp_dir / "cases"
     tmp_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -106,7 +106,15 @@ def generate(
 
         for index, in_path in enumerate(sorted(cases_dir.glob("*.in")), start=1):
             emit(f"Validating generated case {in_path.stem} ({index}/{len(case_summaries)}).")
-            validator_check(outputs["validator"], in_path, limits.get("generationTimeoutMs", 5000))
+            validator_check(
+                outputs["validator"],
+                in_path,
+                limits.get("generationTimeoutMs", 5000),
+                profile=profile,
+                case_index=index,
+                case_total=len(case_summaries),
+                root=display_root,
+            )
             answer_path = cases_dir / f"{in_path.stem}.out"
             emit(f"Writing expected answer for case {in_path.stem}.")
             solution_write(

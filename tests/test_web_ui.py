@@ -11,6 +11,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from judge.core.errors import JudgeError
+from judge.web import services
 from judge.web.app import create_app
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,10 +49,18 @@ class WebUiTest(unittest.TestCase):
                 page = client.get("/")
                 self.assertEqual(page.status_code, 200)
                 self.assertEqual(page.headers.get("cache-control"), "no-store")
-                self.assertIn("문제 추가", page.text)
+                self.assertIn("문제 팩 설치", page.text)
                 self.assertIn("Cache 정리", page.text)
                 self.assertIn("Samples", page.text)
                 self.assertIn("themeToggleButton", page.text)
+                self.assertIn("sourceLineNumbers", page.text)
+                self.assertIn("sourceHighlight", page.text)
+                self.assertIn("editor-toolbar", page.text)
+                self.assertIn("sourceHistoryList", page.text)
+                self.assertIn("sourceReadiness", page.text)
+                self.assertIn("Run Hidden Tests", page.text)
+                self.assertIn("toastHost", page.text)
+                self.assertIn("generationProgress", page.text)
                 self.assertNotIn("profileSelect", page.text)
                 self.assertNotIn("Refresh</button>", page.text)
                 self.assertIn("/static/app.js?v=", page.text)
@@ -59,6 +68,11 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(app_js.status_code, 200)
                 self.assertEqual(app_js.headers.get("cache-control"), "no-store")
                 self.assertIn("function bindEvents", app_js.text)
+                self.assertIn("function updateEditorLineNumbers", app_js.text)
+                self.assertIn("function highlightCode", app_js.text)
+                self.assertIn("function renderSourceHistory", app_js.text)
+                self.assertIn("function restoreRunResult", app_js.text)
+                self.assertIn('/api/sources', app_js.text)
                 self.assertIn('/api/config', app_js.text)
                 self.assertNotIn("profileSelect", app_js.text)
                 status = client.get("/api/status")
@@ -66,6 +80,7 @@ class WebUiTest(unittest.TestCase):
                 data = status.json()
                 self.assertIn("problems", data)
                 self.assertIn("cache", data)
+                self.assertIn("sources", data["cache"])
                 self.assertEqual(data["config"]["sampleProfile"], "sample")
                 self.assertEqual(data["config"]["judgeProfile"], "hidden")
                 self.assertFalse(data["config"]["webDebug"])
@@ -102,6 +117,71 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(result["language"], "python")
                 self.assertIn("maxTimeLabel", result["metrics"])
                 self.assertIn("maxMemoryLabel", result["metrics"])
+                sources = client.get("/api/sources")
+                self.assertEqual(sources.status_code, 200, sources.text)
+                source_entry = sources.json()["sources"][0]
+                self.assertEqual(source_entry["filename"], "main.py")
+                self.assertEqual(source_entry["problemId"], "06")
+                self.assertEqual(source_entry["lastRun"]["status"], "accepted")
+                self.assertEqual(source_entry["lastRun"]["runId"], result["runId"])
+                detail = client.get(f"/api/sources/{source_entry['sourceId']}")
+                self.assertEqual(detail.status_code, 200, detail.text)
+                self.assertEqual(detail.json()["sourceText"], source)
+                self.assertEqual(detail.json()["lastRunResult"]["status"], "accepted")
+                self.assertEqual(detail.json()["lastRunResult"]["runId"], result["runId"])
+                cleared = client.post(
+                    "/api/cache/clear",
+                    json={"runs": True, "dry_run": False},
+                )
+                self.assertEqual(cleared.status_code, 200, cleared.text)
+                after_clear = client.get("/api/sources")
+                self.assertEqual(after_clear.status_code, 200, after_clear.text)
+                self.assertEqual(after_clear.json()["sources"], [])
+
+    def test_cached_source_can_be_deleted_individually(self) -> None:
+        """One cached source entry should be removable without clearing every cache."""
+        with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
+            env = {
+                **os.environ,
+                "ALJ_CACHE_HOME": str(Path(tmp) / "cache"),
+                "ALJ_DATA_HOME": str(Path(tmp) / "data"),
+                "ALJ_PYTHON": sys.executable,
+            }
+            with patch.dict(os.environ, env, clear=True):
+                source_path = services.save_text_source("print(1)\n", "main.py", "06")
+                source_id = source_path.parent.name
+                client = TestClient(create_app())
+                before = client.get("/api/sources")
+                self.assertEqual(before.status_code, 200, before.text)
+                self.assertEqual(len(before.json()["sources"]), 1)
+                deleted = client.delete(f"/api/sources/{source_id}")
+                self.assertEqual(deleted.status_code, 200, deleted.text)
+                self.assertTrue(deleted.json()["deleted"])
+                after = client.get("/api/sources")
+                self.assertEqual(after.status_code, 200, after.text)
+                self.assertEqual(after.json()["sources"], [])
+
+    def test_wrong_case_endpoint_truncates_large_artifacts(self) -> None:
+        """Large wrong-answer artifacts should be previewed instead of fully displayed."""
+        large_text = "x" * 13000
+        with (
+            patch(
+                "judge.web.services.wrong_artifacts",
+                return_value={"input": large_text, "expected": "ok", "actual": large_text},
+            ),
+            patch("judge.web.services.wrong_diff_text", return_value=large_text),
+        ):
+            client = TestClient(create_app())
+            response = client.get("/api/runs/run-1/wrong/001")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertTrue(data["truncation"]["input"]["truncated"])
+        self.assertTrue(data["truncation"]["actual"]["truncated"])
+        self.assertTrue(data["truncation"]["diff"]["truncated"])
+        self.assertFalse(data["truncation"]["expected"]["truncated"])
+        self.assertIn("truncated after", data["input"])
+        self.assertLess(len(data["input"]), len(large_text))
 
     def test_run_uploaded_python_submission_streams_progress(self) -> None:
         """Uploaded source runs should emit progress events and a final result."""
