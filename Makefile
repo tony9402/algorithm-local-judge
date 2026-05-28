@@ -33,7 +33,7 @@ help:
 	@echo "  make release-ready               Run local release readiness checks"
 	@echo "  make cache-status                Show cache status"
 	@echo "  make cache-clear-dry             Preview cache clear"
-	@echo "  make cache-clear                 Clear all cache with confirmation"
+	@echo "  make cache-clear                 Clear all cache with explicit --yes"
 	@echo "  make pack-verify PACK=path       Verify a problem pack"
 	@echo "  make pack-list                   List installed problem packs"
 	@echo "  make build-standalone            Build Nuitka standalone tar.gz"
@@ -101,7 +101,7 @@ cache-clear-dry:
 	$(JUDGE) cache clear --all --dry-run
 
 cache-clear:
-	$(JUDGE) cache clear --all
+	$(JUDGE) cache clear --all --yes
 
 pack-verify:
 	$(JUDGE) pack verify $(PACK)

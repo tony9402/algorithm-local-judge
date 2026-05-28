@@ -9,6 +9,7 @@
 - Problem pack은 실행 파일에 내장하지 않고 별도 `.aljpack`으로 배포한다.
 - Release build는 GitHub Actions가 아니라 로컬 빌드 중심으로 진행한다.
 - 지원 platform id는 `macos-arm64`, `macos-amd64`, `windows-amd64`, `linux-amd64`를 사용한다.
+- Standalone 배포물에는 `THIRD_PARTY_NOTICES.md`를 포함한다.
 
 ## 1. 사전 준비
 
@@ -65,6 +66,7 @@ make -C problems build-pack PYTHON=.venv/bin/python PROBLEM=06 PACK_ID=basic
 
 ```text
 dist/packs/basic-1-macos-arm64.aljpack
+dist/packs/basic-1-macos-arm64.aljpack.sha256
 ```
 
 `PLATFORM`을 명시할 수도 있다.
@@ -74,6 +76,62 @@ make -C problems build-pack PROBLEM=06 PACK_ID=basic PLATFORM=macos-arm64
 ```
 
 단, 현재 구현은 cross-platform build를 지원하지 않는다. `macos-amd64`, `windows-amd64`, `linux-amd64` artifact는 해당 platform의 로컬 환경에서 빌드해야 한다.
+
+### 3.1 공식 Problem Pack 배포 정책
+
+공식 문제 저장소 기본값은 `tony9402/algorithm-package`다. 다른 저장소를 사용해야 하는 배포자는 `ALJ_OFFICIAL_PACK_REPOSITORY=owner/name`으로 기본값을 바꾸거나, 사용자가 `judge problem install owner/name` 또는 Web UI의 Official Repository 입력을 사용하게 안내한다.
+
+공식 설치 우선순위:
+
+1. GitHub latest release에서 `.aljpack` asset을 찾는다.
+2. 현재 platform id가 포함된 asset을 우선 선택한다.
+3. 사용자가 asset 이름을 명시하면 정확히 일치하는 `.aljpack`만 설치한다.
+4. `.aljpack` asset이 없고 사용자가 asset을 강제하지 않았다면 repository source archive를 받아 `problems/` source package로 설치한다.
+
+권장 release asset 이름:
+
+```text
+<pack-id>-<version>-<platform-id>.aljpack
+```
+
+예:
+
+```text
+basic-1-macos-arm64.aljpack
+basic-1-macos-amd64.aljpack
+basic-1-linux-amd64.aljpack
+basic-1-windows-amd64.aljpack
+```
+
+지원 platform id:
+
+```text
+macos-arm64
+macos-amd64
+linux-amd64
+windows-amd64
+```
+
+배포자는 신뢰 가능한 release asset만 게시해야 하며, 사용자는 신뢰한 repository와 `.aljpack`만 설치해야 한다. 문제 generator, validator, checker, solution 검증 도구는 로컬에서 실행된다.
+
+공식 `.aljpack` release asset은 checksum sidecar를 함께 게시해야 한다.
+
+```text
+basic-1-macos-arm64.aljpack
+basic-1-macos-arm64.aljpack.sha256
+```
+
+기본 trusted owner는 `tony9402`다. 다른 repository에서 공식 pack을 설치해야 한다면 사용자가 먼저 명시적으로 신뢰 repository를 추가한다.
+
+```bash
+judge pack trust list
+judge pack trust add owner/name
+judge problem install owner/name
+```
+
+직접 HTTP(S) `.aljpack` URL 설치는 사용자가 URL을 명시적으로 신뢰한 파일 설치 경로로 취급한다. 이 경로는 GitHub release의 trusted repository/checksum sidecar 정책과 별도로 동작하므로, 공식 배포에는 direct URL 대신 trusted GitHub release asset과 `.sha256` sidecar를 사용한다.
+
+`.aljpack` 서명 검증은 아직 구현하지 않는다. 이는 별도 후속 보안 작업으로 진행한다.
 
 ## 4. Problem Pack 검증
 
@@ -131,6 +189,7 @@ build/standalone/macos-arm64/algorithm-local-judge/
     judge
     web/static/
   README.md
+  THIRD_PARTY_NOTICES.md
   checksums.txt
 ```
 
@@ -164,9 +223,12 @@ dist/packs/*.aljpack
 검사 항목:
 
 - standalone archive에 `bin/judge` 또는 `bin/judge.exe`가 있는지
-- `README.md`, `checksums.txt`가 있는지
+- `README.md`, `THIRD_PARTY_NOTICES.md`, `checksums.txt`가 있는지
 - `checksums.txt`의 hash가 실제 파일과 일치하는지
 - `.aljpack`의 manifest hash가 일치하는지
+- `.aljpack.sha256` checksum sidecar가 있고 hash가 일치하는지
+- standalone Web static asset이 포함되어 있는지
+- 명시한 target platform의 artifact가 있는지
 - 금지 파일이 포함되어 있지 않은지
 
 금지 파일 예:
@@ -276,6 +338,14 @@ make build-standalone PLATFORM=macos-arm64
 make release-check
 ```
 
+특정 platform을 릴리즈 대상으로 검사하려면 다음처럼 명시한다.
+
+```bash
+uv run python scripts/scan_release_artifact.py \
+  --require-platform-artifact \
+  --target-platform macos-arm64
+```
+
 `.venv`를 직접 사용할 경우:
 
 ```bash
@@ -294,6 +364,7 @@ make release-check PYTHON=.venv/bin/python
 ```text
 dist/standalone/algorithm-local-judge-0.1.0-macos-arm64.tar.gz
 dist/packs/basic-1-macos-arm64.aljpack
+dist/packs/basic-1-macos-arm64.aljpack.sha256
 ```
 
 사용자 설치 흐름:
@@ -301,7 +372,6 @@ dist/packs/basic-1-macos-arm64.aljpack
 ```bash
 tar -xzf algorithm-local-judge-0.1.0-macos-arm64.tar.gz
 algorithm-local-judge/bin/judge pack install basic-1-macos-arm64.aljpack
-algorithm-local-judge/bin/judge problem install tony9402/algorithm-modules
 algorithm-local-judge/bin/judge list
 algorithm-local-judge/bin/judge --problem 06 --profile sample main.cpp
 ```
@@ -334,6 +404,7 @@ algorithm-local-judge/
   bin/
     judge
   README.md
+  THIRD_PARTY_NOTICES.md
   checksums.txt
 ```
 
@@ -469,7 +540,7 @@ Windows PowerShell:
 
 `judge web`은 기본적으로 브라우저를 함께 연다. 브라우저가 자동으로 열리지 않으면 `http://127.0.0.1:8765`에 접속한다. 브라우저 자동 실행 없이 서버만 실행하려면 `--no-open`을 사용한다. 웹 UI에서는 소스 파일을 업로드하거나 소스 코드를 직접 붙여넣어 C++/Python/Java 제출을 채점할 수 있다. Generate 중에는 입력 생성, validator, answer 생성, self-check 단계가 표시되고, 채점 중에는 컴파일, 데이터 준비, case 실행 상태가 실시간 로그로 표시된다.
 
-공식 problem pack 저장소는 기본값으로 `tony9402/algorithm-modules`를 사용한다. 다른 저장소를 기본값으로 사용하려면 다음처럼 실행한다.
+공식 문제 저장소는 기본값으로 `tony9402/algorithm-package`를 사용한다. release에 `.aljpack` asset이 있으면 pack으로 설치하고, 없으면 repository archive의 `problems/` source package를 설치한다. 다른 저장소를 기본값으로 사용하려면 다음처럼 실행한다.
 
 ```bash
 ALJ_OFFICIAL_PACK_REPOSITORY=owner/name algorithm-local-judge/bin/judge web
