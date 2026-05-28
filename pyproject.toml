@@ -5,6 +5,7 @@ description = "Local problem judge with generated test data packs."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "certifi>=2026.4.22",
   "fastapi>=0.136.1",
   "python-multipart>=0.0.28",
   "PyYAML>=6.0",
@@ -19,6 +20,7 @@ problem-studio = "problem_studio.cli:main"
 dev = [
   "httpx>=0.28.1",
   "nuitka>=4.0.8",
+  "playwright>=1.55.0",
   "ruff>=0.8.0",
 ]
 
@@ -43,8 +45,25 @@ packages = [
 ]
 
 [tool.setuptools.package-data]
-"judge.web" = ["static/*"]
-"problem_studio.web" = ["static/*", "static/app/*.js"]
+"judge.web" = ["static/*", "static/app/*.js", "static/styles/*.css"]
+"problem_studio.web" = [
+  "static/*",
+  "static/app/*.js",
+  "static/app/actions/*.js",
+  "static/app/editor/*.js",
+  "static/fragments/*.html",
+  "static/styles/*.css",
+  "static/vendor/codemirror/*.css",
+  "static/vendor/codemirror/*.js",
+  "static/vendor/codemirror/addon/dialog/*.css",
+  "static/vendor/codemirror/addon/dialog/*.js",
+  "static/vendor/codemirror/addon/search/*.js",
+  "static/vendor/codemirror/keymap/*.js",
+  "static/vendor/codemirror/mode/clike/*.js",
+  "static/vendor/codemirror/mode/javascript/*.js",
+  "static/vendor/codemirror/mode/python/*.js",
+  "static/vendor/codemirror/mode/yaml/*.js",
+]
 
 [tool.ruff]
 line-length = 99
