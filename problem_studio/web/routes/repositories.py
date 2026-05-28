@@ -1,10 +1,4 @@
-"""repositories 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""저장소 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -35,13 +29,10 @@ router = APIRouter(prefix="/api/repositories", tags=["repositories"])
 
 
 def ensure_repository_write_enabled(request: Request) -> None:
-    """ensure_repository_write_enabled 함수를 실행하고 결과를 반환합니다.
-    
+    """저장소 쓰기 enabled 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
     """
     ensure_local_write_allowed(request, "repository Git action")
     if not getattr(request.app.state, "git_write_enabled", True):
@@ -49,13 +40,13 @@ def ensure_repository_write_enabled(request: Request) -> None:
 
 
 def repository_response(request: Request) -> dict:
-    """repository_response 함수를 실행하고 결과를 반환합니다.
-    
+    """저장소 response 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 저장소 response 데이터입니다.
     """
     workspace_root = workspace_root_from_request(request)
     return {
@@ -67,13 +58,13 @@ def repository_response(request: Request) -> dict:
 
 
 def selected_payload(request: Request) -> dict:
-    """selected_payload 함수를 실행하고 결과를 반환합니다.
-    
+    """selected payload 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 selected payload 데이터입니다.
     """
     workspace = workspace_status_from_request(request)
     git = git_status(request.app.state.workspace)
@@ -91,38 +82,30 @@ def selected_payload(request: Request) -> dict:
 
 @router.get("")
 def api_repositories(request: Request) -> dict:
-    """api_repositories 함수를 실행하고 결과를 반환합니다.
-    
+    """저장소 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 저장소 데이터입니다.
     """
     return route_result(lambda: repository_response(request))
 
 
 @router.post("/select")
 def api_repository_select(request: Request, body: RepositorySelectRequest) -> dict:
-    """api_repository_select 함수를 실행하고 결과를 반환합니다.
-    
+    """저장소 select 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        body (RepositorySelectRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        body (RepositorySelectRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 저장소 select 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         set_active_repository(request, body.repo_name)
         return selected_payload(request)
 
@@ -131,25 +114,17 @@ def api_repository_select(request: Request, body: RepositorySelectRequest) -> di
 
 @router.post("/clone")
 def api_repository_clone(request: Request, body: RepositoryCloneRequest) -> dict:
-    """api_repository_clone 함수를 실행하고 결과를 반환합니다.
-    
+    """저장소 clone 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        body (RepositoryCloneRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        body (RepositoryCloneRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 저장소 clone 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_repository_write_enabled(request)
         summary = clone_problem_repository(
             workspace_root_from_request(request),
@@ -167,25 +142,17 @@ def api_repository_clone(request: Request, body: RepositoryCloneRequest) -> dict
 
 @router.post("/register")
 def api_repository_register(request: Request, body: RepositoryRegisterRequest) -> dict:
-    """api_repository_register 함수를 실행하고 결과를 반환합니다.
-    
+    """저장소 register 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        body (RepositoryRegisterRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        body (RepositoryRegisterRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 저장소 register 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         set_active_repository(request, body.repo_name)
         payload = selected_payload(request)
         payload["repository"] = repository_summary(

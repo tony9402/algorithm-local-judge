@@ -1,58 +1,28 @@
-"""errors 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""errors 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 class JudgeError(Exception):
-    """JudgeError 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """저지 오류 상황을 상위 계층에 명확히 전달하기 위한 예외입니다.
     """
 
     pass
 
 
 class SecurityPolicyError(JudgeError):
-    """SecurityPolicyError 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """보안 정책 오류 상황을 상위 계층에 명확히 전달하기 위한 예외입니다.
     """
 
     pass
 
 
 class LimitExceededError(JudgeError):
-    """LimitExceededError 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """제한 exceeded 오류 상황을 상위 계층에 명확히 전달하기 위한 예외입니다.
     """
 
     pass
 
 
 class ConcurrencyLimitError(JudgeError):
-    """ConcurrencyLimitError 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """concurrency 제한 오류 상황을 상위 계층에 명확히 전달하기 위한 예외입니다.
     """
 
     pass

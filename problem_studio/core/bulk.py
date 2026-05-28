@@ -1,10 +1,4 @@
-"""bulk 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""일괄 작업 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -28,40 +22,15 @@ DEFAULT_MAX_WORKERS = 4
 
 
 def check_cancel(cancel_token: Any | None) -> None:
-    """check_cancel 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        cancel_token (Any | None): `cancel_token` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
     if cancel_token:
         cancel_token.check()
 
 
 def cancellation_requested(cancel_token: Any | None) -> bool:
-    """cancellation_requested 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        cancel_token (Any | None): `cancel_token` 값입니다.
-    
-    Returns:
-        bool: 처리 결과를 반환합니다.
-    """
     return bool(getattr(cancel_token, "cancelled", False))
 
 
 def bulk_worker_count(problem_count: int, requested: int | None = None) -> int:
-    """bulk_worker_count 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_count (int): `problem_count` 값입니다.
-        requested (int | None): `requested` 값입니다.
-    
-    Returns:
-        int: 처리 결과를 반환합니다.
-    """
     if problem_count <= 0:
         return 1
     if requested is not None and requested > 0:
@@ -78,18 +47,18 @@ def run_problem_full_test(
     progress: Callable[[str], None],
     cancel_token: Any | None = None,
 ) -> dict[str, Any]:
-    """run_problem_full_test 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 full test 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        verify_profile (str): `verify_profile` 값입니다.
-        force (bool): `force` 값입니다.
-        progress (Callable[[str], None]): `progress` 값입니다.
-        cancel_token (Any | None): `cancel_token` 값입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        verify_profile (str): 문제 full test을 계산하거나 검증할 때 필요한 verify 프로필 입력입니다.
+        force (bool): 캐시나 기존 검사 결과를 무시하고 다시 실행할지 여부입니다.
+        progress (Callable[[str], None]): 장시간 작업의 단계와 메시지를 UI 작업 상태로 전달하는 콜백입니다.
+        cancel_token (Any | None): 사용자가 취소한 작업인지 확인하기 위한 토큰입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 full test 데이터입니다.
     """
     check_cancel(cancel_token)
     progress("Checking cases.yml.")
@@ -146,22 +115,22 @@ def build_all_problem_packs(
     problem_ids: list[str] | None = None,
     cancel_token: Any | None = None,
 ) -> dict[str, Any]:
-    """build_all_problem_packs 함수를 실행하고 결과를 반환합니다.
-    
+    """all 문제 문제팩에 필요한 경로, 메타데이터, 파일 목록을 조립합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        pack_id (str): `pack_id` 값입니다.
-        output_dir (Path): `output_dir` 값입니다.
-        platform_id (str | None): `platform_id` 값입니다.
-        verify_profile (str): `verify_profile` 값입니다.
-        force (bool): `force` 값입니다.
-        progress (Callable[[str], None] | None): `progress` 값입니다.
-        max_workers (int | None): `max_workers` 값입니다.
-        problem_ids (list[str] | None): `problem_ids` 값입니다.
-        cancel_token (Any | None): `cancel_token` 값입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        pack_id (str): 설치, 삭제, 조회할 문제팩을 구분하는 ID입니다.
+        output_dir (Path): 출력 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        platform_id (str | None): platform ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+        verify_profile (str): all 문제 문제팩을 계산하거나 검증할 때 필요한 verify 프로필 입력입니다.
+        force (bool): 캐시나 기존 검사 결과를 무시하고 다시 실행할지 여부입니다.
+        progress (Callable[[str], None] | None): 장시간 작업의 단계와 메시지를 UI 작업 상태로 전달하는 콜백입니다.
+        max_workers (int | None): all 문제 문제팩을 계산하거나 검증할 때 필요한 max workers 입력입니다.
+        problem_ids (list[str] | None): all 문제 문제팩을 계산하거나 검증할 때 필요한 문제 ids 입력입니다.
+        cancel_token (Any | None): 사용자가 취소한 작업인지 확인하기 위한 토큰입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 all 문제 문제팩 데이터입니다.
     """
     check_cancel(cancel_token)
     available_problem_ids = discover_problem_ids(workspace)
@@ -181,30 +150,11 @@ def build_all_problem_packs(
     worker_count = bulk_worker_count(len(selected_problem_ids), max_workers)
 
     def emit(index: int, problem_id: str, message: str) -> None:
-    """emit 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        index (int): `index` 값입니다.
-        problem_id (str): 문제 ID입니다.
-        message (str): 메시지입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         check_cancel(cancel_token)
         if progress:
             progress(f"[{index}/{len(selected_problem_ids)}] Problem {problem_id}: {message}")
 
     def run_one(index: int, problem_id: str) -> dict[str, Any]:
-    """run_one 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        index (int): `index` 값입니다.
-        problem_id (str): 문제 ID입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
         try:
             check_cancel(cancel_token)
             emit(index, problem_id, "Starting full test.")

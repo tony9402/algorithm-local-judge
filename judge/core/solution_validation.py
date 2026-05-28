@@ -1,10 +1,4 @@
-"""solution_validation 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""솔루션 검증 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -37,15 +31,6 @@ from judge.utils.fs import read_json
 def solution_check_error(
     result: SolutionVerificationResult, root: Path | None = None
 ) -> JudgeError:
-    """solution_check_error 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        result (SolutionVerificationResult): `result` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        JudgeError: 처리 결과를 반환합니다.
-    """
     failed = [check for check in result.checks if not check.passed]
     lines = [
         f"solution expectation check failed for problem {result.problem_id} "
@@ -70,30 +55,7 @@ def verify_problem_solutions(
     solution_paths: list[str] | None = None,
     warmup_profile: str | None = None,
 ) -> SolutionVerificationResult:
-    """verify_problem_solutions 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        root (Path | None): `root` 값입니다.
-        progress (Callable[[str], None] | None): `progress` 값입니다.
-        raise_on_failure (bool): `raise_on_failure` 값입니다.
-        solution_paths (list[str] | None): `solution_paths` 값입니다.
-        warmup_profile (str | None): `warmup_profile` 값입니다.
-    
-    Returns:
-        SolutionVerificationResult: 처리 결과를 반환합니다.
-    """
-
     def emit(message: str) -> None:
-    """emit 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        message (str): 메시지입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         if progress is not None:
             progress(message)
 
@@ -148,19 +110,6 @@ def _verify_solution_expectation(
     display_root: Path,
     warmup_profile: str | None,
 ) -> SolutionCheckResult:
-    """_verify_solution_expectation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        expectation (SolutionExpectation): `expectation` 값입니다.
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        root (Path | None): `root` 값입니다.
-        display_root (Path): `display_root` 값입니다.
-        warmup_profile (str | None): `warmup_profile` 값입니다.
-    
-    Returns:
-        SolutionCheckResult: 처리 결과를 반환합니다.
-    """
     actual_status = "compile_error"
     run_id = None
     message = ""

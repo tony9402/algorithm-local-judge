@@ -1,10 +1,4 @@
-"""artifacts 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""산출물 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -17,16 +11,6 @@ from judge.utils.text import preview
 
 
 def wrong_artifact_paths(run_id: str, case_id: str, root: Path | None = None) -> dict[str, Path]:
-    """wrong_artifact_paths 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        dict[str, Path]: 처리 결과를 반환합니다.
-    """
     validate_safe_id("run id", run_id)
     validate_safe_id("case id", case_id)
     wrong_dir = cache_root(root) / "runs" / run_id / "wrong"
@@ -38,15 +22,15 @@ def wrong_artifact_paths(run_id: str, case_id: str, root: Path | None = None) ->
 
 
 def wrong_artifacts(run_id: str, case_id: str, root: Path | None = None) -> dict[str, str]:
-    """wrong_artifacts 함수를 실행하고 결과를 반환합니다.
-    
+    """오답 산출물 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+        case_id (str): 입력, 출력, 오답 산출물을 구분하는 케이스 ID입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+
     Returns:
-        dict[str, str]: 처리 결과를 반환합니다.
+        dict[str, str]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 오답 산출물 데이터입니다.
     """
     display_root = root or repo_root()
     files = wrong_artifact_paths(run_id, case_id, root)
@@ -59,15 +43,15 @@ def wrong_artifacts(run_id: str, case_id: str, root: Path | None = None) -> dict
 
 
 def wrong_diff_text(run_id: str, case_id: str, root: Path | None = None) -> str:
-    """wrong_diff_text 함수를 실행하고 결과를 반환합니다.
-    
+    """오답 차이 비교 텍스트 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+        case_id (str): 입력, 출력, 오답 산출물을 구분하는 케이스 ID입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 오답 차이 비교 텍스트 문자열입니다.
     """
     files = wrong_artifact_paths(run_id, case_id, root)
     expected = files["expected"]
@@ -90,17 +74,6 @@ def wrong_diff_text(run_id: str, case_id: str, root: Path | None = None) -> str:
 
 
 def show(run_id: str, case_id: str, part: str | None = None, root: Path | None = None) -> None:
-    """show 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-        part (str | None): `part` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
     display_root = root or repo_root()
     files = wrong_artifact_paths(run_id, case_id, root)
     selected = [part] if part else ["input", "expected", "actual"]
@@ -114,14 +87,4 @@ def show(run_id: str, case_id: str, part: str | None = None, root: Path | None =
 
 
 def diff(run_id: str, case_id: str, root: Path | None = None) -> None:
-    """diff 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
     print(wrong_diff_text(run_id, case_id, root), end="")

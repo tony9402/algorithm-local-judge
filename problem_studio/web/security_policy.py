@@ -1,10 +1,4 @@
-"""security_policy 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""보안 정책 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -16,38 +10,27 @@ LOCAL_BINDING_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 def is_local_binding(host: str) -> bool:
-    """is_local_binding 함수를 실행하고 결과를 반환합니다.
-    
+    """로컬 binding 여부를 실제 파일, 설정, 또는 런타임 상태를 기준으로 판정합니다.
+
     Args:
-        host (str): `host` 값입니다.
-    
+        host (str): 로컬 binding을 계산하거나 검증할 때 필요한 host 입력입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: 로컬 binding 조건을 만족하면 True, 아니면 False입니다.
     """
     return host in LOCAL_BINDING_HOSTS
 
 
 def workspace_write_enabled(request: Request) -> bool:
-    """workspace_write_enabled 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        request (Request): HTTP 요청 객체입니다.
-    
-    Returns:
-        bool: 처리 결과를 반환합니다.
-    """
     return bool(getattr(request.app.state, "workspace_write_enabled", True))
 
 
 def ensure_local_write_allowed(request: Request, action: str) -> None:
-    """ensure_local_write_allowed 함수를 실행하고 결과를 반환합니다.
-    
+    """현재 요청에서 로컬 파일 변경이 허용되는지 확인하고 차단된 작업이면 HTTP 오류를 발생시킵니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        action (str): `action` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        action (str): 로컬 쓰기 allowed을 계산하거나 검증할 때 필요한 action 입력입니다.
     """
     if not workspace_write_enabled(request):
         raise SecurityPolicyError(

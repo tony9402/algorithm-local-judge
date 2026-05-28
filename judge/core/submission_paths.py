@@ -1,10 +1,4 @@
-"""submission_paths 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""제출 경로 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -19,13 +13,13 @@ from judge.core.problem_discovery import problem_roots
 
 
 def new_run_dir(root: Path | None = None) -> tuple[str, Path]:
-    """new_run_dir 함수를 실행하고 결과를 반환합니다.
-    
+    """new 실행 dir 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        root (Path | None): `root` 값입니다.
-    
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+
     Returns:
-        tuple[str, Path]: 처리 결과를 반환합니다.
+        tuple[str, Path]: 검증된 new 실행 dir 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     candidate = cache_root(root) / "runs" / run_id
@@ -40,16 +34,6 @@ def new_run_dir(root: Path | None = None) -> tuple[str, Path]:
 def infer_problem_id(
     source: Path, explicit_problem: str | None = None, root: Path | None = None
 ) -> str:
-    """infer_problem_id 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        source (Path): `source` 값입니다.
-        explicit_problem (str | None): `explicit_problem` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     root = root or repo_root()
     source = source.resolve()
     inferred = None
@@ -92,16 +76,6 @@ def infer_problem_id(
 
 
 def latest_cache_for(problem_id: str, profile: str, root: Path | None = None) -> Path | None:
-    """latest_cache_for 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        Path | None: 처리 결과를 반환합니다.
-    """
     key = generation_key(problem_id, profile, root)
     candidate = cache_dir_for(problem_id, key, root)
     if validate_manifest(candidate, problem_id, profile, key):

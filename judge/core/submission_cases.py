@@ -1,10 +1,4 @@
-"""submission_cases 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""제출 케이스 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -21,14 +15,6 @@ from judge.utils.process import CommandResult, run_command_result
 
 @dataclass(frozen=True)
 class SubmissionCasesResult:
-"""SubmissionCasesResult 클래스를 정의하고 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
-"""
     status: str
     results: list[dict[str, Any]]
     first_wrong: dict[str, Any] | None
@@ -50,23 +36,20 @@ def run_submission_cases(
     command_runner: Callable[..., CommandResult] = run_command_result,
     checker: Callable[[Path, Path, Path, Path, int], tuple[int, str]] = checker_compare,
 ) -> SubmissionCasesResult:
-    """run_submission_cases 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        manifest (dict[str, Any]): `manifest` 값입니다.
-        data_dir (Path): `data_dir` 값입니다.
-        outputs_dir (Path): `outputs_dir` 값입니다.
-        wrong_dir (Path): `wrong_dir` 값입니다.
-        command (list[str]): `command` 값입니다.
-        limits (dict[str, Any]): `limits` 값입니다.
-        checker_path (Path): `checker_path` 값입니다.
-        emit (Callable[[str], None]): `emit` 값입니다.
-        stop_on_first_failure (bool): `stop_on_first_failure` 값입니다.
-        command_runner (Callable[..., CommandResult]): `command_runner` 값입니다.
-        checker (Callable[[Path, Path, Path, Path, int], tuple[int, str]]): `checker` 값입니다.
-    
-    Returns:
-        SubmissionCasesResult: 처리 결과를 반환합니다.
+    """제출 케이스 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
+        Args:
+            manifest (dict[str, Any]): 문제팩 구성과 포함 파일을 설명하는 매니페스트 데이터입니다.
+            data_dir (Path): 데이터 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            outputs_dir (Path): outputs dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            wrong_dir (Path): 오답 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            command (list[str]): 제출 케이스을 계산하거나 검증할 때 필요한 명령 입력입니다.
+            limits (dict[str, Any]): 제출 케이스을 계산하거나 검증할 때 필요한 limits 입력입니다.
+            checker_path (Path): 체커 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            emit (Callable[[str], None]): 제출 케이스을 계산하거나 검증할 때 필요한 emit 입력입니다.
+            stop_on_first_failure (bool): 제출 케이스 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+            command_runner (Callable[..., CommandResult]): 제출 케이스을 계산하거나 검증할 때 필요한 명령 실행기 입력입니다.
+            checker (Callable[[Path, Path, Path, Path, int], tuple[int, str]]): 입력, 제출 출력, 정답 출력을 비교하는 체커 실행 파일입니다.
     """
     results: list[dict[str, Any]] = []
     status = "accepted"

@@ -1,10 +1,4 @@
-"""packs 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제팩 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -32,15 +26,15 @@ PACK_OUTPUT_DIR = Path("dist/packs")
 
 
 def pack_job_dict(jobs, job, problem_id: str) -> dict:
-    """pack_job_dict 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 작업 dict 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        jobs (Any): `jobs` 값입니다.
-        job (Any): `job` 값입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        jobs (Any): 문제팩 작업 dict을 계산하거나 검증할 때 필요한 작업 입력입니다.
+        job (Any): 문제팩 작업 dict을 계산하거나 검증할 때 필요한 작업 입력입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 작업 dict 데이터입니다.
     """
     data = jobs.job_dict(job)
     if data["status"] == "succeeded" and isinstance(data.get("result"), dict):
@@ -55,15 +49,15 @@ def pack_job_dict(jobs, job, problem_id: str) -> dict:
 def api_pack_build_stream(
     request: Request, problem_id: str, body: PackBuildRequest
 ) -> StreamingResponse:
-    """api_pack_build_stream 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 build 스트림 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (PackBuildRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (PackBuildRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        StreamingResponse: 처리 결과를 반환합니다.
+        StreamingResponse: 브라우저가 진행 이벤트를 받을 수 있는 스트리밍 HTTP 응답입니다.
     """
     try:
         ensure_local_write_allowed(request, "pack build")
@@ -72,14 +66,6 @@ def api_pack_build_stream(
         raise to_http_error(exc) from exc
 
     def operation(progress):
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        progress (Any): `progress` 값입니다.
-    
-    Returns:
-        Any: 처리 결과를 반환합니다.
-    """
         progress(f"Building pack {body.pack_id} for problem {problem_id}.")
         result = build_problem_pack(
             workspace,
@@ -97,15 +83,15 @@ def api_pack_build_stream(
 
 @router.post("/build")
 def api_pack_build(request: Request, problem_id: str, body: PackBuildRequest) -> dict:
-    """api_pack_build 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 build 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (PackBuildRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (PackBuildRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 build 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "pack build")
@@ -113,14 +99,6 @@ def api_pack_build(request: Request, problem_id: str, body: PackBuildRequest) ->
         jobs = jobs_from_request(request)
 
         def operation(cancel_token) -> dict:
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-        
-        Returns:
-            dict: 처리 결과를 반환합니다.
-        """
             return build_problem_pack(
                 workspace,
                 problem_id,
@@ -156,14 +134,14 @@ def api_pack_build(request: Request, problem_id: str, body: PackBuildRequest) ->
 
 @router.get("/jobs")
 def api_pack_build_jobs(request: Request, problem_id: str) -> dict:
-    """api_pack_build_jobs 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 build 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 build 작업 데이터입니다.
     """
     jobs = jobs_from_request(request)
     return {
@@ -177,15 +155,15 @@ def api_pack_build_jobs(request: Request, problem_id: str) -> dict:
 
 @router.get("/jobs/{job_id}")
 def api_pack_build_job(request: Request, problem_id: str, job_id: str) -> dict:
-    """api_pack_build_job 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 build 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        job_id (str): 작업 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 build 작업 데이터입니다.
     """
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
@@ -196,15 +174,15 @@ def api_pack_build_job(request: Request, problem_id: str, job_id: str) -> dict:
 
 @router.delete("/jobs/{job_id}")
 def api_pack_build_job_dismiss(request: Request, problem_id: str, job_id: str) -> dict:
-    """api_pack_build_job_dismiss 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 build 작업 dismiss 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        job_id (str): 작업 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 build 작업 dismiss 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "pack build job dismiss")
@@ -223,15 +201,15 @@ def api_pack_build_job_dismiss(request: Request, problem_id: str, job_id: str) -
 
 @router.post("/jobs/{job_id}/cancel")
 def api_pack_build_job_cancel(request: Request, problem_id: str, job_id: str) -> dict:
-    """api_pack_build_job_cancel 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 build 작업 cancel 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        job_id (str): 작업 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 build 작업 cancel 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "pack build job cancel")
@@ -249,15 +227,12 @@ def api_pack_build_job_cancel(request: Request, problem_id: str, job_id: str) ->
 
 @router.get("/jobs/{job_id}/download")
 def api_pack_build_download(request: Request, problem_id: str, job_id: str) -> FileResponse:
-    """api_pack_build_download 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        job_id (str): 작업 ID입니다.
-    
-    Returns:
-        FileResponse: 처리 결과를 반환합니다.
+    """문제팩 build 다운로드 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+        Args:
+            request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+            job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
     """
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)

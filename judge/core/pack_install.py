@@ -1,10 +1,4 @@
-"""pack_install 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제팩 설치 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -21,13 +15,13 @@ from judge.utils.fs import read_json
 
 
 def install_pack(archive_path: Path) -> Path:
-    """install_pack 함수를 실행하고 결과를 반환합니다.
-    
+    """설치 문제팩 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        archive_path (Path): `archive_path` 값입니다.
-    
+        archive_path (Path): 아카이브 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 설치 문제팩 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     archive_path = archive_path.resolve()
     with tempfile.TemporaryDirectory(prefix="alj-pack-install-") as tmp:
@@ -50,14 +44,6 @@ def install_pack(archive_path: Path) -> Path:
 
 
 def installed_packs() -> list[dict[str, Any]]:
-    """installed_packs 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        list[dict[str, Any]]: 처리 결과를 반환합니다.
-    """
     root = problem_pack_root()
     if not root.exists():
         return []
@@ -72,13 +58,13 @@ def installed_packs() -> list[dict[str, Any]]:
 
 
 def remove_pack(pack_id: str) -> Path:
-    """remove_pack 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        pack_id (str): `pack_id` 값입니다.
-    
+        pack_id (str): 설치, 삭제, 조회할 문제팩을 구분하는 ID입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 문제팩 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     validate_safe_id("pack id", pack_id)
     target = problem_pack_root() / pack_id

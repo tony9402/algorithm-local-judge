@@ -1,10 +1,4 @@
-"""checksums 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""checksums 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -18,26 +12,18 @@ SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 def checksum_sidecar_path(artifact_path: Path) -> Path:
-    """checksum_sidecar_path 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        artifact_path (Path): `artifact_path` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     return artifact_path.with_name(f"{artifact_path.name}.sha256")
 
 
 def parse_sha256_checksum(text: str, artifact_name: str) -> str:
-    """parse_sha256_checksum 함수를 실행하고 결과를 반환합니다.
-    
+    """sha256 체크섬 원본 입력을 내부 로직이 사용할 구조로 해석합니다.
+
     Args:
-        text (str): `text` 값입니다.
-        artifact_name (str): `artifact_name` 값입니다.
-    
+        text (str): 화면에 표시하거나 비교에 사용할 텍스트입니다.
+        artifact_name (str): 산출물 이름를 사용자 표시와 내부 조회에 함께 사용하는 이름입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 sha256 체크섬 문자열입니다.
     """
     fallback_hash: str | None = None
     for line in text.splitlines():
@@ -60,13 +46,13 @@ def parse_sha256_checksum(text: str, artifact_name: str) -> str:
 
 
 def write_sha256_sidecar(artifact_path: Path) -> Path:
-    """write_sha256_sidecar 함수를 실행하고 결과를 반환합니다.
-    
+    """sha256 sidecar 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        artifact_path (Path): `artifact_path` 값입니다.
-    
+        artifact_path (Path): 산출물 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 sha256 sidecar 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     checksum_path = checksum_sidecar_path(artifact_path)
     checksum_path.write_text(
@@ -77,15 +63,6 @@ def write_sha256_sidecar(artifact_path: Path) -> Path:
 
 
 def verify_sha256_text(artifact_path: Path, checksum_text: str) -> str:
-    """verify_sha256_text 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        artifact_path (Path): `artifact_path` 값입니다.
-        checksum_text (str): `checksum_text` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     expected = parse_sha256_checksum(checksum_text, artifact_path.name)
     actual = sha256_file(artifact_path)
     if actual.lower() != expected.lower():
@@ -96,13 +73,13 @@ def verify_sha256_text(artifact_path: Path, checksum_text: str) -> str:
 
 
 def verify_sha256_sidecar(artifact_path: Path) -> str:
-    """verify_sha256_sidecar 함수를 실행하고 결과를 반환합니다.
-    
+    """verify sha256 sidecar 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        artifact_path (Path): `artifact_path` 값입니다.
-    
+        artifact_path (Path): 산출물 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 verify sha256 sidecar 문자열입니다.
     """
     checksum_path = checksum_sidecar_path(artifact_path)
     if not checksum_path.exists():

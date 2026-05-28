@@ -1,10 +1,4 @@
-"""submission_compiler 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""제출 컴파일러 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -29,16 +23,16 @@ from judge.utils.process import run_command
 
 
 def compile_cpp_submission(source: Path, run_dir: Path, timeout_ms: int, root: Path) -> list[str]:
-    """compile_cpp_submission 함수를 실행하고 결과를 반환합니다.
-    
+    """cpp 제출 소스와 설정을 실행 가능한 산출물과 진단 정보로 변환합니다.
+
     Args:
-        source (Path): `source` 값입니다.
-        run_dir (Path): `run_dir` 값입니다.
-        timeout_ms (int): `timeout_ms` 값입니다.
-        root (Path): `root` 값입니다.
-    
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        run_dir (Path): 실행 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        timeout_ms (int): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+        root (Path): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+
     Returns:
-        list[str]: 처리 결과를 반환합니다.
+        list[str]: 호출자가 순회하거나 화면에 표시할 cpp 제출 항목 목록입니다.
     """
     output = run_dir / "user_cpp"
     log_path = run_dir / "compile.log"
@@ -47,14 +41,6 @@ def compile_cpp_submission(source: Path, run_dir: Path, timeout_ms: int, root: P
 
 
 def prepare_python_submission(source: Path) -> list[str]:
-    """prepare_python_submission 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        source (Path): `source` 값입니다.
-    
-    Returns:
-        list[str]: 처리 결과를 반환합니다.
-    """
     python = os.environ.get("ALJ_PYTHON")
     executable_name = Path(sys.executable).name.lower()
     compiled_runtime = getattr(sys, "frozen", False) or "__compiled__" in globals()
@@ -66,15 +52,15 @@ def prepare_python_submission(source: Path) -> list[str]:
 
 
 def compile_java_submission(source: Path, run_dir: Path, timeout_ms: int) -> list[str]:
-    """compile_java_submission 함수를 실행하고 결과를 반환합니다.
-    
+    """java 제출 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
     Args:
-        source (Path): `source` 값입니다.
-        run_dir (Path): `run_dir` 값입니다.
-        timeout_ms (int): `timeout_ms` 값입니다.
-    
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        run_dir (Path): 실행 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        timeout_ms (int): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+
     Returns:
-        list[str]: 처리 결과를 반환합니다.
+        list[str]: 호출자가 순회하거나 화면에 표시할 java 제출 항목 목록입니다.
     """
     javac = resolve_tool("ALJ_JAVAC", ["javac"])
     java = resolve_tool("ALJ_JAVA", ["java"])
@@ -95,16 +81,13 @@ def compile_java_submission(source: Path, run_dir: Path, timeout_ms: int) -> lis
 def prepare_user_submission(
     source: Path, run_dir: Path, timeout_ms: int, root: Path | None = None
 ) -> PreparedSubmission:
-    """prepare_user_submission 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        source (Path): `source` 값입니다.
-        run_dir (Path): `run_dir` 값입니다.
-        timeout_ms (int): `timeout_ms` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        PreparedSubmission: 처리 결과를 반환합니다.
+    """prepare user 제출 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
+        Args:
+            source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+            run_dir (Path): 실행 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            timeout_ms (int): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+            root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
     """
     root = root or repo_root()
     suffix = source.suffix.lower()

@@ -1,10 +1,4 @@
-"""workspace 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""작업 공간 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -23,13 +17,13 @@ DELETE_CONFIRM_PHRASE = "확인했습니다"
 
 
 def resolve_workspace(path: Path | str | None = None) -> Path:
-    """resolve_workspace 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 공간 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        path (Path | str | None): 경로 문자열입니다.
-    
+        path (Path | str | None): 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 작업 공간 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     workspace = Path(path or ".").expanduser().resolve()
     if workspace.name == "problems":
@@ -40,40 +34,23 @@ def resolve_workspace(path: Path | str | None = None) -> Path:
 
 
 def problems_dir(workspace: Path) -> Path:
-    """problems_dir 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        workspace (Path): 작업 공간 객체입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     return workspace / "problems"
 
 
 def problem_dir(workspace: Path, problem_id: str) -> Path:
-    """problem_dir 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     validate_safe_id("problem id", problem_id)
     path = problems_dir(workspace) / problem_id
     return ensure_inside(path, problems_dir(workspace))
 
 
 def discover_workspace_problem_ids(workspace: Path) -> list[str]:
-    """discover_workspace_problem_ids 함수를 실행하고 결과를 반환합니다.
-    
+    """설정과 디렉터리를 탐색해 사용 가능한 작업 공간 문제 ids 항목을 찾습니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+
     Returns:
-        list[str]: 처리 결과를 반환합니다.
+        list[str]: 호출자가 순회하거나 화면에 표시할 작업 공간 문제 ids 항목 목록입니다.
     """
     root = problems_dir(workspace)
     if not root.exists():
@@ -85,13 +62,13 @@ def discover_workspace_problem_ids(workspace: Path) -> list[str]:
 
 
 def discover_source_root(workspace: Path) -> Path:
-    """discover_source_root 함수를 실행하고 결과를 반환합니다.
-    
+    """설정과 디렉터리를 탐색해 사용 가능한 소스 root 항목을 찾습니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 소스 root 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     configured = os.environ.get("JUDGE_SOURCE_ROOT")
     if configured:
@@ -108,14 +85,6 @@ def discover_source_root(workspace: Path) -> Path:
 
 
 def testlib_status(workspace: Path) -> dict[str, Any]:
-    """testlib_status 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        workspace (Path): 작업 공간 객체입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     source_root = discover_source_root(workspace)
     source = source_root / "testlib.h"
     workspace_link = problems_dir(workspace) / "testlib.h"
@@ -130,13 +99,13 @@ def testlib_status(workspace: Path) -> dict[str, Any]:
 
 
 def link_testlib(workspace: Path) -> dict[str, Any]:
-    """link_testlib 함수를 실행하고 결과를 반환합니다.
-    
+    """link testlib 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 link testlib 데이터입니다.
     """
     source = discover_source_root(workspace) / "testlib.h"
     if not source.exists():
@@ -151,13 +120,13 @@ def link_testlib(workspace: Path) -> dict[str, Any]:
 
 
 def list_problem_metadata(workspace: Path) -> list[dict[str, Any]]:
-    """list_problem_metadata 함수를 실행하고 결과를 반환합니다.
-    
+    """현재 설정과 파일시스템을 기준으로 문제 메타데이터 목록을 조회합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+
     Returns:
-        list[dict[str, Any]]: 처리 결과를 반환합니다.
+        list[dict[str, Any]]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 메타데이터 데이터입니다.
     """
     problems = []
     for problem_id in discover_workspace_problem_ids(workspace):
@@ -177,14 +146,6 @@ def list_problem_metadata(workspace: Path) -> list[dict[str, Any]]:
 
 
 def problem_folders(problems: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """problem_folders 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problems (list[dict[str, Any]]): `problems` 값입니다.
-    
-    Returns:
-        list[dict[str, Any]]: 처리 결과를 반환합니다.
-    """
     counts: dict[str, int] = {}
     for problem in problems:
         folder = str(problem.get("folder") or "").strip()
@@ -204,15 +165,15 @@ def delete_problem(
     problem_id: str,
     confirm_phrase: str,
 ) -> dict[str, Any]:
-    """delete_problem 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        confirm_phrase (str): `confirm_phrase` 값입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        confirm_phrase (str): 문제을 계산하거나 검증할 때 필요한 confirm phrase 입력입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 데이터입니다.
     """
     if confirm_phrase != DELETE_CONFIRM_PHRASE:
         raise JudgeError(f'문제를 삭제하려면 "{DELETE_CONFIRM_PHRASE}"를 정확히 입력하세요.')
@@ -234,16 +195,6 @@ def rename_problem(
     problem_id: str,
     new_problem_id: str,
 ) -> dict[str, Any]:
-    """rename_problem 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        new_problem_id (str): `new_problem_id` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     validate_safe_id("problem id", new_problem_id)
     if problem_id == new_problem_id:
         _, metadata_path, metadata = load_problem(problem_id, workspace)
@@ -284,14 +235,6 @@ def rename_problem(
 
 
 def workspace_status(workspace: Path) -> dict[str, Any]:
-    """workspace_status 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        workspace (Path): 작업 공간 객체입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     problem_ids = discover_workspace_problem_ids(workspace)
     problems = list_problem_metadata(workspace)
     return {

@@ -1,10 +1,4 @@
-"""pack_metadata 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제팩 메타데이터 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -20,13 +14,7 @@ from judge.utils.hashing import sha256_file
 
 @dataclass(frozen=True)
 class PackBuildResult:
-    """PackBuildResult 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """문제팩 build 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
     """
 
     archive_path: Path
@@ -37,14 +25,6 @@ class PackBuildResult:
 
 
 def manifest_files(pack_dir: Path) -> list[dict[str, str]]:
-    """manifest_files 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        pack_dir (Path): `pack_dir` 값입니다.
-    
-    Returns:
-        list[dict[str, str]]: 처리 결과를 반환합니다.
-    """
     files = []
     for path in sorted(item for item in pack_dir.rglob("*") if item.is_file()):
         relative = path.relative_to(pack_dir).as_posix()
@@ -60,16 +40,6 @@ def sanitize_problem_metadata(
     platform_id: str,
     suffix: str,
 ) -> dict[str, Any]:
-    """sanitize_problem_metadata 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        metadata (dict[str, Any]): `metadata` 값입니다.
-        platform_id (str): `platform_id` 값입니다.
-        suffix (str): `suffix` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     sanitized = copy.deepcopy(metadata)
     sanitized["tools"] = {
         "mode": PRECOMPILED_TOOL_MODE,

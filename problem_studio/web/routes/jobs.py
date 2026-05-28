@@ -1,10 +1,4 @@
-"""jobs 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""작업 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -23,13 +17,13 @@ router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
 @router.get("")
 def api_jobs(request: Request) -> dict:
-    """api_jobs 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
     jobs = jobs_from_request(request)
     return {
@@ -43,13 +37,13 @@ def api_jobs(request: Request) -> dict:
 
 @router.delete("/completed")
 def api_jobs_clear_completed(request: Request) -> dict:
-    """api_jobs_clear_completed 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 clear completed 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 clear completed 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "job cleanup")
@@ -61,14 +55,14 @@ def api_jobs_clear_completed(request: Request) -> dict:
 
 @router.get("/{job_id}")
 def api_job(request: Request, job_id: str) -> dict:
-    """api_job 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        job_id (str): 작업 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
@@ -79,14 +73,14 @@ def api_job(request: Request, job_id: str) -> dict:
 
 @router.post("/{job_id}/cancel")
 def api_job_cancel(request: Request, job_id: str) -> dict:
-    """api_job_cancel 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 cancel 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        job_id (str): 작업 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 cancel 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "job cancel")
@@ -103,14 +97,14 @@ def api_job_cancel(request: Request, job_id: str) -> dict:
 
 @router.delete("/{job_id}")
 def api_job_dismiss(request: Request, job_id: str) -> dict:
-    """api_job_dismiss 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 dismiss 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        job_id (str): 작업 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 dismiss 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "job dismiss")

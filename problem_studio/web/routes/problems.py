@@ -1,10 +1,4 @@
-"""problems 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -37,38 +31,30 @@ router = APIRouter(prefix="/api/problems", tags=["problems"])
 
 @router.get("")
 def api_problems(request: Request) -> list[dict]:
-    """api_problems 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        list[dict]: 처리 결과를 반환합니다.
+        list[dict]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 데이터입니다.
     """
     return route_result(lambda: list_problem_metadata(workspace_from_request(request)))
 
 
 @router.post("")
 def api_problem_create(request: Request, body: ProblemCreateRequest) -> dict:
-    """api_problem_create 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 create 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        body (ProblemCreateRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        body (ProblemCreateRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 create 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_local_write_allowed(request, "problem creation")
         workspace = workspace_from_request(request)
         result = create_problem(
@@ -88,25 +74,17 @@ def api_problem_create(request: Request, body: ProblemCreateRequest) -> dict:
 
 @router.get("/{problem_id}")
 def api_problem_detail(request: Request, problem_id: str) -> dict:
-    """api_problem_detail 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 detail 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 detail 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         workspace = workspace_from_request(request)
         problem_dir, metadata_path, metadata = load_problem(problem_id, workspace)
         return {
@@ -124,15 +102,15 @@ def api_problem_detail(request: Request, problem_id: str) -> dict:
 def api_problem_metadata_patch(
     request: Request, problem_id: str, body: MetadataPatchRequest
 ) -> dict:
-    """api_problem_metadata_patch 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 메타데이터 patch 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (MetadataPatchRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (MetadataPatchRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 메타데이터 patch 데이터입니다.
     """
     return route_result(
         lambda: (
@@ -144,26 +122,18 @@ def api_problem_metadata_patch(
 
 @router.patch("/{problem_id}/id")
 def api_problem_rename(request: Request, problem_id: str, body: ProblemRenameRequest) -> dict:
-    """api_problem_rename 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 rename 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (ProblemRenameRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (ProblemRenameRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 rename 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_local_write_allowed(request, "problem rename")
         result = rename_problem(workspace_from_request(request), problem_id, body.problem_id)
         result["workspace"] = add_workspace_warning(request, result["workspace"])
@@ -174,26 +144,18 @@ def api_problem_rename(request: Request, problem_id: str, body: ProblemRenameReq
 
 @router.delete("/{problem_id}")
 def api_problem_delete(request: Request, problem_id: str, body: ProblemDeleteRequest) -> dict:
-    """api_problem_delete 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 delete 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (ProblemDeleteRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (ProblemDeleteRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 delete 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_local_write_allowed(request, "problem delete")
         result = delete_problem(
             workspace_from_request(request),

@@ -1,10 +1,4 @@
-"""runs 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""실행 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -23,14 +17,14 @@ router = APIRouter(prefix="/api", tags=["runs"])
 
 @router.post("/run")
 def api_run(http_request: Request, request: RunRequest) -> dict:
-    """api_run 함수를 실행하고 결과를 반환합니다.
-    
+    """데이터 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (RunRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (RunRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 데이터 데이터입니다.
     """
     try:
         ensure_remote_run_allowed(http_request)
@@ -53,16 +47,16 @@ def api_run_upload(
     file: Annotated[UploadFile, File()],
     profile: Annotated[str | None, Form()] = None,
 ) -> dict:
-    """api_run_upload 함수를 실행하고 결과를 반환합니다.
-    
+    """업로드 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (Annotated[str, Form()]): 문제 ID입니다.
-        file (Annotated[UploadFile, File()]): 파일 경로 또는 파일 객체입니다.
-        profile (Annotated[str | None, Form()]): `profile` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (Annotated[str, Form()]): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        file (Annotated[UploadFile, File()]): 업로드 요청에서 받은 파일 스트림 객체입니다.
+        profile (Annotated[str | None, Form()]): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 업로드 데이터입니다.
     """
     try:
         ensure_remote_run_allowed(request)
@@ -86,19 +80,19 @@ def api_run_stream(
     source_text: Annotated[str | None, Form()] = None,
     file: Annotated[UploadFile | None, File()] = None,
 ) -> StreamingResponse:
-    """api_run_stream 함수를 실행하고 결과를 반환합니다.
-    
+    """스트림 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (Annotated[str, Form()]): 문제 ID입니다.
-        source_mode (Annotated[str, Form()]): `source_mode` 값입니다.
-        profile (Annotated[str | None, Form()]): `profile` 값입니다.
-        filename (Annotated[str | None, Form()]): `filename` 값입니다.
-        source_text (Annotated[str | None, Form()]): `source_text` 값입니다.
-        file (Annotated[UploadFile | None, File()]): 파일 경로 또는 파일 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (Annotated[str, Form()]): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        source_mode (Annotated[str, Form()]): 소스가 경로, 업로드, 직접 입력 중 어떤 방식으로 전달됐는지 나타냅니다.
+        profile (Annotated[str | None, Form()]): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        filename (Annotated[str | None, Form()]): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+        source_text (Annotated[str | None, Form()]): 요청 본문으로 전달된 제출 소스 코드입니다.
+        file (Annotated[UploadFile | None, File()]): 업로드 요청에서 받은 파일 스트림 객체입니다.
+
     Returns:
-        StreamingResponse: 처리 결과를 반환합니다.
+        StreamingResponse: 브라우저가 진행 이벤트를 받을 수 있는 스트리밍 HTTP 응답입니다.
     """
     try:
         ensure_remote_run_allowed(request)
@@ -128,19 +122,19 @@ def api_run_job(
     source_text: Annotated[str | None, Form()] = None,
     file: Annotated[UploadFile | None, File()] = None,
 ) -> dict:
-    """api_run_job 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (Annotated[str, Form()]): 문제 ID입니다.
-        source_mode (Annotated[str, Form()]): `source_mode` 값입니다.
-        profile (Annotated[str | None, Form()]): `profile` 값입니다.
-        filename (Annotated[str | None, Form()]): `filename` 값입니다.
-        source_text (Annotated[str | None, Form()]): `source_text` 값입니다.
-        file (Annotated[UploadFile | None, File()]): 파일 경로 또는 파일 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (Annotated[str, Form()]): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        source_mode (Annotated[str, Form()]): 소스가 경로, 업로드, 직접 입력 중 어떤 방식으로 전달됐는지 나타냅니다.
+        profile (Annotated[str | None, Form()]): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        filename (Annotated[str | None, Form()]): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+        source_text (Annotated[str | None, Form()]): 요청 본문으로 전달된 제출 소스 코드입니다.
+        file (Annotated[UploadFile | None, File()]): 업로드 요청에서 받은 파일 스트림 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
     try:
         ensure_remote_run_allowed(request)
@@ -155,15 +149,6 @@ def api_run_job(
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             progress("Starting judge run.", label="Run Tests")
             result = services.run_problem_source_with_progress(
                 problem_id,
@@ -197,13 +182,13 @@ def api_run_job(
 
 @router.get("/runs/{run_id}")
 def api_run_result(run_id: str) -> dict:
-    """api_run_result 함수를 실행하고 결과를 반환합니다.
-    
+    """결과 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        run_id (str): `run_id` 값입니다.
-    
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 결과 데이터입니다.
     """
     try:
         return services.run_result(run_id)
@@ -213,14 +198,14 @@ def api_run_result(run_id: str) -> dict:
 
 @router.get("/runs/{run_id}/wrong/{case_id}")
 def api_wrong_case(run_id: str, case_id: str) -> dict:
-    """api_wrong_case 함수를 실행하고 결과를 반환합니다.
-    
+    """오답 케이스 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-    
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+        case_id (str): 입력, 출력, 오답 산출물을 구분하는 케이스 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 오답 케이스 데이터입니다.
     """
     try:
         return services.wrong_case(run_id, case_id)

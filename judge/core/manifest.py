@@ -1,10 +1,4 @@
-"""manifest 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""매니페스트 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -23,14 +17,6 @@ FILE_HASH_CACHE: dict[Path, tuple[int, int, str]] = {}
 
 
 def cached_sha256_file(path: Path) -> str:
-    """cached_sha256_file 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        path (Path): 경로 문자열입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     resolved = path.resolve()
     stat = resolved.stat()
     cached = FILE_HASH_CACHE.get(resolved)
@@ -42,15 +28,6 @@ def cached_sha256_file(path: Path) -> str:
 
 
 def source_hashes(problem_id: str, root: Path | None = None) -> dict[str, str]:
-    """source_hashes 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        dict[str, str]: 처리 결과를 반환합니다.
-    """
     _, metadata_path, _, paths = tool_paths(problem_id, root)
     project_root = root or repo_root()
     hashes = {
@@ -71,16 +48,6 @@ def source_hashes(problem_id: str, root: Path | None = None) -> dict[str, str]:
 
 
 def generation_key(problem_id: str, profile: str, root: Path | None = None) -> str:
-    """generation_key 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     _, _, metadata = load_problem(problem_id, root)
     payload = {
         "protocolVersion": PROTOCOL_VERSION,
@@ -96,16 +63,16 @@ def generation_key(problem_id: str, profile: str, root: Path | None = None) -> s
 
 
 def validate_manifest(cache_dir: Path, problem_id: str, profile: str, key: str) -> bool:
-    """validate_manifest 함수를 실행하고 결과를 반환합니다.
-    
+    """매니페스트 값이 허용되는 형식과 정책을 만족하는지 검사합니다.
+
     Args:
-        cache_dir (Path): `cache_dir` 값입니다.
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        key (str): `key` 값입니다.
-    
+        cache_dir (Path): 캐시 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        key (str): 상태 맵, 로컬 스토리지, 객체에서 값을 찾는 키입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: 매니페스트 조건을 만족하면 True, 아니면 False입니다.
     """
     manifest_path = cache_dir / "manifest.json"
     if not manifest_path.exists():
@@ -133,16 +100,16 @@ def validate_manifest(cache_dir: Path, problem_id: str, profile: str, key: str) 
 
 
 def validate_manifest_fast(cache_dir: Path, problem_id: str, profile: str, key: str) -> bool:
-    """validate_manifest_fast 함수를 실행하고 결과를 반환합니다.
-    
+    """매니페스트 fast 값이 허용되는 형식과 정책을 만족하는지 검사합니다.
+
     Args:
-        cache_dir (Path): `cache_dir` 값입니다.
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        key (str): `key` 값입니다.
-    
+        cache_dir (Path): 캐시 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        key (str): 상태 맵, 로컬 스토리지, 객체에서 값을 찾는 키입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: 매니페스트 fast 조건을 만족하면 True, 아니면 False입니다.
     """
     manifest_path = cache_dir / "manifest.json"
     if not manifest_path.exists():
@@ -174,19 +141,19 @@ def build_manifest(
     final_dir: Path,
     root: Path | None = None,
 ) -> dict[str, Any]:
-    """build_manifest 함수를 실행하고 결과를 반환합니다.
-    
+    """매니페스트에 필요한 경로, 메타데이터, 파일 목록을 조립합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        key (str): `key` 값입니다.
-        source_hashes_data (dict[str, str]): `source_hashes_data` 값입니다.
-        case_summaries (list[dict[str, Any]]): `case_summaries` 값입니다.
-        final_dir (Path): `final_dir` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        key (str): 상태 맵, 로컬 스토리지, 객체에서 값을 찾는 키입니다.
+        source_hashes_data (dict[str, str]): 매니페스트을 계산하거나 검증할 때 필요한 소스 hashes 데이터 입력입니다.
+        case_summaries (list[dict[str, Any]]): 매니페스트을 계산하거나 검증할 때 필요한 케이스 summaries 입력입니다.
+        final_dir (Path): final dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 매니페스트 데이터입니다.
     """
     _, _, metadata = load_problem(problem_id, root)
     cases = []

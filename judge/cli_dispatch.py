@@ -1,10 +1,4 @@
-"""cli_dispatch 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""CLI dispatch 기능을 담당하는 모듈입니다.
 """
 from __future__ import annotations
 
@@ -41,14 +35,11 @@ COMMAND_HANDLERS = {
 
 
 def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    """dispatch 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        args (argparse.Namespace): `args` 값입니다.
-        parser (argparse.ArgumentParser): `parser` 값입니다.
-    
-    Returns:
-        int: 처리 결과를 반환합니다.
+    """파싱된 하위 명령 이름을 등록된 핸들러에 연결하고 명령이 없으면 도움말을 출력합니다.
+
+        Args:
+            args (argparse.Namespace): argparse가 파싱한 명령 옵션과 대상 값을 담은 네임스페이스입니다.
+            parser (argparse.ArgumentParser): 하위 명령과 공통 옵션을 등록하거나 오류를 출력할 argparse 파서입니다.
     """
     if args.command is None:
         parser.print_help()

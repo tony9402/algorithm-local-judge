@@ -1,10 +1,4 @@
-"""schemas 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""schemas 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -14,26 +8,14 @@ from pydantic import BaseModel, Field
 
 
 class WorkspaceOpenRequest(BaseModel):
-    """WorkspaceOpenRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 작업 공간 open 요청 필드를 검증하는 스키마입니다.
     """
 
     path: str = Field(min_length=1)
 
 
 class GitCloneRequest(BaseModel):
-    """GitCloneRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 Git clone 요청 필드를 검증하는 스키마입니다.
     """
 
     url: str = Field(min_length=1)
@@ -42,13 +24,7 @@ class GitCloneRequest(BaseModel):
 
 
 class GitCommitRequest(BaseModel):
-    """GitCommitRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 Git commit 요청 필드를 검증하는 스키마입니다.
     """
 
     message: str = Field(min_length=1)
@@ -56,26 +32,14 @@ class GitCommitRequest(BaseModel):
 
 
 class RepositorySelectRequest(BaseModel):
-    """RepositorySelectRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 저장소 select 요청 필드를 검증하는 스키마입니다.
     """
 
     repo_name: str = Field(min_length=1)
 
 
 class RepositoryCloneRequest(BaseModel):
-    """RepositoryCloneRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 저장소 clone 요청 필드를 검증하는 스키마입니다.
     """
 
     url: str = Field(min_length=1)
@@ -84,26 +48,14 @@ class RepositoryCloneRequest(BaseModel):
 
 
 class RepositoryRegisterRequest(BaseModel):
-    """RepositoryRegisterRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 저장소 register 요청 필드를 검증하는 스키마입니다.
     """
 
     repo_name: str = Field(min_length=1)
 
 
 class ProblemCreateRequest(BaseModel):
-    """ProblemCreateRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 문제 create 요청 필드를 검증하는 스키마입니다.
     """
 
     problem_id: str = Field(min_length=1)
@@ -115,78 +67,42 @@ class ProblemCreateRequest(BaseModel):
 
 
 class ProblemDeleteRequest(BaseModel):
-    """ProblemDeleteRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 문제 delete 요청 필드를 검증하는 스키마입니다.
     """
 
     confirm_phrase: str = Field(min_length=1)
 
 
 class ProblemRenameRequest(BaseModel):
-    """ProblemRenameRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 문제 rename 요청 필드를 검증하는 스키마입니다.
     """
 
     problem_id: str = Field(min_length=1)
 
 
 class MetadataPatchRequest(BaseModel):
-    """MetadataPatchRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 메타데이터 patch 요청 필드를 검증하는 스키마입니다.
     """
 
     metadata: dict[str, Any]
 
 
 class FileWriteRequest(BaseModel):
-    """FileWriteRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 파일 쓰기 요청 필드를 검증하는 스키마입니다.
     """
 
     content: str
 
 
 class CasesCompileRequest(BaseModel):
-    """CasesCompileRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 케이스 컴파일 요청 필드를 검증하는 스키마입니다.
     """
 
     profile: str | None = None
 
 
 class GenerateRequest(BaseModel):
-    """GenerateRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 generate 요청 필드를 검증하는 스키마입니다.
     """
 
     profile: str = "hidden"
@@ -194,39 +110,21 @@ class GenerateRequest(BaseModel):
 
 
 class DataValidateRequest(BaseModel):
-    """DataValidateRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 데이터 validate 요청 필드를 검증하는 스키마입니다.
     """
 
     force: bool = True
 
 
 class ToolCompileRequest(BaseModel):
-    """ToolCompileRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 도구 컴파일 요청 필드를 검증하는 스키마입니다.
     """
 
     tool: str | None = None
 
 
 class SolutionVerifyRequest(BaseModel):
-    """SolutionVerifyRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 솔루션 verify 요청 필드를 검증하는 스키마입니다.
     """
 
     profile: str = "hidden"
@@ -234,13 +132,7 @@ class SolutionVerifyRequest(BaseModel):
 
 
 class SolutionStressRequest(BaseModel):
-    """SolutionStressRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 솔루션 스트레스 테스트 요청 필드를 검증하는 스키마입니다.
     """
 
     profile: str = "hidden"
@@ -251,13 +143,7 @@ class SolutionStressRequest(BaseModel):
 
 
 class StressAppendRequest(BaseModel):
-    """StressAppendRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 스트레스 테스트 append 요청 필드를 검증하는 스키마입니다.
     """
 
     profile: str = "hidden"
@@ -266,13 +152,7 @@ class StressAppendRequest(BaseModel):
 
 
 class SolutionCreateRequest(BaseModel):
-    """SolutionCreateRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 솔루션 create 요청 필드를 검증하는 스키마입니다.
     """
 
     name: str = Field(min_length=1)
@@ -281,13 +161,7 @@ class SolutionCreateRequest(BaseModel):
 
 
 class SolutionRenameRequest(BaseModel):
-    """SolutionRenameRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 솔루션 rename 요청 필드를 검증하는 스키마입니다.
     """
 
     path: str = Field(min_length=1)
@@ -297,13 +171,7 @@ class SolutionRenameRequest(BaseModel):
 
 
 class PackBuildRequest(BaseModel):
-    """PackBuildRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 문제팩 build 요청 필드를 검증하는 스키마입니다.
     """
 
     pack_id: str = Field(min_length=1)
@@ -312,13 +180,7 @@ class PackBuildRequest(BaseModel):
 
 
 class BulkPackBuildRequest(BaseModel):
-    """BulkPackBuildRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 일괄 작업 문제팩 build 요청 필드를 검증하는 스키마입니다.
     """
 
     pack_id: str = Field(min_length=1)

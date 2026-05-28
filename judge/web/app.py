@@ -1,10 +1,4 @@
-"""app 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""애플리케이션 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -25,14 +19,6 @@ INDEX_PATH = STATIC_ROOT / "index.html"
 
 
 def register_api_routes(app: FastAPI) -> None:
-    """register_api_routes 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        app (FastAPI): `app` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
     for router in API_ROUTERS:
         app.include_router(router)
 
@@ -43,15 +29,15 @@ def create_app(
     remote_warning: bool = False,
     allow_remote_run: bool = False,
 ) -> FastAPI:
-    """create_app 함수를 실행하고 결과를 반환합니다.
-    
+    """로컬 judge 웹 UI에 필요한 라우터, 보안 상태, 작업 큐를 가진 FastAPI 앱을 만듭니다.
+
     Args:
-        local_binding (bool): `local_binding` 값입니다.
-        remote_warning (bool): `remote_warning` 값입니다.
-        allow_remote_run (bool): `allow_remote_run` 값입니다.
-    
+        local_binding (bool): 애플리케이션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        remote_warning (bool): 애플리케이션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        allow_remote_run (bool): 애플리케이션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+
     Returns:
-        FastAPI: 처리 결과를 반환합니다.
+        FastAPI: 라우터와 정적 파일 설정이 등록된 FastAPI 애플리케이션입니다.
     """
     app = FastAPI(title="Algorithm Local Judge", docs_url=None, redoc_url=None)
     app.state.local_binding = local_binding
@@ -62,14 +48,7 @@ def create_app(
 
     @app.get("/")
     def index() -> FileResponse:
-        """index 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            없음
-        
-        Returns:
-            FileResponse: 처리 결과를 반환합니다.
-        """
+        """단일 페이지 judge 웹 UI의 index.html을 반환합니다."""
         return FileResponse(
             INDEX_PATH,
             headers={"Cache-Control": "no-store"},
@@ -77,14 +56,7 @@ def create_app(
 
     @app.get("/static/{file_path:path}")
     def static_file(file_path: str) -> FileResponse:
-        """static_file 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            file_path (str): `file_path` 값입니다.
-        
-        Returns:
-            FileResponse: 처리 결과를 반환합니다.
-        """
+        """로컬 개발 중 캐시 재사용을 막고 정적 파일을 안전한 경로에서 반환합니다."""
         root = STATIC_ROOT.resolve()
         path = (root / file_path).resolve()
         if root not in path.parents and path != root:

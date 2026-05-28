@@ -1,10 +1,4 @@
-"""schemas 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""schemas 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -12,26 +6,14 @@ from pydantic import BaseModel, Field
 
 
 class PackInstallRequest(BaseModel):
-    """PackInstallRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 문제팩 설치 요청 필드를 검증하는 스키마입니다.
     """
 
     archive_path: str = Field(min_length=1)
 
 
 class PackDownloadRequest(BaseModel):
-    """PackDownloadRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 문제팩 다운로드 요청 필드를 검증하는 스키마입니다.
     """
 
     repository: str | None = None
@@ -40,13 +22,7 @@ class PackDownloadRequest(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    """GenerateRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 generate 요청 필드를 검증하는 스키마입니다.
     """
 
     problem_id: str = Field(min_length=1)
@@ -55,13 +31,7 @@ class GenerateRequest(BaseModel):
 
 
 class CasesCompileRequest(BaseModel):
-    """CasesCompileRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 케이스 컴파일 요청 필드를 검증하는 스키마입니다.
     """
 
     problem_id: str = Field(min_length=1)
@@ -69,26 +39,14 @@ class CasesCompileRequest(BaseModel):
 
 
 class ProblemFolderUpdateRequest(BaseModel):
-    """ProblemFolderUpdateRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 문제 폴더 update 요청 필드를 검증하는 스키마입니다.
     """
 
     folder: str = ""
 
 
 class RunRequest(BaseModel):
-    """RunRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 실행 요청 필드를 검증하는 스키마입니다.
     """
 
     problem_id: str = Field(min_length=1)
@@ -100,13 +58,7 @@ class RunRequest(BaseModel):
 
 
 class CacheClearRequest(BaseModel):
-    """CacheClearRequest 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """API에서 주고받는 캐시 clear 요청 필드를 검증하는 스키마입니다.
     """
 
     problem: str | None = None

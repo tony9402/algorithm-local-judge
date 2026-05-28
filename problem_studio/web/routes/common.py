@@ -1,10 +1,4 @@
-"""common 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""common API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -34,50 +28,47 @@ T = TypeVar("T")
 
 
 def workspace_from_request(request: Request) -> Path:
-    """workspace_from_request 함수를 실행하고 결과를 반환합니다.
-    
+    """FastAPI 앱 상태에서 현재 Problem Studio 작업 공간 경로를 꺼냅니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 작업 공간 요청 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     return request.app.state.workspace
 
 
 def workspace_root_from_request(request: Request) -> Path:
-    """workspace_root_from_request 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 공간 root 요청 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 작업 공간 root 요청 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     return getattr(request.app.state, "workspace_root", request.app.state.workspace)
 
 
 def active_repository_from_request(request: Request) -> str | None:
-    """active_repository_from_request 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        request (Request): HTTP 요청 객체입니다.
-    
-    Returns:
-        str | None: 처리 결과를 반환합니다.
+    """활성 저장소 요청 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+        Args:
+            request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
     """
     return getattr(request.app.state, "active_repository", None)
 
 
 def set_active_repository(request: Request, repo_name: str | None) -> Path:
-    """set_active_repository 함수를 실행하고 결과를 반환합니다.
-    
+    """활성 저장소 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        repo_name (str | None): `repo_name` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        repo_name (str | None): 저장소 이름를 사용자 표시와 내부 조회에 함께 사용하는 이름입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 활성 저장소 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     workspace_root = workspace_root_from_request(request)
     active = validate_repository_name(repo_name) if repo_name else None
@@ -88,41 +79,41 @@ def set_active_repository(request: Request, repo_name: str | None) -> Path:
 
 
 def repository_scope_from_request(request: Request) -> str:
-    """repository_scope_from_request 함수를 실행하고 결과를 반환합니다.
-    
+    """저장소 scope 요청 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 저장소 scope 요청 문자열입니다.
     """
     active = active_repository_from_request(request)
     return f"repo:{active}" if active else "legacy"
 
 
 def scoped_lane(request: Request, *parts: str) -> str:
-    """scoped_lane 함수를 실행하고 결과를 반환합니다.
-    
+    """scoped lane 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        *parts (str): `parts` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        *parts (str): scoped lane을 계산하거나 검증할 때 필요한 parts 입력입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 scoped lane 문자열입니다.
     """
     suffix = ":".join(part for part in parts if part)
     return f"problem-studio:{repository_scope_from_request(request)}:{suffix}"
 
 
 def scoped_target(request: Request, target: dict | None = None) -> dict:
-    """scoped_target 함수를 실행하고 결과를 반환합니다.
-    
+    """scoped target 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        target (dict | None): `target` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        target (dict | None): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 scoped target 데이터입니다.
     """
     active = active_repository_from_request(request)
     return {
@@ -134,14 +125,14 @@ def scoped_target(request: Request, target: dict | None = None) -> dict:
 
 
 def job_matches_active_repository(request: Request, job: BackgroundJob) -> bool:
-    """job_matches_active_repository 함수를 실행하고 결과를 반환합니다.
-    
+    """작업 matches 활성 저장소 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        job (BackgroundJob): `job` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        job (BackgroundJob): 작업 matches 활성 저장소을 계산하거나 검증할 때 필요한 작업 입력입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: 작업 matches 활성 저장소 조건을 만족하면 True, 아니면 False입니다.
     """
     target = job.target or {}
     repository_scope = target.get("repositoryScope")
@@ -151,13 +142,10 @@ def job_matches_active_repository(request: Request, job: BackgroundJob) -> bool:
 
 
 def jobs_from_request(request: Request) -> BackgroundJobStore:
-    """jobs_from_request 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        request (Request): HTTP 요청 객체입니다.
-    
-    Returns:
-        BackgroundJobStore: 처리 결과를 반환합니다.
+    """작업 요청 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+        Args:
+            request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
     """
     return request.app.state.jobs
 
@@ -176,36 +164,25 @@ def enqueue_background_job(
     result_actions: dict | None = None,
     input_snapshot_summary: str | None = None,
 ) -> BackgroundJob:
-    """enqueue_background_job 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        jobs (BackgroundJobStore): `jobs` 값입니다.
-        request (Request | None): HTTP 요청 객체입니다.
-        kind (str): `kind` 값입니다.
-        title (str): `title` 값입니다.
-        problem_id (str): 문제 ID입니다.
-        lane (str): `lane` 값입니다.
-        target (dict | None): `target` 값입니다.
-        operation (Callable[[CancelToken, Callable[..., None]], dict]): `operation` 값입니다.
-        app (str): `app` 값입니다.
-        result_actions (dict | None): `result_actions` 값입니다.
-        input_snapshot_summary (str | None): `input_snapshot_summary` 값입니다.
-    
-    Returns:
-        BackgroundJob: 처리 결과를 반환합니다.
+    """background 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+        Args:
+            jobs (BackgroundJobStore): background 작업을 계산하거나 검증할 때 필요한 작업 입력입니다.
+            request (Request | None): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+            kind (str): background 작업을 계산하거나 검증할 때 필요한 kind 입력입니다.
+            title (str): background 작업을 계산하거나 검증할 때 필요한 title 입력입니다.
+            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+            lane (str): background 작업을 계산하거나 검증할 때 필요한 lane 입력입니다.
+            target (dict | None): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
+            operation (Callable[[CancelToken, Callable[..., None]], dict]): background 작업을 계산하거나 검증할 때 필요한 operation 입력입니다.
+            app (str): background 작업을 계산하거나 검증할 때 필요한 애플리케이션 입력입니다.
+            result_actions (dict | None): background 작업을 계산하거나 검증할 때 필요한 결과 actions 입력입니다.
+            input_snapshot_summary (str | None): background 작업을 계산하거나 검증할 때 필요한 입력 snapshot summary 입력입니다.
     """
     holder: dict[str, str] = {}
     ready = threading.Event()
 
     def run(cancel_token: CancelToken) -> dict:
-    """run 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        cancel_token (CancelToken): `cancel_token` 값입니다.
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ready.wait(timeout=2)
 
         def progress(
@@ -215,18 +192,6 @@ def enqueue_background_job(
             label: str | None = None,
             **extra,
         ) -> None:
-        """progress 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            message (str): 메시지입니다.
-            current (int | None): `current` 값입니다.
-            total (int | None): `total` 값입니다.
-            label (str | None): `label` 값입니다.
-            **extra (Any): `extra` 값입니다.
-        
-        Returns:
-            None: 처리 결과를 반환합니다.
-        """
             cancel_token.check()
             jobs.update_progress(
                 holder["job_id"],
@@ -257,14 +222,14 @@ def enqueue_background_job(
 
 
 def add_workspace_warning(request: Request, status: dict) -> dict:
-    """add_workspace_warning 함수를 실행하고 결과를 반환합니다.
-    
+    """add 작업 공간 warning 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        status (dict): `status` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        status (dict): add 작업 공간 warning을 계산하거나 검증할 때 필요한 상태 입력입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 add 작업 공간 warning 데이터입니다.
     """
     status = {
         **status,
@@ -286,13 +251,13 @@ def add_workspace_warning(request: Request, status: dict) -> dict:
 
 
 def workspace_status_from_request(request: Request) -> dict:
-    """workspace_status_from_request 함수를 실행하고 결과를 반환합니다.
-    
+    """요청의 앱 상태와 활성 저장소를 기준으로 프론트엔드가 표시할 작업 공간 상태를 구성합니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 공간 상태 요청 데이터입니다.
     """
     status = workspace_status(workspace_from_request(request))
     status.update(
@@ -305,13 +270,13 @@ def workspace_status_from_request(request: Request) -> dict:
 
 
 def to_http_error(exc: Exception) -> HTTPException:
-    """to_http_error 함수를 실행하고 결과를 반환합니다.
-    
+    """http 오류 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        exc (Exception): `exc` 값입니다.
-    
+        exc (Exception): http 오류을 계산하거나 검증할 때 필요한 exc 입력입니다.
+
     Returns:
-        HTTPException: 처리 결과를 반환합니다.
+        HTTPException: 클라이언트에 전달할 상태 코드와 오류 본문을 담은 HTTP 예외입니다.
     """
     if isinstance(exc, SecurityPolicyError):
         return HTTPException(status_code=403, detail=str(exc))
@@ -325,13 +290,10 @@ def to_http_error(exc: Exception) -> HTTPException:
 
 
 def route_result(operation: Callable[[], T]) -> T:
-    """route_result 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        operation (Callable[[], T]): `operation` 값입니다.
-    
-    Returns:
-        T: 처리 결과를 반환합니다.
+    """라우트 내부 작업의 JudgeError와 예상 가능한 예외를 JSON HTTP 오류 응답으로 변환합니다.
+
+        Args:
+            operation (Callable[[], T]): 라우트 결과을 계산하거나 검증할 때 필요한 operation 입력입니다.
     """
     try:
         return operation()

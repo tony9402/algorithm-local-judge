@@ -1,10 +1,4 @@
-"""submission_warmup 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""제출 워밍업 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -26,19 +20,19 @@ def warm_up_submission(
     emit: Callable[[str], None],
     command_runner: Callable[..., CommandResult] = run_command_result,
 ) -> dict[str, Any] | None:
-    """warm_up_submission 함수를 실행하고 결과를 반환합니다.
-    
+    """warm up 제출 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
     Args:
-        command (list[str]): `command` 값입니다.
-        data_dir (Path): `data_dir` 값입니다.
-        run_dir (Path): `run_dir` 값입니다.
-        timeout_ms (int): `timeout_ms` 값입니다.
-        profile (str): `profile` 값입니다.
-        emit (Callable[[str], None]): `emit` 값입니다.
-        command_runner (Callable[..., CommandResult]): `command_runner` 값입니다.
-    
+        command (list[str]): warm up 제출을 계산하거나 검증할 때 필요한 명령 입력입니다.
+        data_dir (Path): 데이터 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        run_dir (Path): 실행 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        timeout_ms (int): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+        profile (str): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        emit (Callable[[str], None]): warm up 제출을 계산하거나 검증할 때 필요한 emit 입력입니다.
+        command_runner (Callable[..., CommandResult]): warm up 제출을 계산하거나 검증할 때 필요한 명령 실행기 입력입니다.
+
     Returns:
-        dict[str, Any] | None: 처리 결과를 반환합니다.
+        dict[str, Any] | None: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 warm up 제출 데이터입니다.
     """
     manifest = read_json(data_dir / "manifest.json")
     cases = list(manifest.get("cases") or [])

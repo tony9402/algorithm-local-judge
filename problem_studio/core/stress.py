@@ -1,10 +1,4 @@
-"""stress 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""스트레스 테스트 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -50,45 +44,16 @@ def _emit(
     label: str | None = None,
     **extra: Any,
 ) -> None:
-"""_emit 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    progress (Callable[..., None] | None): `progress` 값입니다.
-    message (str): 메시지입니다.
-    current (int | None): `current` 값입니다.
-    total (int | None): `total` 값입니다.
-    label (str | None): `label` 값입니다.
-    **extra (Any): `extra` 값입니다.
-
-Returns:
-    None: 처리 결과를 반환합니다.
-"""
     if progress is not None:
         progress(message, current=current, total=total, label=label, **extra)
 
 
 def _check_cancel(cancel_token: Any | None) -> None:
-"""_check_cancel 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    cancel_token (Any | None): `cancel_token` 값입니다.
-
-Returns:
-    None: 처리 결과를 반환합니다.
-"""
     if cancel_token is not None:
         cancel_token.check()
 
 
 def _clamped_duration_seconds(value: int | None) -> int:
-"""_clamped_duration_seconds 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    value (int | None): 값입니다.
-
-Returns:
-    int: 처리 결과를 반환합니다.
-"""
     if value is None:
         return DEFAULT_STRESS_DURATION_SECONDS
     try:
@@ -99,54 +64,20 @@ Returns:
 
 
 def _stress_root(workspace: Path) -> Path:
-"""_stress_root 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    workspace (Path): 작업 공간 객체입니다.
-
-Returns:
-    Path: 처리 결과를 반환합니다.
-"""
     return cache_root(workspace) / "stress"
 
 
 def _safe_run_id(run_id: str | None = None) -> str:
-"""_safe_run_id 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    run_id (str | None): `run_id` 값입니다.
-
-Returns:
-    str: 처리 결과를 반환합니다.
-"""
     value = run_id or uuid.uuid4().hex
     validate_safe_id("stress run id", value)
     return value
 
 
 def _stress_dir(workspace: Path, run_id: str) -> Path:
-"""_stress_dir 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    workspace (Path): 작업 공간 객체입니다.
-    run_id (str): `run_id` 값입니다.
-
-Returns:
-    Path: 처리 결과를 반환합니다.
-"""
     return ensure_inside(_stress_root(workspace) / run_id, _stress_root(workspace))
 
 
 def _profile_cases(config: Mapping[str, Any], profile: str) -> list[Any]:
-"""_profile_cases 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    config (Mapping[str, Any]): 동작 설정입니다.
-    profile (str): `profile` 값입니다.
-
-Returns:
-    list[Any]: 처리 결과를 반환합니다.
-"""
     profiles = config.get("profiles", {})
     if not isinstance(profiles, Mapping):
         raise JudgeError("cases.yml profiles must be a mapping")
@@ -168,15 +99,6 @@ Returns:
 
 
 def _generator_cases(config_path: Path, profile: str) -> list[dict[str, Any]]:
-"""_generator_cases 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    config_path (Path): `config_path` 값입니다.
-    profile (str): `profile` 값입니다.
-
-Returns:
-    list[dict[str, Any]]: 처리 결과를 반환합니다.
-"""
     config = load_config(config_path)
     try:
         cases = expand_cases(_profile_cases(config, profile))
@@ -189,15 +111,6 @@ Returns:
 
 
 def _solution_key(path: Path, problem_dir: Path) -> str:
-"""_solution_key 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    path (Path): 경로 문자열입니다.
-    problem_dir (Path): `problem_dir` 값입니다.
-
-Returns:
-    str: 처리 결과를 반환합니다.
-"""
     relative = rel(path, problem_dir).replace("\\", "/")
     digest = sha256_text(relative)[:10]
     stem = (
@@ -210,15 +123,6 @@ Returns:
 
 
 def _remaining_ms(deadline: float, configured_ms: int | None) -> int:
-"""_remaining_ms 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    deadline (float): `deadline` 값입니다.
-    configured_ms (int | None): `configured_ms` 값입니다.
-
-Returns:
-    int: 처리 결과를 반환합니다.
-"""
     remaining = int((deadline - time.monotonic()) * 1000)
     if remaining < MIN_COMMAND_TIMEOUT_MS:
         raise JudgeError("stress duration elapsed while a case was running")
@@ -228,15 +132,6 @@ Returns:
 
 
 def _generator_command(generator: Path, case: Mapping[str, Any]) -> list[str]:
-"""_generator_command 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    generator (Path): `generator` 값입니다.
-    case (Mapping[str, Any]): `case` 값입니다.
-
-Returns:
-    list[str]: 처리 결과를 반환합니다.
-"""
     seed = case.get("seed")
     if seed is None:
         raise JudgeError(f"generator case requires seed: {case.get('name')}")
@@ -254,16 +149,6 @@ def _run_generator(
     case: Mapping[str, Any],
     timeout_ms: int,
 ) -> str:
-"""_run_generator 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    generator (Path): `generator` 값입니다.
-    case (Mapping[str, Any]): `case` 값입니다.
-    timeout_ms (int): `timeout_ms` 값입니다.
-
-Returns:
-    str: 처리 결과를 반환합니다.
-"""
     result = run_command_result(_generator_command(generator, case), timeout_ms)
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace").strip()
@@ -278,44 +163,16 @@ Returns:
 
 
 def _status_from_submission_result(result: Any) -> str:
-"""_status_from_submission_result 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    result (Any): `result` 값입니다.
-
-Returns:
-    str: 처리 결과를 반환합니다.
-"""
     return "accepted" if result.status == "accepted" else result.status
 
 
 def _stress_status_matches(expected_status: str, actual_status: str) -> bool:
-"""_stress_status_matches 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    expected_status (str): `expected_status` 값입니다.
-    actual_status (str): `actual_status` 값입니다.
-
-Returns:
-    bool: 처리 결과를 반환합니다.
-"""
     if actual_status == expected_status:
         return True
     return expected_status != "accepted" and actual_status == "accepted"
 
 
 def _case_manifest(problem_id: str, profile: str, case_id: str, case_name: str) -> dict[str, Any]:
-"""_case_manifest 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    problem_id (str): 문제 ID입니다.
-    profile (str): `profile` 값입니다.
-    case_id (str): `case_id` 값입니다.
-    case_name (str): `case_name` 값입니다.
-
-Returns:
-    dict[str, Any]: 처리 결과를 반환합니다.
-"""
     return {
         "problemId": problem_id,
         "profile": f"stress:{profile}",
@@ -331,15 +188,6 @@ Returns:
 
 
 def _diff_text(expected: Path, actual: Path) -> str:
-"""_diff_text 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    expected (Path): `expected` 값입니다.
-    actual (Path): `actual` 값입니다.
-
-Returns:
-    str: 처리 결과를 반환합니다.
-"""
     expected_lines = expected.read_text(encoding="utf-8", errors="replace").splitlines(True)
     actual_lines = actual.read_text(encoding="utf-8", errors="replace").splitlines(True)
     return "".join(
@@ -363,20 +211,6 @@ def _copy_mismatch_artifacts(
     actual_path: Path | None,
     metadata: dict[str, Any],
 ) -> dict[str, str]:
-"""_copy_mismatch_artifacts 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    run_dir (Path): `run_dir` 값입니다.
-    case_id (str): `case_id` 값입니다.
-    solution_key (str): `solution_key` 값입니다.
-    input_path (Path): `input_path` 값입니다.
-    expected_path (Path): `expected_path` 값입니다.
-    actual_path (Path | None): `actual_path` 값입니다.
-    metadata (dict[str, Any]): `metadata` 값입니다.
-
-Returns:
-    dict[str, str]: 처리 결과를 반환합니다.
-"""
     artifact_dir = run_dir / "mismatches" / case_id / solution_key
     artifact_dir.mkdir(parents=True, exist_ok=True)
     input_copy = artifact_dir / "input.txt"
@@ -401,16 +235,6 @@ Returns:
 
 
 def _remove_case_artifacts(run_dir: Path, case_id: str, solution_keys: list[str]) -> None:
-"""_remove_case_artifacts 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    run_dir (Path): `run_dir` 값입니다.
-    case_id (str): `case_id` 값입니다.
-    solution_keys (list[str]): `solution_keys` 값입니다.
-
-Returns:
-    None: 처리 결과를 반환합니다.
-"""
     for relative in [f"cases/{case_id}.in", f"cases/{case_id}.out"]:
         path = run_dir / relative
         if path.exists():
@@ -436,20 +260,6 @@ def _progress_payload(
     seed: int | None = None,
     max_cases: int | None = None,
 ) -> dict[str, Any]:
-"""_progress_payload 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    start (float): `start` 값입니다.
-    deadline (float): `deadline` 값입니다.
-    duration_seconds (int): `duration_seconds` 값입니다.
-    iterations (int): `iterations` 값입니다.
-    mismatch_count (int): `mismatch_count` 값입니다.
-    seed (int | None): `seed` 값입니다.
-    max_cases (int | None): `max_cases` 값입니다.
-
-Returns:
-    dict[str, Any]: 처리 결과를 반환합니다.
-"""
     elapsed = max(0.0, time.monotonic() - start)
     remaining = max(0.0, deadline - time.monotonic())
     if max_cases:
@@ -485,23 +295,23 @@ def stress_test_solutions(
     rng: random.Random | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
-    """stress_test_solutions 함수를 실행하고 결과를 반환합니다.
-    
+    """스트레스 테스트 test 솔루션 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        duration_seconds (int): `duration_seconds` 값입니다.
-        max_cases (int | None): `max_cases` 값입니다.
-        solutions (list[str] | None): `solutions` 값입니다.
-        stop_on_first_mismatch (bool): `stop_on_first_mismatch` 값입니다.
-        cancel_token (Any | None): `cancel_token` 값입니다.
-        progress (Callable[..., None] | None): `progress` 값입니다.
-        rng (random.Random | None): `rng` 값입니다.
-        run_id (str | None): `run_id` 값입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        duration_seconds (int): 스트레스 테스트 test 솔루션을 계산하거나 검증할 때 필요한 기간 seconds 입력입니다.
+        max_cases (int | None): 스트레스 테스트 test 솔루션을 계산하거나 검증할 때 필요한 max 케이스 입력입니다.
+        solutions (list[str] | None): 스트레스 테스트 test 솔루션을 계산하거나 검증할 때 필요한 솔루션 입력입니다.
+        stop_on_first_mismatch (bool): 스트레스 테스트 test 솔루션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        cancel_token (Any | None): 사용자가 취소한 작업인지 확인하기 위한 토큰입니다.
+        progress (Callable[..., None] | None): 장시간 작업의 단계와 메시지를 UI 작업 상태로 전달하는 콜백입니다.
+        rng (random.Random | None): 스트레스 테스트 test 솔루션을 계산하거나 검증할 때 필요한 rng 입력입니다.
+        run_id (str | None): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 스트레스 테스트 test 솔루션 데이터입니다.
     """
     validate_safe_id("problem id", problem_id)
     validate_safe_id("profile", profile)
@@ -786,15 +596,6 @@ def stress_test_solutions(
 
 
 def _read_stress_result(workspace: Path, run_id: str) -> dict[str, Any]:
-"""_read_stress_result 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    workspace (Path): 작업 공간 객체입니다.
-    run_id (str): `run_id` 값입니다.
-
-Returns:
-    dict[str, Any]: 처리 결과를 반환합니다.
-"""
     run_id = _safe_run_id(run_id)
     result_path = _stress_dir(workspace, run_id) / "result.json"
     if not result_path.exists():
@@ -808,17 +609,6 @@ def stress_mismatch_metadata(
     case_id: str,
     solution_key: str,
 ) -> dict[str, Any]:
-"""stress_mismatch_metadata 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    workspace (Path): 작업 공간 객체입니다.
-    run_id (str): `run_id` 값입니다.
-    case_id (str): `case_id` 값입니다.
-    solution_key (str): `solution_key` 값입니다.
-
-Returns:
-    dict[str, Any]: 처리 결과를 반환합니다.
-"""
     validate_safe_id("case id", case_id)
     validate_safe_id("solution key", solution_key)
     result = _read_stress_result(workspace, run_id)
@@ -829,15 +619,6 @@ Returns:
 
 
 def _preview_text(path: Path, limit: int = STRESS_PREVIEW_LIMIT) -> dict[str, Any]:
-"""_preview_text 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    path (Path): 경로 문자열입니다.
-    limit (int): `limit` 값입니다.
-
-Returns:
-    dict[str, Any]: 처리 결과를 반환합니다.
-"""
     text = path.read_text(encoding="utf-8", errors="replace")
     if len(text) <= limit:
         return {"text": text, "truncated": False, "omittedChars": 0}
@@ -857,18 +638,6 @@ def stress_mismatch_preview(
     *,
     limit: int = STRESS_PREVIEW_LIMIT,
 ) -> dict[str, Any]:
-"""stress_mismatch_preview 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    workspace (Path): 작업 공간 객체입니다.
-    run_id (str): `run_id` 값입니다.
-    case_id (str): `case_id` 값입니다.
-    solution_key (str): `solution_key` 값입니다.
-    limit (int): `limit` 값입니다.
-
-Returns:
-    dict[str, Any]: 처리 결과를 반환합니다.
-"""
     metadata = stress_mismatch_metadata(workspace, run_id, case_id, solution_key)
     run_dir = _stress_dir(workspace, run_id)
     artifact_dir = run_dir / "mismatches" / case_id / solution_key
@@ -897,14 +666,6 @@ Returns:
 
 
 def _yaml_scalar(value: Any) -> str:
-"""_yaml_scalar 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    value (Any): 값입니다.
-
-Returns:
-    str: 처리 결과를 반환합니다.
-"""
     dumped = yaml.safe_dump(
         value,
         allow_unicode=True,
@@ -917,17 +678,6 @@ Returns:
 
 
 def _case_block(case_name: str, mode: str, metadata: Mapping[str, Any], input_text: str) -> str:
-"""_case_block 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    case_name (str): `case_name` 값입니다.
-    mode (str): `mode` 값입니다.
-    metadata (Mapping[str, Any]): `metadata` 값입니다.
-    input_text (str): `input_text` 값입니다.
-
-Returns:
-    str: 처리 결과를 반환합니다.
-"""
     if mode == "fixed":
         content = input_text if input_text.endswith("\n") else input_text + "\n"
         lines = [
@@ -953,16 +703,6 @@ Returns:
 
 
 def _profile_case_names(workspace: Path, problem_id: str, profile: str) -> set[str]:
-"""_profile_case_names 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    workspace (Path): 작업 공간 객체입니다.
-    problem_id (str): 문제 ID입니다.
-    profile (str): `profile` 값입니다.
-
-Returns:
-    set[str]: 처리 결과를 반환합니다.
-"""
     compiled = compile_problem_cases(problem_id, profile, workspace)
     if not compiled.valid:
         raise JudgeError("cases.yml compile failed\n\n" + format_compile_result(compiled))
@@ -974,16 +714,6 @@ Returns:
 
 
 def _existing_input_hashes(workspace: Path, problem_id: str, profile: str) -> set[str]:
-"""_existing_input_hashes 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    workspace (Path): 작업 공간 객체입니다.
-    problem_id (str): 문제 ID입니다.
-    profile (str): `profile` 값입니다.
-
-Returns:
-    set[str]: 처리 결과를 반환합니다.
-"""
     _, _, metadata, paths = tool_paths(problem_id, workspace)
     config = load_config(paths["generatorConfig"])
     outputs = compile_problem_tools(problem_id, workspace)
@@ -1005,16 +735,6 @@ Returns:
 
 
 def _insert_case_block(text: str, profile: str, block: str) -> str:
-"""_insert_case_block 함수를 실행하고 결과를 반환합니다.
-
-Args:
-    text (str): `text` 값입니다.
-    profile (str): `profile` 값입니다.
-    block (str): `block` 값입니다.
-
-Returns:
-    str: 처리 결과를 반환합니다.
-"""
     lines = text.splitlines()
     profile_line = None
     for index, line in enumerate(lines):
@@ -1051,20 +771,20 @@ def append_stress_case(
     mode: str,
     name: str | None = None,
 ) -> dict[str, Any]:
-    """append_stress_case 함수를 실행하고 결과를 반환합니다.
-    
+    """append 스트레스 테스트 케이스 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-        solution_key (str): `solution_key` 값입니다.
-        mode (str): `mode` 값입니다.
-        name (str | None): 이름입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+        case_id (str): 입력, 출력, 오답 산출물을 구분하는 케이스 ID입니다.
+        solution_key (str): append 스트레스 테스트 케이스을 계산하거나 검증할 때 필요한 솔루션 key 입력입니다.
+        mode (str): append 스트레스 테스트 케이스을 계산하거나 검증할 때 필요한 mode 입력입니다.
+        name (str | None): 사용자 표시와 내부 조회에 함께 쓰는 항목 이름입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 append 스트레스 테스트 케이스 데이터입니다.
     """
     validate_safe_id("problem id", problem_id)
     validate_safe_id("profile", profile)

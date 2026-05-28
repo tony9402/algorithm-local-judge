@@ -1,10 +1,4 @@
-"""service_uploads 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""서비스 uploads 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -25,27 +19,10 @@ from judge.utils.limited_io import copy_limited
 
 
 def install_problem_pack(archive_path: str) -> dict[str, Any]:
-    """install_problem_pack 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        archive_path (str): `archive_path` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     return install_local_problem_pack(Path(archive_path))
 
 
 def safe_upload_name(filename: str | None, fallback: str) -> str:
-    """safe_upload_name 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        filename (str | None): `filename` 값입니다.
-        fallback (str): `fallback` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     name = Path(filename or fallback).name
     if not name or name in {".", ".."}:
         raise JudgeError("invalid upload filename")
@@ -53,16 +30,16 @@ def safe_upload_name(filename: str | None, fallback: str) -> str:
 
 
 def save_upload(file_obj: BinaryIO, filename: str | None, category: str, fallback: str) -> Path:
-    """save_upload 함수를 실행하고 결과를 반환합니다.
-    
+    """업로드 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        file_obj (BinaryIO): `file_obj` 값입니다.
-        filename (str | None): `filename` 값입니다.
-        category (str): `category` 값입니다.
-        fallback (str): `fallback` 값입니다.
-    
+        file_obj (BinaryIO): 업로드을 계산하거나 검증할 때 필요한 파일 obj 입력입니다.
+        filename (str | None): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+        category (str): 업로드을 계산하거나 검증할 때 필요한 category 입력입니다.
+        fallback (str): 업로드을 계산하거나 검증할 때 필요한 fallback 입력입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 업로드 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     name = safe_upload_name(filename, fallback)
     target_dir = cache_root() / "web-uploads" / category / str(time.time_ns())
@@ -80,14 +57,14 @@ def save_upload(file_obj: BinaryIO, filename: str | None, category: str, fallbac
 
 
 def save_uploaded_pack(file_obj: BinaryIO, filename: str | None) -> Path:
-    """save_uploaded_pack 함수를 실행하고 결과를 반환합니다.
-    
+    """uploaded 문제팩 데이터를 다음 요청에서도 사용할 수 있도록 안전한 위치에 저장합니다.
+
     Args:
-        file_obj (BinaryIO): `file_obj` 값입니다.
-        filename (str | None): `filename` 값입니다.
-    
+        file_obj (BinaryIO): uploaded 문제팩을 계산하거나 검증할 때 필요한 파일 obj 입력입니다.
+        filename (str | None): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 uploaded 문제팩 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     target = save_upload(file_obj, filename, "packs", "problem-pack.aljpack")
     if target.suffix != ".aljpack":
@@ -96,15 +73,6 @@ def save_uploaded_pack(file_obj: BinaryIO, filename: str | None) -> Path:
 
 
 def install_uploaded_problem_pack(file_obj: BinaryIO, filename: str | None) -> dict[str, Any]:
-    """install_uploaded_problem_pack 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        file_obj (BinaryIO): `file_obj` 값입니다.
-        filename (str | None): `filename` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     target = save_uploaded_pack(file_obj, filename)
     result = install_problem_pack(str(target))
     result["uploadedPath"] = str(target)
@@ -116,14 +84,4 @@ def download_official_problem_pack(
     asset_name: str | None = None,
     ref: str | None = None,
 ) -> dict[str, Any]:
-    """download_official_problem_pack 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        repository (str | None): `repository` 값입니다.
-        asset_name (str | None): `asset_name` 값입니다.
-        ref (str | None): `ref` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     return download_problem_pack_from_github(repository, asset_name, ref)

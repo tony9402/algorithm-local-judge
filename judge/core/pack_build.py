@@ -1,10 +1,4 @@
-"""pack_build 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제팩 build 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -40,13 +34,13 @@ __all__ = [
 
 
 def write_pack_checksum(archive_path: Path) -> Path:
-    """write_pack_checksum 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 체크섬 데이터를 지정된 파일이나 응답 대상에 기록합니다.
+
     Args:
-        archive_path (Path): `archive_path` 값입니다.
-    
+        archive_path (Path): 아카이브 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 문제팩 체크섬 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     return write_sha256_sidecar(archive_path)
 
@@ -59,18 +53,15 @@ def build_pack(
     verify_profile: str = "hidden",
     warmup_profile: str | None = None,
 ) -> PackBuildResult:
-    """build_pack 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_path (Path): `problem_path` 값입니다.
-        pack_id (str): `pack_id` 값입니다.
-        platform_id (str | None): `platform_id` 값입니다.
-        output_dir (Path | None): `output_dir` 값입니다.
-        verify_profile (str): `verify_profile` 값입니다.
-        warmup_profile (str | None): `warmup_profile` 값입니다.
-    
-    Returns:
-        PackBuildResult: 처리 결과를 반환합니다.
+    """문제팩에 필요한 경로, 메타데이터, 파일 목록을 조립합니다.
+
+        Args:
+            problem_path (Path): 문제 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            pack_id (str): 설치, 삭제, 조회할 문제팩을 구분하는 ID입니다.
+            platform_id (str | None): platform ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+            output_dir (Path | None): 출력 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            verify_profile (str): 문제팩을 계산하거나 검증할 때 필요한 verify 프로필 입력입니다.
+            warmup_profile (str | None): 문제팩을 계산하거나 검증할 때 필요한 워밍업 프로필 입력입니다.
     """
     problem_path = problem_path.resolve()
     if not (problem_path / "problem.json").exists():
@@ -98,20 +89,17 @@ def build_pack_for_problem_ids(
     solution_checks: list[dict[str, object]] | None = None,
     warmup_profile: str | None = None,
 ) -> PackBuildResult:
-    """build_pack_for_problem_ids 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_ids (list[str]): `problem_ids` 값입니다.
-        pack_id (str): `pack_id` 값입니다.
-        platform_id (str | None): `platform_id` 값입니다.
-        output_dir (Path | None): `output_dir` 값입니다.
-        root (Path | None): `root` 값입니다.
-        verify_profile (str): `verify_profile` 값입니다.
-        solution_checks (list[dict[str, object]] | None): `solution_checks` 값입니다.
-        warmup_profile (str | None): `warmup_profile` 값입니다.
-    
-    Returns:
-        PackBuildResult: 처리 결과를 반환합니다.
+    """문제팩 문제 ids 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
+        Args:
+            problem_ids (list[str]): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 문제 ids 입력입니다.
+            pack_id (str): 설치, 삭제, 조회할 문제팩을 구분하는 ID입니다.
+            platform_id (str | None): platform ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+            output_dir (Path | None): 출력 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+            verify_profile (str): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 verify 프로필 입력입니다.
+            solution_checks (list[dict[str, object]] | None): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 솔루션 검사 입력입니다.
+            warmup_profile (str | None): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 워밍업 프로필 입력입니다.
     """
     validate_safe_id("pack id", pack_id)
     if not problem_ids:

@@ -1,10 +1,4 @@
-"""solutions 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""솔루션 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -49,14 +43,14 @@ ARTIFACT_PREVIEW_LIMIT = 12000
 
 
 def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dict:
-    """preview_artifact_text 함수를 실행하고 결과를 반환합니다.
-    
+    """미리보기 산출물 텍스트 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        text (str): `text` 값입니다.
-        limit (int): `limit` 값입니다.
-    
+        text (str): 화면에 표시하거나 비교에 사용할 텍스트입니다.
+        limit (int): 미리보기 산출물 텍스트을 계산하거나 검증할 때 필요한 제한 입력입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 미리보기 산출물 텍스트 데이터입니다.
     """
     if len(text) <= limit:
         return {"text": text, "truncated": False, "omittedChars": 0}
@@ -68,14 +62,14 @@ def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dic
 
 @router.get("")
 def api_solutions(request: Request, problem_id: str) -> dict:
-    """api_solutions 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 데이터입니다.
     """
     return route_result(
         lambda: {"solutions": list_solutions(workspace_from_request(request), problem_id)}
@@ -88,15 +82,15 @@ async def api_solutions_upload(
     problem_id: str,
     files: Annotated[list[UploadFile], File(...)],
 ) -> dict:
-    """api_solutions_upload 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 업로드 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        files (Annotated[list[UploadFile], File(...)]): 파일 목록입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        files (Annotated[list[UploadFile], File(...)]): 솔루션 업로드을 계산하거나 검증할 때 필요한 파일 입력입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 업로드 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "solution upload")
@@ -122,26 +116,18 @@ async def api_solutions_upload(
 
 @router.post("/create")
 def api_solutions_create(request: Request, problem_id: str, body: SolutionCreateRequest) -> dict:
-    """api_solutions_create 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 create 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (SolutionCreateRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (SolutionCreateRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 create 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_local_write_allowed(request, "solution creation")
         workspace = workspace_from_request(request)
         created = create_solution_file(
@@ -162,26 +148,18 @@ def api_solutions_create(request: Request, problem_id: str, body: SolutionCreate
 
 @router.patch("/rename")
 def api_solutions_rename(request: Request, problem_id: str, body: SolutionRenameRequest) -> dict:
-    """api_solutions_rename 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 rename 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (SolutionRenameRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (SolutionRenameRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 rename 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_local_write_allowed(request, "solution rename")
         workspace = workspace_from_request(request)
         renamed = rename_solution_file(
@@ -206,15 +184,15 @@ def api_solutions_rename(request: Request, problem_id: str, body: SolutionRename
 def api_solutions_verify_stream(
     request: Request, problem_id: str, body: SolutionVerifyRequest
 ) -> StreamingResponse:
-    """api_solutions_verify_stream 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 verify 스트림 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (SolutionVerifyRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (SolutionVerifyRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        StreamingResponse: 처리 결과를 반환합니다.
+        StreamingResponse: 브라우저가 진행 이벤트를 받을 수 있는 스트리밍 HTTP 응답입니다.
     """
     try:
         ensure_local_write_allowed(request, "solution verification")
@@ -223,14 +201,6 @@ def api_solutions_verify_stream(
         raise to_http_error(exc) from exc
 
     def operation(progress):
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        progress (Any): `progress` 값입니다.
-    
-    Returns:
-        Any: 처리 결과를 반환합니다.
-    """
         progress(f"Verifying solutions for {problem_id} on profile {body.profile}.")
         result = verify_solutions(
             workspace,
@@ -254,15 +224,15 @@ def api_solutions_verify_stream(
 def api_solutions_verify_job(
     request: Request, problem_id: str, body: SolutionVerifyRequest
 ) -> dict:
-    """api_solutions_verify_job 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 verify 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (SolutionVerifyRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (SolutionVerifyRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 verify 작업 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "solution verification")
@@ -270,15 +240,6 @@ def api_solutions_verify_job(
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             progress(f"Verifying solutions for {problem_id} on profile {body.profile}.")
             result = verify_solutions(
                 workspace,
@@ -319,15 +280,15 @@ def api_solutions_verify_job(
 def api_solutions_stress_job(
     request: Request, problem_id: str, body: SolutionStressRequest
 ) -> dict:
-    """api_solutions_stress_job 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 스트레스 테스트 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (SolutionStressRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (SolutionStressRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 스트레스 테스트 작업 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "solution stress test")
@@ -335,15 +296,6 @@ def api_solutions_stress_job(
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             result = stress_test_solutions(
                 workspace,
                 problem_id,
@@ -387,16 +339,16 @@ def api_solution_wrong_case(
     run_id: str,
     case_id: str,
 ) -> dict:
-    """api_solution_wrong_case 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 오답 케이스 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+        case_id (str): 입력, 출력, 오답 산출물을 구분하는 케이스 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 오답 케이스 데이터입니다.
     """
     try:
         workspace = workspace_from_request(request)
@@ -427,17 +379,17 @@ def api_solution_stress_mismatch(
     case_id: str,
     solution_key: str,
 ) -> dict:
-    """api_solution_stress_mismatch 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 스트레스 테스트 mismatch 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-        solution_key (str): `solution_key` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+        case_id (str): 입력, 출력, 오답 산출물을 구분하는 케이스 ID입니다.
+        solution_key (str): 솔루션 스트레스 테스트 mismatch을 계산하거나 검증할 때 필요한 솔루션 key 입력입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 스트레스 테스트 mismatch 데이터입니다.
     """
     try:
         workspace = workspace_from_request(request)
@@ -462,18 +414,18 @@ def api_solution_stress_append(
     solution_key: str,
     body: StressAppendRequest,
 ) -> dict:
-    """api_solution_stress_append 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 스트레스 테스트 append 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-        solution_key (str): `solution_key` 값입니다.
-        body (StressAppendRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+        case_id (str): 입력, 출력, 오답 산출물을 구분하는 케이스 ID입니다.
+        solution_key (str): 솔루션 스트레스 테스트 append을 계산하거나 검증할 때 필요한 솔루션 key 입력입니다.
+        body (StressAppendRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 스트레스 테스트 append 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "append stress case")

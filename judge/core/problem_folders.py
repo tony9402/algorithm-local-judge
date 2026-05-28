@@ -1,10 +1,4 @@
-"""problem_folders 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제 폴더 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -20,13 +14,13 @@ MAX_FOLDER_LENGTH = 80
 
 
 def normalize_problem_folder(folder: str | None) -> str:
-    """normalize_problem_folder 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 폴더 입력을 비교와 저장에 쓰기 쉬운 표준 형식으로 정규화합니다.
+
     Args:
-        folder (str | None): `folder` 값입니다.
-    
+        folder (str | None): 문제 폴더을 계산하거나 검증할 때 필요한 폴더 입력입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 정책 검사를 통과한 표준 문제 폴더 문자열입니다.
     """
     value = (folder or "").strip()
     if len(value) > MAX_FOLDER_LENGTH:
@@ -37,14 +31,6 @@ def normalize_problem_folder(folder: str | None) -> str:
 
 
 def problem_folder_editable(problem_dir: Path) -> bool:
-    """problem_folder_editable 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_dir (Path): `problem_dir` 값입니다.
-    
-    Returns:
-        bool: 처리 결과를 반환합니다.
-    """
     resolved = problem_dir.resolve()
     packs = problem_pack_root().resolve()
     if resolved == packs or packs in resolved.parents:
@@ -54,15 +40,6 @@ def problem_folder_editable(problem_dir: Path) -> bool:
 
 
 def problem_folder_payload(metadata: dict[str, Any], problem_dir: Path) -> dict[str, Any]:
-    """problem_folder_payload 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        metadata (dict[str, Any]): `metadata` 값입니다.
-        problem_dir (Path): `problem_dir` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     folder = metadata.get("folder")
     return {
         "folder": folder if isinstance(folder, str) else "",
@@ -71,14 +48,14 @@ def problem_folder_payload(metadata: dict[str, Any], problem_dir: Path) -> dict[
 
 
 def update_problem_folder(problem_id: str, folder: str | None) -> dict[str, Any]:
-    """update_problem_folder 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 폴더 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        folder (str | None): `folder` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        folder (str | None): 문제 폴더을 계산하거나 검증할 때 필요한 폴더 입력입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 폴더 데이터입니다.
     """
     problem_dir, metadata_path, metadata = load_problem(problem_id)
     if not problem_folder_editable(problem_dir):

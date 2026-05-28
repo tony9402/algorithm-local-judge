@@ -1,10 +1,4 @@
-"""pack_copy 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제팩 복사 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -25,16 +19,13 @@ def copy_problem_into_pack(
     platform_id: str,
     root: Path | None = None,
 ) -> None:
-    """copy_problem_into_pack 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 into 문제팩 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        pack_problem_dir (Path): `pack_problem_dir` 값입니다.
-        platform_id (str): `platform_id` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        pack_problem_dir (Path): 문제팩 문제 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        platform_id (str): platform ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
     """
     problem_dir, _, metadata, paths = tool_paths(problem_id, root)
     tools = compile_problem_tools(problem_id, root)

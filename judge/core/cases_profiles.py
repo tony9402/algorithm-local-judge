@@ -1,10 +1,4 @@
-"""cases_profiles 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""케이스 프로필 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -23,17 +17,6 @@ def selected_profile_names(
     profiles: Any,
     profile: str | None,
 ) -> tuple[list[str], list[CaseCompileDiagnostic]]:
-    """selected_profile_names 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        path (Path): 경로 문자열입니다.
-        lines (list[str]): `lines` 값입니다.
-        profiles (Any): `profiles` 값입니다.
-        profile (str | None): `profile` 값입니다.
-    
-    Returns:
-        tuple[list[str], list[CaseCompileDiagnostic]]: 처리 결과를 반환합니다.
-    """
     if not isinstance(profiles, dict):
         return [], [diagnostic(path, "`profiles` must be a mapping", location="profiles")]
     if not profiles:

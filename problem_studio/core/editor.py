@@ -1,10 +1,4 @@
-"""editor 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""편집기 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -41,16 +35,6 @@ METADATA_TIMEOUT_FIELDS = {
 
 
 def safe_problem_file(workspace: Path, problem_id: str, raw_path: str) -> Path:
-    """safe_problem_file 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        raw_path (str): `raw_path` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     if not raw_path or raw_path.startswith("/"):
         raise JudgeError(f"invalid problem file path: {raw_path}")
     relative = Path(raw_path)
@@ -61,14 +45,14 @@ def safe_problem_file(workspace: Path, problem_id: str, raw_path: str) -> Path:
 
 
 def list_problem_files(workspace: Path, problem_id: str) -> list[dict[str, Any]]:
-    """list_problem_files 함수를 실행하고 결과를 반환합니다.
-    
+    """현재 설정과 파일시스템을 기준으로 문제 파일 목록을 조회합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        list[dict[str, Any]]: 처리 결과를 반환합니다.
+        list[dict[str, Any]]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 데이터입니다.
     """
     base = problem_dir(workspace, problem_id)
     if not base.exists():
@@ -83,15 +67,15 @@ def list_problem_files(workspace: Path, problem_id: str) -> list[dict[str, Any]]
 
 
 def read_problem_file(workspace: Path, problem_id: str, raw_path: str) -> dict[str, str]:
-    """read_problem_file 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 파일 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        raw_path (str): `raw_path` 값입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        raw_path (str): raw 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+
     Returns:
-        dict[str, str]: 처리 결과를 반환합니다.
+        dict[str, str]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 데이터입니다.
     """
     path = safe_problem_file(workspace, problem_id, raw_path)
     if not path.exists():
@@ -105,16 +89,16 @@ def read_problem_file(workspace: Path, problem_id: str, raw_path: str) -> dict[s
 def write_problem_file(
     workspace: Path, problem_id: str, raw_path: str, content: str
 ) -> dict[str, str]:
-    """write_problem_file 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 파일 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        raw_path (str): `raw_path` 값입니다.
-        content (str): 요청/저장할 내용입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        raw_path (str): raw 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        content (str): 파일이나 편집기 버퍼에 저장할 본문입니다.
+
     Returns:
-        dict[str, str]: 처리 결과를 반환합니다.
+        dict[str, str]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 데이터입니다.
     """
     path = safe_problem_file(workspace, problem_id, raw_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -128,16 +112,16 @@ def save_solution_upload(
     filename: str,
     content: bytes,
 ) -> dict[str, Any]:
-    """save_solution_upload 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 업로드 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        filename (str): `filename` 값입니다.
-        content (bytes): 요청/저장할 내용입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        filename (str): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+        content (bytes): 파일이나 편집기 버퍼에 저장할 본문입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 업로드 데이터입니다.
     """
     name = Path(filename).name
     if not name or any(char not in SAFE_UPLOAD_NAME_CHARS for char in name):
@@ -154,14 +138,6 @@ def save_solution_upload(
 
 
 def safe_solution_base_name(value: str) -> str:
-    """safe_solution_base_name 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        value (str): 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     name = value.strip().replace(" ", "_")
     if not name or any(char not in SAFE_UPLOAD_NAME_CHARS for char in name):
         raise JudgeError(f"invalid solution name: {value}")
@@ -179,17 +155,17 @@ def create_solution_file(
     expected: str,
     language: str,
 ) -> dict[str, Any]:
-    """create_solution_file 함수를 실행하고 결과를 반환합니다.
-    
+    """솔루션 파일 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        name (str): 이름입니다.
-        expected (str): `expected` 값입니다.
-        language (str): `language` 값입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        name (str): 사용자 표시와 내부 조회에 함께 쓰는 항목 이름입니다.
+        expected (str): 솔루션 파일을 계산하거나 검증할 때 필요한 기대 입력입니다.
+        language (str): 솔루션 파일을 계산하거나 검증할 때 필요한 language 입력입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 파일 데이터입니다.
     """
     if expected not in SOLUTION_EXPECTED_TOKENS:
         raise JudgeError(f"unknown expected result token: {expected}")
@@ -213,19 +189,6 @@ def rename_solution_file(
     expected: str,
     language: str,
 ) -> dict[str, Any]:
-    """rename_solution_file 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        raw_path (str): `raw_path` 값입니다.
-        name (str): 이름입니다.
-        expected (str): `expected` 값입니다.
-        language (str): `language` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     if not raw_path.startswith("solutions/"):
         raise JudgeError(f"not a solution file: {raw_path}")
     if expected not in SOLUTION_EXPECTED_TOKENS:
@@ -262,14 +225,11 @@ def rename_solution_file(
 
 
 def validate_metadata_relative_path(label: str, value: Any) -> None:
-    """validate_metadata_relative_path 함수를 실행하고 결과를 반환합니다.
-    
+    """메타데이터 relative 경로 값이 허용되는 형식과 정책을 만족하는지 검사합니다.
+
     Args:
-        label (str): `label` 값입니다.
-        value (Any): 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        label (str): 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
+        value (Any): 검증하거나 상태에 반영할 입력 값입니다.
     """
     if not isinstance(value, str):
         raise JudgeError(f"{label} path must be a string")
@@ -282,13 +242,10 @@ def validate_metadata_relative_path(label: str, value: Any) -> None:
 
 
 def validate_problem_metadata_patch(metadata: dict[str, Any]) -> None:
-    """validate_problem_metadata_patch 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 메타데이터 patch 값이 허용되는 형식과 정책을 만족하는지 검사합니다.
+
     Args:
-        metadata (dict[str, Any]): `metadata` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        metadata (dict[str, Any]): 문제, 소스, 실행 결과에 붙는 제목, 제한, 경로 같은 부가 정보입니다.
     """
     tools = metadata.get("tools")
     if tools is not None:
@@ -314,15 +271,15 @@ def validate_problem_metadata_patch(metadata: dict[str, Any]) -> None:
 def update_problem_metadata(
     workspace: Path, problem_id: str, metadata_patch: dict[str, Any]
 ) -> dict[str, Any]:
-    """update_problem_metadata 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 메타데이터 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        metadata_patch (dict[str, Any]): `metadata_patch` 값입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        metadata_patch (dict[str, Any]): 문제 메타데이터을 계산하거나 검증할 때 필요한 메타데이터 patch 입력입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 메타데이터 데이터입니다.
     """
     path = safe_problem_file(workspace, problem_id, "problem.json")
     metadata = read_json(path)

@@ -1,10 +1,4 @@
-"""service_catalog 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""서비스 카탈로그 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -20,14 +14,6 @@ from judge.web.service_common import FULL_PROFILE, SAMPLE_PROFILE, web_debug_ena
 
 
 def problem_profiles(problem_id: str) -> list[str]:
-    """problem_profiles 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-    
-    Returns:
-        list[str]: 처리 결과를 반환합니다.
-    """
     try:
         _, _, _, paths = tool_paths(problem_id)
         config = load_config(paths["generatorConfig"])
@@ -41,13 +27,10 @@ def problem_profiles(problem_id: str) -> list[str]:
 
 
 def list_problems() -> list[dict[str, Any]]:
-    """list_problems 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
+    """현재 설정과 파일시스템을 기준으로 문제 목록을 조회합니다.
+
     Returns:
-        list[dict[str, Any]]: 처리 결과를 반환합니다.
+        list[dict[str, Any]]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 데이터입니다.
     """
     problems = []
     for problem_id in discover_problem_ids():
@@ -66,26 +49,15 @@ def list_problems() -> list[dict[str, Any]]:
 
 
 def list_packs() -> list[dict[str, Any]]:
-    """list_packs 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
+    """현재 설정과 파일시스템을 기준으로 문제팩 목록을 조회합니다.
+
     Returns:
-        list[dict[str, Any]]: 처리 결과를 반환합니다.
+        list[dict[str, Any]]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 데이터입니다.
     """
     return installed_packs()
 
 
 def current_web_config() -> dict[str, Any]:
-    """current_web_config 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     return {
         "officialRepository": official_pack_repository(),
         "sampleProfile": SAMPLE_PROFILE,
@@ -95,14 +67,6 @@ def current_web_config() -> dict[str, Any]:
 
 
 def dashboard_status() -> dict[str, Any]:
-    """dashboard_status 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     return {
         "problems": list_problems(),
         "packs": list_packs(),

@@ -1,10 +1,4 @@
-"""problems 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -22,13 +16,10 @@ router = APIRouter(prefix="/api", tags=["problems"])
 
 @router.get("/problems")
 def api_problems() -> list[dict]:
-    """api_problems 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
+    """문제 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Returns:
-        list[dict]: 처리 결과를 반환합니다.
+        list[dict]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 데이터입니다.
     """
     try:
         return services.list_problems()
@@ -42,15 +33,15 @@ def api_problem_folder_update(
     problem_id: str,
     body: ProblemFolderUpdateRequest,
 ) -> dict:
-    """api_problem_folder_update 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 폴더 update 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (ProblemFolderUpdateRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (ProblemFolderUpdateRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 폴더 update 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(request, "problem folder editing")
@@ -65,15 +56,12 @@ def api_problem_samples(
     problem_id: str,
     force: bool = Query(default=False),
 ) -> Response:
-    """api_problem_samples 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        force (bool): `force` 값입니다.
-    
-    Returns:
-        Response: 처리 결과를 반환합니다.
+    """문제 샘플 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+        Args:
+            request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+            force (bool): 캐시나 기존 검사 결과를 무시하고 다시 실행할지 여부입니다.
     """
     try:
         ensure_remote_run_allowed(request)

@@ -1,10 +1,4 @@
-"""generation 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""생성 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -26,16 +20,6 @@ from judge.utils.fs import write_json
 
 
 def cache_dir_for(problem_id: str, key: str, root: Path | None = None) -> Path:
-    """cache_dir_for 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-        key (str): `key` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     return cache_root(root) / "problems" / problem_id / key
 
 
@@ -46,17 +30,17 @@ def acquire_generation_lock(
     root: Path | None = None,
     timeout_seconds: int = 30,
 ) -> Path:
-    """acquire_generation_lock 함수를 실행하고 결과를 반환합니다.
-    
+    """acquire 생성 lock 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str): `profile` 값입니다.
-        key (str): `key` 값입니다.
-        root (Path | None): `root` 값입니다.
-        timeout_seconds (int): `timeout_seconds` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        key (str): 상태 맵, 로컬 스토리지, 객체에서 값을 찾는 키입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+        timeout_seconds (int): Git, 서버, 장시간 작업에 허용할 제한 시간입니다. 단위는 초입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 acquire 생성 lock 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     display_root = root or repo_root()
     locks_dir = cache_root(root) / "locks"
@@ -83,29 +67,21 @@ def generate(
     verbose: bool = False,
     progress: Callable[[str], None] | None = None,
 ) -> Path:
-    """generate 함수를 실행하고 결과를 반환합니다.
-    
+    """generate 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str | None): `profile` 값입니다.
-        force (bool): `force` 값입니다.
-        root (Path | None): `root` 값입니다.
-        verbose (bool): `verbose` 값입니다.
-        progress (Callable[[str], None] | None): `progress` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        force (bool): 캐시나 기존 검사 결과를 무시하고 다시 실행할지 여부입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+        verbose (bool): 상세 경로, 설치 힌트, 원본 설정을 출력에 포함할지 여부입니다.
+        progress (Callable[[str], None] | None): 장시간 작업의 단계와 메시지를 UI 작업 상태로 전달하는 콜백입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 generate 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
 
     def emit(message: str) -> None:
-    """emit 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        message (str): 메시지입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         if progress is not None:
             progress(message)
 

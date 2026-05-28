@@ -1,10 +1,4 @@
-"""dashboard 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""대시보드 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -19,13 +13,13 @@ router = APIRouter(prefix="/api", tags=["dashboard"])
 
 @router.get("/status")
 def api_status(request: Request) -> dict:
-    """api_status 함수를 실행하고 결과를 반환합니다.
-    
+    """상태 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 상태 데이터입니다.
     """
     try:
         status = services.dashboard_status()
@@ -38,13 +32,13 @@ def api_status(request: Request) -> dict:
 
 @router.get("/config")
 def api_config(request: Request) -> dict:
-    """api_config 함수를 실행하고 결과를 반환합니다.
-    
+    """설정 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 설정 데이터입니다.
     """
     try:
         return {**services.current_web_config(), "security": web_security_status(request)}

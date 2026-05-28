@@ -1,10 +1,4 @@
-"""pack_archive 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제팩 아카이브 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -33,28 +27,12 @@ PACK_SCHEMA_VERSION = 1
 
 
 def reject_forbidden_release_file(path: Path) -> None:
-    """reject_forbidden_release_file 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        path (Path): 경로 문자열입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
     lowered_name = path.name.lower()
     if path.suffix.lower() in FORBIDDEN_PACK_SUFFIXES or lowered_name in FORBIDDEN_PACK_NAMES:
         raise JudgeError(f"forbidden file in problem pack: {path}")
 
 
 def safe_tar_members(archive_path: Path) -> list[tarfile.TarInfo]:
-    """safe_tar_members 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        archive_path (Path): `archive_path` 값입니다.
-    
-    Returns:
-        list[tarfile.TarInfo]: 처리 결과를 반환합니다.
-    """
     with tarfile.open(archive_path, "r:*") as archive:
         members = archive.getmembers()
     if len(members) > security_limits.MAX_ARCHIVE_MEMBERS:
@@ -87,14 +65,11 @@ def safe_tar_members(archive_path: Path) -> list[tarfile.TarInfo]:
 
 
 def safe_extract_tar(archive_path: Path, target_dir: Path) -> None:
-    """safe_extract_tar 함수를 실행하고 결과를 반환합니다.
-    
+    """안전 extract tar 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        archive_path (Path): `archive_path` 값입니다.
-        target_dir (Path): `target_dir` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        archive_path (Path): 아카이브 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        target_dir (Path): target dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
     """
     members = safe_tar_members(archive_path)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -106,14 +81,6 @@ def safe_extract_tar(archive_path: Path, target_dir: Path) -> None:
 
 
 def single_pack_dir(extracted_dir: Path) -> Path:
-    """single_pack_dir 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        extracted_dir (Path): `extracted_dir` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     candidates = [path for path in extracted_dir.iterdir() if path.is_dir()]
     if len(candidates) != 1:
         raise JudgeError("pack archive must contain exactly one top-level directory")

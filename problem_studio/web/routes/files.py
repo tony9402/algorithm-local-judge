@@ -1,10 +1,4 @@
-"""files 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""파일 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -24,14 +18,14 @@ router = APIRouter(prefix="/api/problems/{problem_id}/files", tags=["files"])
 
 @router.get("")
 def api_problem_files(request: Request, problem_id: str) -> dict:
-    """api_problem_files 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 파일 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 데이터입니다.
     """
     return route_result(
         lambda: {"files": list_problem_files(workspace_from_request(request), problem_id)}
@@ -40,15 +34,15 @@ def api_problem_files(request: Request, problem_id: str) -> dict:
 
 @router.get("/{file_path:path}")
 def api_problem_file_read(request: Request, problem_id: str, file_path: str) -> dict:
-    """api_problem_file_read 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 파일 읽기 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        file_path (str): `file_path` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        file_path (str): 파일 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 읽기 데이터입니다.
     """
     return route_result(
         lambda: read_problem_file(workspace_from_request(request), problem_id, file_path)
@@ -59,27 +53,19 @@ def api_problem_file_read(request: Request, problem_id: str, file_path: str) -> 
 def api_problem_file_write(
     request: Request, problem_id: str, file_path: str, body: FileWriteRequest
 ) -> dict:
-    """api_problem_file_write 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 파일 쓰기 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        file_path (str): `file_path` 값입니다.
-        body (FileWriteRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        file_path (str): 파일 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        body (FileWriteRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 쓰기 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_local_write_allowed(request, "file write")
         return write_problem_file(
             workspace_from_request(request), problem_id, file_path, body.content

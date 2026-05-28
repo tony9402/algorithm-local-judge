@@ -1,10 +1,4 @@
-"""cases_format 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""케이스 형식 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -14,13 +8,13 @@ from judge.core.cases_models import CaseCompileDiagnostic, CaseCompileResult
 
 
 def format_diagnostic(diagnostic_item: CaseCompileDiagnostic) -> str:
-    """format_diagnostic 함수를 실행하고 결과를 반환합니다.
-    
+    """진단 정보 데이터를 CLI나 UI에 표시할 문자열로 변환합니다.
+
     Args:
-        diagnostic_item (CaseCompileDiagnostic): `diagnostic_item` 값입니다.
-    
+        diagnostic_item (CaseCompileDiagnostic): 진단 정보을 계산하거나 검증할 때 필요한 진단 정보 item 입력입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 콘솔, 로그, 또는 이벤트 스트림에 바로 쓸 수 있는 문자열입니다.
     """
     location = diagnostic_item.location or "cases.yml"
     if diagnostic_item.profile:
@@ -37,15 +31,15 @@ def format_compile_result(
     expanded: bool = False,
     max_preview: int | None = None,
 ) -> str:
-    """format_compile_result 함수를 실행하고 결과를 반환합니다.
-    
+    """컴파일 결과 데이터를 CLI나 UI에 표시할 문자열로 변환합니다.
+
     Args:
-        result (CaseCompileResult): `result` 값입니다.
-        expanded (bool): `expanded` 값입니다.
-        max_preview (int | None): `max_preview` 값입니다.
-    
+        result (CaseCompileResult): 컴파일 결과을 계산하거나 검증할 때 필요한 결과 입력입니다.
+        expanded (bool): 컴파일 결과 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        max_preview (int | None): 컴파일 결과을 계산하거나 검증할 때 필요한 max 미리보기 입력입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 콘솔, 로그, 또는 이벤트 스트림에 바로 쓸 수 있는 문자열입니다.
     """
     if not result.valid:
         body = "\n\n".join(format_diagnostic(item) for item in result.diagnostics)
@@ -65,12 +59,4 @@ def format_compile_result(
 
 
 def result_to_json(result: CaseCompileResult) -> str:
-    """result_to_json 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        result (CaseCompileResult): `result` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     return json.dumps(result.to_dict(), ensure_ascii=False, indent=2) + "\n"

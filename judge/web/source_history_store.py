@@ -1,10 +1,4 @@
-"""source_history_store 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""소스 이력 store 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -36,15 +30,6 @@ from judge.web.source_history_paths import (
 
 
 def attach_run_to_source(source: Path, result: dict[str, Any]) -> str | None:
-    """attach_run_to_source 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        source (Path): `source` 값입니다.
-        result (dict[str, Any]): `result` 값입니다.
-    
-    Returns:
-        str | None: 처리 결과를 반환합니다.
-    """
     source_id = source_id_from_path(source)
     if source_id is None:
         return None
@@ -65,15 +50,15 @@ def save_uploaded_source(
     filename: str | None,
     problem_id: str,
 ) -> Path:
-    """save_uploaded_source 함수를 실행하고 결과를 반환합니다.
-    
+    """uploaded 소스 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        file_obj (BinaryIO): `file_obj` 값입니다.
-        filename (str | None): `filename` 값입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        file_obj (BinaryIO): uploaded 소스을 계산하거나 검증할 때 필요한 파일 obj 입력입니다.
+        filename (str | None): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 uploaded 소스 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     source_id, target = create_source_target(problem_id, filename or "main.py")
     try:
@@ -93,15 +78,15 @@ def save_uploaded_source(
 
 
 def save_text_source(source_text: str, filename: str | None, problem_id: str) -> Path:
-    """save_text_source 함수를 실행하고 결과를 반환합니다.
-    
+    """텍스트 소스 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        source_text (str): `source_text` 값입니다.
-        filename (str | None): `filename` 값입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        source_text (str): 요청 본문으로 전달된 제출 소스 코드입니다.
+        filename (str | None): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 텍스트 소스 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     source_id, target = create_source_target(problem_id, filename)
     try:
@@ -119,15 +104,15 @@ def save_text_source(source_text: str, filename: str | None, problem_id: str) ->
 
 
 def save_existing_source(path: Path, problem_id: str, source_mode: str) -> Path:
-    """save_existing_source 함수를 실행하고 결과를 반환합니다.
-    
+    """existing 소스 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        path (Path): 경로 문자열입니다.
-        problem_id (str): 문제 ID입니다.
-        source_mode (str): `source_mode` 값입니다.
-    
+        path (Path): 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        source_mode (str): 소스가 경로, 업로드, 직접 입력 중 어떤 방식으로 전달됐는지 나타냅니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 existing 소스 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     source_id, target = create_source_target(problem_id, path.name)
     try:
@@ -148,13 +133,13 @@ def save_existing_source(path: Path, problem_id: str, source_mode: str) -> Path:
 
 
 def list_source_history(limit: int = SOURCE_HISTORY_LIMIT) -> dict[str, Any]:
-    """list_source_history 함수를 실행하고 결과를 반환합니다.
-    
+    """현재 설정과 파일시스템을 기준으로 소스 이력 목록을 조회합니다.
+
     Args:
-        limit (int): `limit` 값입니다.
-    
+        limit (int): 소스 이력을 계산하거나 검증할 때 필요한 제한 입력입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 소스 이력 데이터입니다.
     """
     root = source_history_root()
     if not root.exists():
@@ -172,14 +157,6 @@ def list_source_history(limit: int = SOURCE_HISTORY_LIMIT) -> dict[str, Any]:
 
 
 def source_history_detail(source_id: str) -> dict[str, Any]:
-    """source_history_detail 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        source_id (str): 소스 ID입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     entry_dir = source_entry_dir(source_id)
     if not entry_dir.exists():
         raise JudgeError(f"source history entry not found: {source_id}")
@@ -205,13 +182,13 @@ def source_history_detail(source_id: str) -> dict[str, Any]:
 
 
 def delete_source_history(source_id: str) -> dict[str, Any]:
-    """delete_source_history 함수를 실행하고 결과를 반환합니다.
-    
+    """소스 이력 파일이나 상태 항목을 안전성 검사를 거쳐 제거합니다.
+
     Args:
-        source_id (str): 소스 ID입니다.
-    
+        source_id (str): 소스 ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 소스 이력 데이터입니다.
     """
     entry_dir = source_entry_dir(source_id)
     if not entry_dir.exists():

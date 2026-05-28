@@ -1,10 +1,4 @@
-"""remote_archive 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""원격 아카이브 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -18,15 +12,6 @@ from judge.core.errors import JudgeError
 
 
 def safe_download_name(filename: str | None, fallback: str) -> str:
-    """safe_download_name 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        filename (str | None): `filename` 값입니다.
-        fallback (str): `fallback` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     name = Path(filename or fallback).name
     if not name or name in {".", ".."}:
         raise JudgeError("invalid download filename")
@@ -34,14 +19,6 @@ def safe_download_name(filename: str | None, fallback: str) -> str:
 
 
 def safe_zip_member_path(name: str) -> Path:
-    """safe_zip_member_path 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        name (str): 이름입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     normalized = normpath(name.replace("\\", "/"))
     if normalized in {"", "."}:
         raise JudgeError("unsafe empty path in source archive")
@@ -52,26 +29,10 @@ def safe_zip_member_path(name: str) -> Path:
 
 
 def zip_member_mode(member: zipfile.ZipInfo) -> int:
-    """zip_member_mode 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        member (zipfile.ZipInfo): `member` 값입니다.
-    
-    Returns:
-        int: 처리 결과를 반환합니다.
-    """
     return (member.external_attr >> 16) & 0o777777
 
 
 def reject_unsafe_zip_member(member: zipfile.ZipInfo) -> None:
-    """reject_unsafe_zip_member 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        member (zipfile.ZipInfo): `member` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
     safe_zip_member_path(member.filename)
     mode = zip_member_mode(member)
     if mode and stat.S_ISLNK(mode):
@@ -79,14 +40,11 @@ def reject_unsafe_zip_member(member: zipfile.ZipInfo) -> None:
 
 
 def safe_extract_zip(archive_path: Path, target_dir: Path) -> None:
-    """safe_extract_zip 함수를 실행하고 결과를 반환합니다.
-    
+    """안전 extract zip 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        archive_path (Path): `archive_path` 값입니다.
-        target_dir (Path): `target_dir` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        archive_path (Path): 아카이브 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        target_dir (Path): target dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
     """
     with zipfile.ZipFile(archive_path) as archive:
         members = archive.infolist()
@@ -116,14 +74,6 @@ def safe_extract_zip(archive_path: Path, target_dir: Path) -> None:
 
 
 def find_source_package_root(extracted_dir: Path) -> Path:
-    """find_source_package_root 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        extracted_dir (Path): `extracted_dir` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     candidates = []
     for problems_dir in extracted_dir.rglob("problems"):
         if not problems_dir.is_dir():

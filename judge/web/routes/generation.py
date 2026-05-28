@@ -1,10 +1,4 @@
-"""generation 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""생성 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -21,14 +15,14 @@ router = APIRouter(prefix="/api", tags=["generation"])
 
 @router.post("/generate")
 def api_generate(http_request: Request, request: GenerateRequest) -> dict:
-    """api_generate 함수를 실행하고 결과를 반환합니다.
-    
+    """generate 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (GenerateRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (GenerateRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 generate 데이터입니다.
     """
     try:
         ensure_remote_run_allowed(http_request)
@@ -39,14 +33,14 @@ def api_generate(http_request: Request, request: GenerateRequest) -> dict:
 
 @router.post("/generate/stream")
 def api_generate_stream(http_request: Request, request: GenerateRequest) -> StreamingResponse:
-    """api_generate_stream 함수를 실행하고 결과를 반환합니다.
-    
+    """generate 스트림 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (GenerateRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (GenerateRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        StreamingResponse: 처리 결과를 반환합니다.
+        StreamingResponse: 브라우저가 진행 이벤트를 받을 수 있는 스트리밍 HTTP 응답입니다.
     """
     try:
         ensure_remote_run_allowed(http_request)
@@ -64,29 +58,20 @@ def api_generate_stream(http_request: Request, request: GenerateRequest) -> Stre
 
 @router.post("/generate/jobs")
 def api_generate_job(http_request: Request, request: GenerateRequest) -> dict:
-    """api_generate_job 함수를 실행하고 결과를 반환합니다.
-    
+    """generate 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (GenerateRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (GenerateRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 generate 작업 데이터입니다.
     """
     try:
         ensure_remote_run_allowed(http_request)
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             progress(
                 f"Generating {request.profile or 'default'} data for {request.problem_id}.",
                 label="Data generation",
@@ -121,13 +106,13 @@ def api_generate_job(http_request: Request, request: GenerateRequest) -> dict:
 
 @router.post("/cases/compile")
 def api_cases_compile(request: CasesCompileRequest) -> dict:
-    """api_cases_compile 함수를 실행하고 결과를 반환합니다.
-    
+    """케이스 컴파일 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (CasesCompileRequest): HTTP 요청 객체입니다.
-    
+        request (CasesCompileRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 케이스 컴파일 데이터입니다.
     """
     try:
         return services.compile_problem_cases_result(request.problem_id, request.profile)
@@ -137,29 +122,20 @@ def api_cases_compile(request: CasesCompileRequest) -> dict:
 
 @router.post("/cases/jobs")
 def api_cases_compile_job(http_request: Request, request: CasesCompileRequest) -> dict:
-    """api_cases_compile_job 함수를 실행하고 결과를 반환합니다.
-    
+    """케이스 컴파일 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (CasesCompileRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (CasesCompileRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 케이스 컴파일 작업 데이터입니다.
     """
     try:
         ensure_remote_run_allowed(http_request)
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             progress(f"Compiling cases.yml for {request.problem_id}.", label="Cases compile")
             cancel_token.check()
             return services.compile_problem_cases_result(request.problem_id, request.profile)

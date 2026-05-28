@@ -1,10 +1,4 @@
-"""cases_io 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""케이스 io 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -18,13 +12,13 @@ from judge.core.cases_models import CaseCompileDiagnostic
 
 
 def load_yaml(path: Path) -> tuple[Any | None, list[CaseCompileDiagnostic], list[str]]:
-    """load_yaml 함수를 실행하고 결과를 반환합니다.
-    
+    """yaml 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        path (Path): 경로 문자열입니다.
-    
+        path (Path): 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
+
     Returns:
-        tuple[Any | None, list[CaseCompileDiagnostic], list[str]]: 처리 결과를 반환합니다.
+        tuple[Any | None, list[CaseCompileDiagnostic], list[str]]: 호출자가 순회하거나 화면에 표시할 yaml 항목 목록입니다.
     """
     try:
         text = path.read_text(encoding="utf-8")

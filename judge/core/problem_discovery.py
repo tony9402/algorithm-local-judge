@@ -1,10 +1,4 @@
-"""problem_discovery 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제 탐색 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -22,14 +16,6 @@ from judge.core.paths import (
 
 
 def installed_problem_roots() -> list[Path]:
-    """installed_problem_roots 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        list[Path]: 처리 결과를 반환합니다.
-    """
     packs_root = problem_pack_root()
     if not packs_root.exists():
         return []
@@ -41,14 +27,6 @@ def installed_problem_roots() -> list[Path]:
 
 
 def installed_source_problem_roots() -> list[Path]:
-    """installed_source_problem_roots 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        list[Path]: 처리 결과를 반환합니다.
-    """
     sources_root = problem_source_root()
     if not sources_root.exists():
         return []
@@ -60,14 +38,6 @@ def installed_source_problem_roots() -> list[Path]:
 
 
 def workspace_problem_roots(root: Path) -> list[Path]:
-    """workspace_problem_roots 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        root (Path): `root` 값입니다.
-    
-    Returns:
-        list[Path]: 처리 결과를 반환합니다.
-    """
     container = root / "problems"
     roots = []
     if container.exists():
@@ -81,14 +51,6 @@ def workspace_problem_roots(root: Path) -> list[Path]:
 
 
 def problem_roots(root: Path | None = None) -> list[Path]:
-    """problem_roots 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        list[Path]: 처리 결과를 반환합니다.
-    """
     if root is not None:
         return workspace_problem_roots(root)
     roots = []
@@ -99,15 +61,6 @@ def problem_roots(root: Path | None = None) -> list[Path]:
 
 
 def problem_workspace_root(problem_dir: Path, root: Path | None = None) -> Path:
-    """problem_workspace_root 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_dir (Path): `problem_dir` 값입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     if root is not None:
         return root
     if problem_dir.parent.name == "problems":
@@ -116,15 +69,6 @@ def problem_workspace_root(problem_dir: Path, root: Path | None = None) -> Path:
 
 
 def find_problem_dir(problem_id: str, root: Path | None = None) -> Path:
-    """find_problem_dir 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     validate_safe_id("problem id", problem_id)
     base = root or repo_root()
     direct_problem_dir = base / "problems" / problem_id
@@ -138,27 +82,19 @@ def find_problem_dir(problem_id: str, root: Path | None = None) -> Path:
 
 
 def problem_sort_key(problem_id: str) -> tuple[Any, ...]:
-    """problem_sort_key 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-    
-    Returns:
-        tuple[Any, ...]: 처리 결과를 반환합니다.
-    """
     if problem_id.isdigit():
         return (0, int(problem_id), problem_id)
     return (1, problem_id)
 
 
 def discover_problem_ids(root: Path | None = None) -> list[str]:
-    """discover_problem_ids 함수를 실행하고 결과를 반환합니다.
-    
+    """설정과 디렉터리를 탐색해 사용 가능한 문제 ids 항목을 찾습니다.
+
     Args:
-        root (Path | None): `root` 값입니다.
-    
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+
     Returns:
-        list[str]: 처리 결과를 반환합니다.
+        list[str]: 호출자가 순회하거나 화면에 표시할 문제 ids 항목 목록입니다.
     """
     problem_ids = set()
     for problems_dir in problem_roots(root):
@@ -169,13 +105,13 @@ def discover_problem_ids(root: Path | None = None) -> list[str]:
 
 
 def validate_problem_sequence(problem_ids: list[str]) -> list[str]:
-    """validate_problem_sequence 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 sequence 값이 허용되는 형식과 정책을 만족하는지 검사합니다.
+
     Args:
-        problem_ids (list[str]): `problem_ids` 값입니다.
-    
+        problem_ids (list[str]): 문제 sequence을 계산하거나 검증할 때 필요한 문제 ids 입력입니다.
+
     Returns:
-        list[str]: 처리 결과를 반환합니다.
+        list[str]: 호출자가 순회하거나 화면에 표시할 문제 sequence 항목 목록입니다.
     """
     errors = []
     if not problem_ids:

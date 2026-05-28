@@ -1,10 +1,4 @@
-"""process 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""프로세스 기능을 담당하는 모듈입니다.
 """
 from __future__ import annotations
 
@@ -21,13 +15,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class CommandResult:
-    """CommandResult 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """명령 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
     """
 
     returncode: int
@@ -46,63 +34,24 @@ PROCESS_GROUP_KILL_GRACE_SECONDS = 0.2
 
 
 class MemorySampler:
-    """MemorySampler 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """메모리 sampler 상태와 관련 동작을 하나의 객체로 표현합니다.
     """
 
     def __init__(self, pid: int) -> None:
-    """__init__ 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        self (Any): 현재 인스턴스를 나타내는 객체입니다.
-        pid (int): `pid` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         self.pid = pid
         self.max_bytes: int | None = process_memory_bytes(pid)
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._sample, daemon=True)
 
     def start(self) -> None:
-        """start 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            self (Any): 현재 인스턴스를 나타내는 객체입니다.
-        
-        Returns:
-            None: 처리 결과를 반환합니다.
-        """
         self._thread.start()
 
     def stop(self) -> int | None:
-        """stop 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            self (Any): 현재 인스턴스를 나타내는 객체입니다.
-        
-        Returns:
-            int | None: 처리 결과를 반환합니다.
-        """
         self._stop.set()
         self._thread.join(timeout=0.5)
         return self.max_bytes
 
     def _sample(self) -> None:
-    """_sample 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        self (Any): 현재 인스턴스를 나타내는 객체입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         while not self._stop.is_set():
             memory = process_memory_bytes(self.pid)
             if memory is not None:
@@ -111,14 +60,6 @@ class MemorySampler:
 
 
 def process_memory_bytes(pid: int) -> int | None:
-    """process_memory_bytes 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        pid (int): `pid` 값입니다.
-    
-    Returns:
-        int | None: 처리 결과를 반환합니다.
-    """
     system = platform.system()
     if system == "Linux":
         return linux_process_memory_bytes(pid)
@@ -128,13 +69,10 @@ def process_memory_bytes(pid: int) -> int | None:
 
 
 def linux_process_memory_bytes(pid: int) -> int | None:
-    """linux_process_memory_bytes 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        pid (int): `pid` 값입니다.
-    
-    Returns:
-        int | None: 처리 결과를 반환합니다.
+    """linux 프로세스 메모리 바이트 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
+        Args:
+            pid (int): linux 프로세스 메모리 바이트을 계산하거나 검증할 때 필요한 pid 입력입니다.
     """
     status = Path(f"/proc/{pid}/status")
     try:
@@ -149,13 +87,10 @@ def linux_process_memory_bytes(pid: int) -> int | None:
 
 
 def darwin_process_memory_bytes(pid: int) -> int | None:
-    """darwin_process_memory_bytes 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        pid (int): `pid` 값입니다.
-    
-    Returns:
-        int | None: 처리 결과를 반환합니다.
+    """darwin 프로세스 메모리 바이트 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
+        Args:
+            pid (int): darwin 프로세스 메모리 바이트을 계산하거나 검증할 때 필요한 pid 입력입니다.
     """
     try:
         result = subprocess.run(
@@ -177,16 +112,6 @@ def darwin_process_memory_bytes(pid: int) -> int | None:
 
 
 def truncated_bytes(data: bytes, limit: int, label: str) -> tuple[bytes, bool]:
-    """truncated_bytes 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        data (bytes): 처리할 데이터입니다.
-        limit (int): `limit` 값입니다.
-        label (str): `label` 값입니다.
-    
-    Returns:
-        tuple[bytes, bool]: 처리 결과를 반환합니다.
-    """
     if limit <= 0:
         return b"", bool(data)
     if len(data) <= limit:
@@ -198,29 +123,19 @@ def truncated_bytes(data: bytes, limit: int, label: str) -> tuple[bytes, bool]:
 
 
 def append_stderr_note(stderr: bytes, note: str, limit: int) -> tuple[bytes, bool]:
-    """append_stderr_note 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        stderr (bytes): `stderr` 값입니다.
-        note (str): `note` 값입니다.
-        limit (int): `limit` 값입니다.
-    
-    Returns:
-        tuple[bytes, bool]: 처리 결과를 반환합니다.
-    """
     suffix = (b"\n" if stderr else b"") + note.encode("utf-8")
     return truncated_bytes(stderr + suffix, limit, "stderr")
 
 
 def truncate_output_file(path: Path, limit: int) -> bool:
-    """truncate_output_file 함수를 실행하고 결과를 반환합니다.
-    
+    """truncate 출력 파일 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        path (Path): 경로 문자열입니다.
-        limit (int): `limit` 값입니다.
-    
+        path (Path): 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
+        limit (int): truncate 출력 파일을 계산하거나 검증할 때 필요한 제한 입력입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: truncate 출력 파일 조건을 만족하면 True, 아니면 False입니다.
     """
     if limit <= 0:
         path.write_bytes(b"")
@@ -237,13 +152,10 @@ def truncate_output_file(path: Path, limit: int) -> bool:
 
 
 def terminate_process_group(process: subprocess.Popen[bytes]) -> None:
-    """terminate_process_group 함수를 실행하고 결과를 반환합니다.
-    
+    """terminate 프로세스 group 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
     Args:
-        process (subprocess.Popen[bytes]): `process` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        process (subprocess.Popen[bytes]): terminate 프로세스 group을 계산하거나 검증할 때 필요한 프로세스 입력입니다.
     """
     if process.poll() is not None:
         return
@@ -279,21 +191,18 @@ def run_command_result(
     stderr_limit_bytes: int = DEFAULT_CAPTURE_LIMIT_BYTES,
     output_limit_bytes: int = DEFAULT_FILE_OUTPUT_LIMIT_BYTES,
 ) -> CommandResult:
-    """run_command_result 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        command (Sequence[str]): `command` 값입니다.
-        timeout_ms (int | None): `timeout_ms` 값입니다.
-        cwd (Path | None): `cwd` 값입니다.
-        input_path (Path | None): `input_path` 값입니다.
-        output_path (Path | None): `output_path` 값입니다.
-        log_path (Path | None): `log_path` 값입니다.
-        stdout_limit_bytes (int): `stdout_limit_bytes` 값입니다.
-        stderr_limit_bytes (int): `stderr_limit_bytes` 값입니다.
-        output_limit_bytes (int): `output_limit_bytes` 값입니다.
-    
-    Returns:
-        CommandResult: 처리 결과를 반환합니다.
+    """명령 결과 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
+        Args:
+            command (Sequence[str]): 명령 결과을 계산하거나 검증할 때 필요한 명령 입력입니다.
+            timeout_ms (int | None): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+            cwd (Path | None): 명령 결과을 계산하거나 검증할 때 필요한 cwd 입력입니다.
+            input_path (Path | None): 검증기, 솔루션, 체커에 전달할 테스트 입력 파일입니다.
+            output_path (Path | None): 제출 프로그램이 생성한 실제 출력 파일입니다.
+            log_path (Path | None): log 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+            stdout_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 표준 출력 제한 바이트 입력입니다.
+            stderr_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 표준 오류 제한 바이트 입력입니다.
+            output_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 출력 제한 바이트 입력입니다.
     """
     stdin = None
     stdout = subprocess.PIPE
@@ -391,18 +300,18 @@ def run_command(
     output_path: Path | None = None,
     log_path: Path | None = None,
 ) -> tuple[int, bytes, bytes]:
-    """run_command 함수를 실행하고 결과를 반환합니다.
-    
+    """명령 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
     Args:
-        command (Sequence[str]): `command` 값입니다.
-        timeout_ms (int | None): `timeout_ms` 값입니다.
-        cwd (Path | None): `cwd` 값입니다.
-        input_path (Path | None): `input_path` 값입니다.
-        output_path (Path | None): `output_path` 값입니다.
-        log_path (Path | None): `log_path` 값입니다.
-    
+        command (Sequence[str]): 명령을 계산하거나 검증할 때 필요한 명령 입력입니다.
+        timeout_ms (int | None): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+        cwd (Path | None): 명령을 계산하거나 검증할 때 필요한 cwd 입력입니다.
+        input_path (Path | None): 검증기, 솔루션, 체커에 전달할 테스트 입력 파일입니다.
+        output_path (Path | None): 제출 프로그램이 생성한 실제 출력 파일입니다.
+        log_path (Path | None): log 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+
     Returns:
-        tuple[int, bytes, bytes]: 처리 결과를 반환합니다.
+        tuple[int, bytes, bytes]: 명령 판단에 필요한 여러 값을 정해진 순서로 묶은 튜플입니다.
     """
     result = run_command_result(
         command,

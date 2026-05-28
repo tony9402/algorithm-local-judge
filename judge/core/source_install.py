@@ -1,10 +1,4 @@
-"""source_install 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""소스 설치 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -26,54 +20,26 @@ DEFAULT_SOURCE_REF = "default"
 
 
 def safe_source_component(value: str | None, fallback: str) -> str:
-    """safe_source_component 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        value (str | None): 값입니다.
-        fallback (str): `fallback` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     component = SAFE_SOURCE_COMPONENT_RE.sub("_", value or fallback).strip("_")
     return component or fallback
 
 
 def reject_symlinks(path: Path) -> None:
-    """reject_symlinks 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        path (Path): 경로 문자열입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
     for item in path.rglob("*"):
         if item.is_symlink():
             raise JudgeError(f"refusing to install source package with symlink: {item}")
 
 
 def source_problem_count(package_root: Path) -> int:
-    """source_problem_count 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        package_root (Path): `package_root` 값입니다.
-    
-    Returns:
-        int: 처리 결과를 반환합니다.
-    """
     return len(list((package_root / "problems").glob("*/problem.json")))
 
 
 def copy_testlib_if_needed(package_root: Path, target: Path) -> None:
-    """copy_testlib_if_needed 함수를 실행하고 결과를 반환합니다.
-    
+    """testlib if needed 파일을 정책이 허용하는 대상 경로로 복사합니다.
+
     Args:
-        package_root (Path): `package_root` 값입니다.
-        target (Path): `target` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        package_root (Path): testlib if needed을 계산하거나 검증할 때 필요한 package root 입력입니다.
+        target (Path): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
     """
     root_testlib = package_root / "testlib.h"
     problems_testlib = package_root / "problems" / "testlib.h"
@@ -93,16 +59,16 @@ def install_problem_source_package(
     ref: str | None = None,
     commit_sha: str | None = None,
 ) -> dict[str, Any]:
-    """install_problem_source_package 함수를 실행하고 결과를 반환합니다.
-    
+    """설치 문제 소스 package 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        package_root (Path): `package_root` 값입니다.
-        repository (str | None): `repository` 값입니다.
-        ref (str | None): `ref` 값입니다.
-        commit_sha (str | None): `commit_sha` 값입니다.
-    
+        package_root (Path): 설치 문제 소스 package을 계산하거나 검증할 때 필요한 package root 입력입니다.
+        repository (str | None): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
+        ref (str | None): GitHub API나 Git 명령에서 사용할 브랜치, 태그, 커밋 참조입니다.
+        commit_sha (str | None): 설치 문제 소스 package을 계산하거나 검증할 때 필요한 commit SHA 입력입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 설치 문제 소스 package 데이터입니다.
     """
     package_root = package_root.resolve()
     problems_dir = package_root / "problems"
@@ -166,17 +132,6 @@ def install_problem_source_archive(
     ref: str | None = None,
     commit_sha: str | None = None,
 ) -> dict[str, Any]:
-    """install_problem_source_archive 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        archive_path (Path): `archive_path` 값입니다.
-        repository (str | None): `repository` 값입니다.
-        ref (str | None): `ref` 값입니다.
-        commit_sha (str | None): `commit_sha` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     with tempfile.TemporaryDirectory(prefix="alj-source-extract-") as tmp:
         extracted_dir = Path(tmp)
         safe_extract_zip(archive_path, extracted_dir)

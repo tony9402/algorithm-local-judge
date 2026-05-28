@@ -1,10 +1,4 @@
-"""compiler_common 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""컴파일러 common 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -30,13 +24,7 @@ COMPILE_OUTPUT_LIMIT = 6000
 
 @dataclass(frozen=True)
 class PreparedSubmission:
-    """PreparedSubmission 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """prepared 제출 상태와 관련 동작을 하나의 객체로 표현합니다.
     """
 
     command: list[str]
@@ -46,17 +34,17 @@ class PreparedSubmission:
 def compile_cpp(
     source: Path, output: Path, include_root: Path, timeout_ms: int, log_path: Path
 ) -> dict[str, Any]:
-    """compile_cpp 함수를 실행하고 결과를 반환합니다.
-    
+    """cpp 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
     Args:
-        source (Path): `source` 값입니다.
-        output (Path): `output` 값입니다.
-        include_root (Path): `include_root` 값입니다.
-        timeout_ms (int): `timeout_ms` 값입니다.
-        log_path (Path): `log_path` 값입니다.
-    
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        output (Path): cpp을 계산하거나 검증할 때 필요한 출력 입력입니다.
+        include_root (Path): cpp을 계산하거나 검증할 때 필요한 include root 입력입니다.
+        timeout_ms (int): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+        log_path (Path): log 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 cpp 데이터입니다.
     """
     include_paths = [include_root]
     problems_include = include_root / "problems"
@@ -78,16 +66,16 @@ def compile_cpp(
 
 
 def compile_error_message(label: str, source: Path, log_path: Path, stderr: bytes) -> str:
-    """compile_error_message 함수를 실행하고 결과를 반환합니다.
-    
+    """오류 message 소스와 설정을 실행 가능한 산출물과 진단 정보로 변환합니다.
+
     Args:
-        label (str): `label` 값입니다.
-        source (Path): `source` 값입니다.
-        log_path (Path): `log_path` 값입니다.
-        stderr (bytes): `stderr` 값입니다.
-    
+        label (str): 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        log_path (Path): log 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        stderr (bytes): 외부 프로세스가 표준 오류로 출력한 바이트 데이터입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 오류 message 문자열입니다.
     """
     text = stderr.decode("utf-8", errors="replace").strip()
     if len(text) > COMPILE_OUTPUT_LIMIT:
@@ -100,14 +88,14 @@ def compile_error_message(label: str, source: Path, log_path: Path, stderr: byte
 
 
 def resolve_tool(env_name: str, candidates: list[str]) -> str:
-    """resolve_tool 함수를 실행하고 결과를 반환합니다.
-    
+    """도구 식별자나 상대 경로를 실제 사용할 수 있는 대상으로 확정합니다.
+
     Args:
-        env_name (str): `env_name` 값입니다.
-        candidates (list[str]): `candidates` 값입니다.
-    
+        env_name (str): env 이름를 사용자 표시와 내부 조회에 함께 사용하는 이름입니다.
+        candidates (list[str]): 도구을 계산하거나 검증할 때 필요한 candidates 입력입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 도구 문자열입니다.
     """
     configured = os.environ.get(env_name)
     if configured:
@@ -122,13 +110,13 @@ def resolve_tool(env_name: str, candidates: list[str]) -> str:
 
 
 def java_main_class(source: Path) -> str:
-    """java_main_class 함수를 실행하고 결과를 반환합니다.
-    
+    """java main class 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        source (Path): `source` 값입니다.
-    
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 java main class 문자열입니다.
     """
     match = JAVA_PUBLIC_CLASS_RE.search(source.read_text(encoding="utf-8", errors="replace"))
     if match:

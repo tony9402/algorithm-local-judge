@@ -1,10 +1,4 @@
-"""pack_verify 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제팩 verify 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -25,14 +19,6 @@ from judge.utils.hashing import sha256_file
 
 
 def verify_pack_dir(pack_dir: Path) -> dict[str, Any]:
-    """verify_pack_dir 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        pack_dir (Path): `pack_dir` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     pack_json = pack_dir / "pack.json"
     manifest_json = pack_dir / "manifest.json"
     if not pack_json.exists():
@@ -64,14 +50,6 @@ def verify_pack_dir(pack_dir: Path) -> dict[str, Any]:
 
 
 def verify_pack(archive_path: Path) -> dict[str, Any]:
-    """verify_pack 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        archive_path (Path): `archive_path` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     archive_path = archive_path.resolve()
     if not archive_path.exists():
         raise JudgeError(f"problem pack not found: {archive_path}")

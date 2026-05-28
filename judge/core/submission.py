@@ -1,10 +1,4 @@
-"""submission 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""제출 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -36,44 +30,28 @@ def run_submission(
     stop_on_first_failure: bool = True,
     warmup_profile: str | None = None,
 ) -> Path:
-    """run_submission 함수를 실행하고 결과를 반환합니다.
-    
+    """제출 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
+
     Args:
-        source (str | Path): `source` 값입니다.
-        problem_id (str | None): 문제 ID입니다.
-        profile (str | None): `profile` 값입니다.
-        root (Path | None): `root` 값입니다.
-        progress (Callable[[str], None] | None): `progress` 값입니다.
-        stop_on_first_failure (bool): `stop_on_first_failure` 값입니다.
-        warmup_profile (str | None): `warmup_profile` 값입니다.
-    
+        source (str | Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        problem_id (str | None): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+        progress (Callable[[str], None] | None): 장시간 작업의 단계와 메시지를 UI 작업 상태로 전달하는 콜백입니다.
+        stop_on_first_failure (bool): 제출 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        warmup_profile (str | None): 제출을 계산하거나 검증할 때 필요한 워밍업 프로필 입력입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 제출 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
 
     def emit(message: str) -> None:
-    """emit 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        message (str): 메시지입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         if progress is not None:
             progress(message)
 
     data_dirs: dict[str, Path] = {}
 
     def profile_data_dir(target_profile: str) -> Path:
-    """profile_data_dir 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        target_profile (str): `target_profile` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
         cached_data_dir = latest_cache_for(problem_id, target_profile, root)
         if cached_data_dir is None:
             emit(f"No valid cached data for profile {target_profile}; generating test data.")

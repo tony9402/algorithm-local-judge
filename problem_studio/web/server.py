@@ -1,10 +1,4 @@
-"""server 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""서버 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -20,24 +14,13 @@ from problem_studio.web.security_policy import is_local_binding
 
 
 def open_browser_later(url: str) -> None:
-    """open_browser_later 함수를 실행하고 결과를 반환합니다.
-    
+    """browser later 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
+
     Args:
-        url (str): `url` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        url (str): 브라우저 또는 Git 명령에 전달할 URL입니다.
     """
 
     def worker() -> None:
-    """worker 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         time.sleep(0.7)
         webbrowser.open(url)
 
@@ -51,17 +34,14 @@ def run_server(
     open_browser: bool = False,
     active_repository: str | None = None,
 ) -> None:
-    """run_server 함수를 실행하고 결과를 반환합니다.
-    
+    """서버 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        host (str): `host` 값입니다.
-        port (int): `port` 값입니다.
-        open_browser (bool): `open_browser` 값입니다.
-        active_repository (str | None): `active_repository` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        host (str): 서버을 계산하거나 검증할 때 필요한 host 입력입니다.
+        port (int): 서버을 계산하거나 검증할 때 필요한 port 입력입니다.
+        open_browser (bool): 서버 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        active_repository (str | None): 서버을 계산하거나 검증할 때 필요한 활성 저장소 입력입니다.
     """
     url = f"http://{host}:{port}"
     local_binding = is_local_binding(host)

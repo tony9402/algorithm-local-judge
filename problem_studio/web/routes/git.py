@@ -1,10 +1,4 @@
-"""git 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""Git API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -36,13 +30,10 @@ router = APIRouter(prefix="/api/workspace/git", tags=["workspace-git"])
 
 
 def ensure_git_write_enabled(request: Request) -> None:
-    """ensure_git_write_enabled 함수를 실행하고 결과를 반환합니다.
-    
+    """Git 쓰기 enabled 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
     """
     ensure_local_write_allowed(request, "Git network/write action")
     if not getattr(request.app.state, "git_write_enabled", True):
@@ -50,14 +41,14 @@ def ensure_git_write_enabled(request: Request) -> None:
 
 
 def attach_git_write_policy(request: Request, status: dict) -> dict:
-    """attach_git_write_policy 함수를 실행하고 결과를 반환합니다.
-    
+    """attach Git 쓰기 정책 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        status (dict): `status` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        status (dict): attach Git 쓰기 정책을 계산하거나 검증할 때 필요한 상태 입력입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 attach Git 쓰기 정책 데이터입니다.
     """
     status["writeEnabled"] = bool(getattr(request.app.state, "git_write_enabled", True))
     status["workspaceRoot"] = str(workspace_root_from_request(request))
@@ -68,51 +59,43 @@ def attach_git_write_policy(request: Request, status: dict) -> dict:
 
 
 def status_payload(request: Request) -> dict:
-    """status_payload 함수를 실행하고 결과를 반환합니다.
-    
+    """상태 payload 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 상태 payload 데이터입니다.
     """
     return attach_git_write_policy(request, git_status(workspace_from_request(request)))
 
 
 @router.get("/status")
 def api_git_status(request: Request) -> dict:
-    """api_git_status 함수를 실행하고 결과를 반환합니다.
-    
+    """Git 상태 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 Git 상태 데이터입니다.
     """
     return route_result(lambda: status_payload(request))
 
 
 @router.post("/clone")
 def api_git_clone(request: Request, body: GitCloneRequest) -> dict:
-    """api_git_clone 함수를 실행하고 결과를 반환합니다.
-    
+    """Git clone 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        body (GitCloneRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        body (GitCloneRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 Git clone 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_git_write_enabled(request)
         target = Path(body.path)
         clone_repository(body.url, target, body.branch)
@@ -132,24 +115,16 @@ def api_git_clone(request: Request, body: GitCloneRequest) -> dict:
 
 @router.post("/fetch")
 def api_git_fetch(request: Request) -> dict:
-    """api_git_fetch 함수를 실행하고 결과를 반환합니다.
-    
+    """Git fetch 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 Git fetch 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_git_write_enabled(request)
         return attach_git_write_policy(request, fetch_repository(workspace_from_request(request)))
 
@@ -158,24 +133,16 @@ def api_git_fetch(request: Request) -> dict:
 
 @router.post("/pull")
 def api_git_pull(request: Request) -> dict:
-    """api_git_pull 함수를 실행하고 결과를 반환합니다.
-    
+    """Git pull 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 Git pull 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_git_write_enabled(request)
         return attach_git_write_policy(request, pull_repository(workspace_from_request(request)))
 
@@ -184,25 +151,17 @@ def api_git_pull(request: Request) -> dict:
 
 @router.post("/commit")
 def api_git_commit(request: Request, body: GitCommitRequest) -> dict:
-    """api_git_commit 함수를 실행하고 결과를 반환합니다.
-    
+    """Git commit 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        body (GitCommitRequest): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        body (GitCommitRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 Git commit 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_git_write_enabled(request)
         return attach_git_write_policy(
             request,
@@ -214,24 +173,16 @@ def api_git_commit(request: Request, body: GitCommitRequest) -> dict:
 
 @router.post("/push")
 def api_git_push(request: Request) -> dict:
-    """api_git_push 함수를 실행하고 결과를 반환합니다.
-    
+    """Git push 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 Git push 데이터입니다.
     """
 
     def operation() -> dict:
-    """operation 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ensure_git_write_enabled(request)
         return attach_git_write_policy(request, push_repository(workspace_from_request(request)))
 

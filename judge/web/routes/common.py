@@ -1,10 +1,4 @@
-"""common 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""common API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -23,13 +17,13 @@ from judge.core.errors import (
 
 
 def to_http_error(exc: Exception) -> HTTPException:
-    """to_http_error 함수를 실행하고 결과를 반환합니다.
-    
+    """http 오류 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        exc (Exception): `exc` 값입니다.
-    
+        exc (Exception): http 오류을 계산하거나 검증할 때 필요한 exc 입력입니다.
+
     Returns:
-        HTTPException: 처리 결과를 반환합니다.
+        HTTPException: 클라이언트에 전달할 상태 코드와 오류 본문을 담은 HTTP 예외입니다.
     """
     if isinstance(exc, SecurityPolicyError):
         return HTTPException(status_code=403, detail=str(exc))
@@ -43,13 +37,10 @@ def to_http_error(exc: Exception) -> HTTPException:
 
 
 def jobs_from_request(request: Request) -> BackgroundJobStore:
-    """jobs_from_request 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        request (Request): HTTP 요청 객체입니다.
-    
-    Returns:
-        BackgroundJobStore: 처리 결과를 반환합니다.
+    """작업 요청 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+        Args:
+            request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
     """
     return request.app.state.jobs
 
@@ -70,38 +61,27 @@ def enqueue_background_job(
     cancel_mode: str = "cooperative",
     cancel_blocked_reason: str | None = None,
 ) -> BackgroundJob:
-    """enqueue_background_job 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        jobs (BackgroundJobStore): `jobs` 값입니다.
-        kind (str): `kind` 값입니다.
-        title (str): `title` 값입니다.
-        problem_id (str): 문제 ID입니다.
-        lane (str): `lane` 값입니다.
-        target (dict | None): `target` 값입니다.
-        operation (Callable[[CancelToken, Callable[..., None]], dict]): `operation` 값입니다.
-        app (str): `app` 값입니다.
-        result_actions (dict | None): `result_actions` 값입니다.
-        input_snapshot_summary (str | None): `input_snapshot_summary` 값입니다.
-        cancel_supported (bool): `cancel_supported` 값입니다.
-        cancel_mode (str): `cancel_mode` 값입니다.
-        cancel_blocked_reason (str | None): `cancel_blocked_reason` 값입니다.
-    
-    Returns:
-        BackgroundJob: 처리 결과를 반환합니다.
+    """background 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+        Args:
+            jobs (BackgroundJobStore): background 작업을 계산하거나 검증할 때 필요한 작업 입력입니다.
+            kind (str): background 작업을 계산하거나 검증할 때 필요한 kind 입력입니다.
+            title (str): background 작업을 계산하거나 검증할 때 필요한 title 입력입니다.
+            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+            lane (str): background 작업을 계산하거나 검증할 때 필요한 lane 입력입니다.
+            target (dict | None): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
+            operation (Callable[[CancelToken, Callable[..., None]], dict]): background 작업을 계산하거나 검증할 때 필요한 operation 입력입니다.
+            app (str): background 작업을 계산하거나 검증할 때 필요한 애플리케이션 입력입니다.
+            result_actions (dict | None): background 작업을 계산하거나 검증할 때 필요한 결과 actions 입력입니다.
+            input_snapshot_summary (str | None): background 작업을 계산하거나 검증할 때 필요한 입력 snapshot summary 입력입니다.
+            cancel_supported (bool): background 작업 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+            cancel_mode (str): background 작업을 계산하거나 검증할 때 필요한 cancel mode 입력입니다.
+            cancel_blocked_reason (str | None): background 작업을 계산하거나 검증할 때 필요한 cancel blocked reason 입력입니다.
     """
     holder: dict[str, str] = {}
     ready = threading.Event()
 
     def run(cancel_token: CancelToken | None = None) -> dict:
-    """run 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        cancel_token (CancelToken | None): `cancel_token` 값입니다.
-    
-    Returns:
-        dict: 처리 결과를 반환합니다.
-    """
         ready.wait(timeout=2)
         token = cancel_token or CancelToken()
 
@@ -112,18 +92,6 @@ def enqueue_background_job(
             label: str | None = None,
             **extra,
         ) -> None:
-        """progress 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            message (str): 메시지입니다.
-            current (int | None): `current` 값입니다.
-            total (int | None): `total` 값입니다.
-            label (str | None): `label` 값입니다.
-            **extra (Any): `extra` 값입니다.
-        
-        Returns:
-            None: 처리 결과를 반환합니다.
-        """
             token.check()
             jobs.update_progress(
                 holder["job_id"],
@@ -156,14 +124,14 @@ def enqueue_background_job(
 
 
 def etag_matches(header: str | None, etag: str) -> bool:
-    """etag_matches 함수를 실행하고 결과를 반환합니다.
-    
+    """etag matches 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        header (str | None): `header` 값입니다.
-        etag (str): `etag` 값입니다.
-    
+        header (str | None): etag matches을 계산하거나 검증할 때 필요한 header 입력입니다.
+        etag (str): etag matches을 계산하거나 검증할 때 필요한 etag 입력입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: etag matches 조건을 만족하면 True, 아니면 False입니다.
     """
     if not header:
         return False

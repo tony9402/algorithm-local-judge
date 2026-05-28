@@ -1,10 +1,4 @@
-"""source_history_metadata 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""소스 이력 메타데이터 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -26,17 +20,6 @@ def source_history_metadata(
     problem_id: str,
     source_mode: str,
 ) -> dict[str, Any]:
-    """source_history_metadata 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        source_id (str): 소스 ID입니다.
-        target (Path): `target` 값입니다.
-        problem_id (str): 문제 ID입니다.
-        source_mode (str): `source_mode` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     stat = target.stat()
     saved_at = stat.st_mtime
     return {
@@ -59,16 +42,16 @@ def write_source_history_metadata(
     problem_id: str,
     source_mode: str,
 ) -> dict[str, Any]:
-    """write_source_history_metadata 함수를 실행하고 결과를 반환합니다.
-    
+    """소스 이력 메타데이터 데이터를 지정된 파일이나 응답 대상에 기록합니다.
+
     Args:
-        source_id (str): 소스 ID입니다.
-        target (Path): `target` 값입니다.
-        problem_id (str): 문제 ID입니다.
-        source_mode (str): `source_mode` 값입니다.
-    
+        source_id (str): 소스 ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+        target (Path): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        source_mode (str): 소스가 경로, 업로드, 직접 입력 중 어떤 방식으로 전달됐는지 나타냅니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 소스 이력 메타데이터 데이터입니다.
     """
     metadata = source_history_metadata(source_id, target, problem_id, source_mode)
     write_json(target.parent / "metadata.json", metadata)
@@ -76,14 +59,6 @@ def write_source_history_metadata(
 
 
 def source_history_run_summary(result: dict[str, Any]) -> dict[str, Any]:
-    """source_history_run_summary 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        result (dict[str, Any]): `result` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     cases = result.get("cases") if isinstance(result.get("cases"), list) else []
     return {
         "runId": result.get("runId"),
@@ -100,15 +75,6 @@ def source_history_run_summary(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def source_file_for_entry(entry_dir: Path, metadata: dict[str, Any] | None) -> Path | None:
-    """source_file_for_entry 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        entry_dir (Path): `entry_dir` 값입니다.
-        metadata (dict[str, Any] | None): `metadata` 값입니다.
-    
-    Returns:
-        Path | None: 처리 결과를 반환합니다.
-    """
     if metadata:
         filename = Path(str(metadata.get("filename", ""))).name
         if filename:
@@ -122,14 +88,6 @@ def source_file_for_entry(entry_dir: Path, metadata: dict[str, Any] | None) -> P
 
 
 def source_entry_metadata(entry_dir: Path) -> dict[str, Any] | None:
-    """source_entry_metadata 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        entry_dir (Path): `entry_dir` 값입니다.
-    
-    Returns:
-        dict[str, Any] | None: 처리 결과를 반환합니다.
-    """
     source_id = entry_dir.name
     metadata_path = entry_dir / "metadata.json"
     metadata = None

@@ -1,10 +1,4 @@
-"""solution_expectations 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""솔루션 기대 상태 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -26,14 +20,6 @@ EXPECTED_STATUS_BY_TOKEN = {
 
 
 def expected_status_from_solution_name(path: Path) -> tuple[str, str]:
-    """expected_status_from_solution_name 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        path (Path): 경로 문자열입니다.
-    
-    Returns:
-        tuple[str, str]: 처리 결과를 반환합니다.
-    """
     parts = path.name.split(".")
     if len(parts) < 3:
         raise JudgeError(
@@ -51,13 +37,13 @@ def expected_status_from_solution_name(path: Path) -> tuple[str, str]:
 
 
 def discover_solution_expectations(problem_dir: Path) -> list[SolutionExpectation]:
-    """discover_solution_expectations 함수를 실행하고 결과를 반환합니다.
-    
+    """설정과 디렉터리를 탐색해 사용 가능한 솔루션 기대 상태 항목을 찾습니다.
+
     Args:
-        problem_dir (Path): `problem_dir` 값입니다.
-    
+        problem_dir (Path): 문제의 소스, 도구, 설정 파일이 들어 있는 디렉터리입니다.
+
     Returns:
-        list[SolutionExpectation]: 처리 결과를 반환합니다.
+        list[SolutionExpectation]: 호출자가 순회하거나 화면에 표시할 솔루션 기대 상태 항목 목록입니다.
     """
     solutions_dir = problem_dir / "solutions"
     if not solutions_dir.exists():
@@ -74,14 +60,14 @@ def discover_solution_expectations(problem_dir: Path) -> list[SolutionExpectatio
 
 
 def ensure_reference_solution(problem_id: str, root: Path | None = None) -> Path:
-    """ensure_reference_solution 함수를 실행하고 결과를 반환합니다.
-    
+    """참조 솔루션 조건을 확인하고 위반 시 호출자가 중단할 수 있는 예외를 발생시킵니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        root (Path | None): `root` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 참조 솔루션 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     problem_dir, _, _, paths = tool_paths(problem_id, root)
     reference = problem_dir / "solutions" / REFERENCE_SOLUTION
@@ -96,14 +82,6 @@ def ensure_reference_solution(problem_id: str, root: Path | None = None) -> Path
 
 
 def solution_path_key(path: Path | str) -> str:
-    """solution_path_key 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        path (Path | str): 경로 문자열입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     raw = str(path).replace("\\", "/").strip().lstrip("./")
     parts = [part for part in raw.split("/") if part and part != "."]
     if "solutions" in parts:
@@ -118,16 +96,6 @@ def filter_solution_expectations(
     problem_dir: Path,
     requested_paths: list[str] | None,
 ) -> list[SolutionExpectation]:
-    """filter_solution_expectations 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        expectations (list[SolutionExpectation]): `expectations` 값입니다.
-        problem_dir (Path): `problem_dir` 값입니다.
-        requested_paths (list[str] | None): `requested_paths` 값입니다.
-    
-    Returns:
-        list[SolutionExpectation]: 처리 결과를 반환합니다.
-    """
     if not requested_paths:
         return expectations
     requested = {solution_path_key(path) for path in requested_paths if str(path).strip()}

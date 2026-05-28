@@ -1,10 +1,4 @@
-"""solution_models 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""솔루션 models 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -17,13 +11,7 @@ from judge.core.paths import rel
 
 @dataclass(frozen=True)
 class SolutionExpectation:
-    """SolutionExpectation 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """솔루션 기대 상태 상태와 관련 동작을 하나의 객체로 표현합니다.
     """
 
     path: Path
@@ -33,13 +21,7 @@ class SolutionExpectation:
 
 @dataclass(frozen=True)
 class SolutionCheckResult:
-    """SolutionCheckResult 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """솔루션 검사 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
     """
 
     source: Path
@@ -52,15 +34,6 @@ class SolutionCheckResult:
     metrics: dict[str, Any] | None = None
 
     def to_dict(self, root: Path | None = None) -> dict[str, object]:
-        """to_dict 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            self (Any): 현재 인스턴스를 나타내는 객체입니다.
-            root (Path | None): `root` 값입니다.
-        
-        Returns:
-            dict[str, object]: 처리 결과를 반환합니다.
-        """
         return {
             "source": rel(self.source, root),
             "expectedStatus": self.expected_status,
@@ -75,13 +48,7 @@ class SolutionCheckResult:
 
 @dataclass(frozen=True)
 class SolutionVerificationResult:
-    """SolutionVerificationResult 클래스를 정의하고 동작을 설명합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+    """솔루션 verification 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
     """
 
     problem_id: str
@@ -91,26 +58,9 @@ class SolutionVerificationResult:
 
     @property
     def passed(self) -> bool:
-        """passed 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            self (Any): 현재 인스턴스를 나타내는 객체입니다.
-        
-        Returns:
-            bool: 처리 결과를 반환합니다.
-        """
         return all(check.passed for check in self.checks)
 
     def to_dict(self, root: Path | None = None) -> dict[str, object]:
-        """to_dict 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            self (Any): 현재 인스턴스를 나타내는 객체입니다.
-            root (Path | None): `root` 값입니다.
-        
-        Returns:
-            dict[str, object]: 처리 결과를 반환합니다.
-        """
         total = self.total_count if self.total_count is not None else len(self.checks)
         return {
             "problemId": self.problem_id,

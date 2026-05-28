@@ -1,10 +1,4 @@
-"""sources 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""소스 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -19,13 +13,10 @@ router = APIRouter(prefix="/api/sources", tags=["sources"])
 
 @router.get("")
 def api_source_history() -> dict:
-    """api_source_history 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
+    """소스 이력 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 소스 이력 데이터입니다.
     """
     try:
         return services.list_source_history()
@@ -35,14 +26,14 @@ def api_source_history() -> dict:
 
 @router.get("/{source_id}")
 def api_source_history_detail(request: Request, source_id: str) -> dict:
-    """api_source_history_detail 함수를 실행하고 결과를 반환합니다.
-    
+    """소스 이력 detail 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        source_id (str): 소스 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        source_id (str): 소스 ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 소스 이력 detail 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(request, "source history detail")
@@ -53,14 +44,14 @@ def api_source_history_detail(request: Request, source_id: str) -> dict:
 
 @router.delete("/{source_id}")
 def api_source_history_delete(request: Request, source_id: str) -> dict:
-    """api_source_history_delete 함수를 실행하고 결과를 반환합니다.
-    
+    """소스 이력 delete 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        source_id (str): 소스 ID입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        source_id (str): 소스 ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 소스 이력 delete 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(request, "source history delete")

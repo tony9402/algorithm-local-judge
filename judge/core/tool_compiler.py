@@ -1,10 +1,4 @@
-"""tool_compiler 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""도구 컴파일러 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -29,16 +23,16 @@ def compile_problem_tool(
     root: Path | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> Path:
-    """compile_problem_tool 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 도구 소스와 설정을 실행 가능한 산출물과 진단 정보로 변환합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        tool_name (str): `tool_name` 값입니다.
-        root (Path | None): `root` 값입니다.
-        progress (Callable[[str], None] | None): `progress` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        tool_name (str): 도구 이름를 사용자 표시와 내부 조회에 함께 사용하는 이름입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+        progress (Callable[[str], None] | None): 장시간 작업의 단계와 메시지를 UI 작업 상태로 전달하는 콜백입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 문제 도구 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     if tool_name not in TOOL_NAMES:
         raise JudgeError(f"unknown problem tool: {tool_name}")
@@ -62,15 +56,15 @@ def compile_problem_tools(
     root: Path | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, Path]:
-    """compile_problem_tools 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 도구 소스와 설정을 실행 가능한 산출물과 진단 정보로 변환합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        root (Path | None): `root` 값입니다.
-        progress (Callable[[str], None] | None): `progress` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+        progress (Callable[[str], None] | None): 장시간 작업의 단계와 메시지를 UI 작업 상태로 전달하는 콜백입니다.
+
     Returns:
-        dict[str, Path]: 처리 결과를 반환합니다.
+        dict[str, Path]: 검증된 문제 도구 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     _, _, metadata, paths = tool_paths(problem_id, root)
     if is_precompiled_problem(metadata):

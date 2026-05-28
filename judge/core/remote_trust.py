@@ -1,10 +1,4 @@
-"""remote_trust 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""원격 신뢰 설정 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -21,25 +15,17 @@ TRUST_CONFIG_FILE = "trusted_repositories.json"
 
 
 def trusted_repository_config_path() -> Path:
-    """trusted_repository_config_path 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     return user_data_root() / TRUST_CONFIG_DIR / TRUST_CONFIG_FILE
 
 
 def normalize_trusted_repository(repository: str) -> str:
-    """normalize_trusted_repository 함수를 실행하고 결과를 반환합니다.
-    
+    """trusted 저장소 입력을 비교와 저장에 쓰기 쉬운 표준 형식으로 정규화합니다.
+
     Args:
-        repository (str): `repository` 값입니다.
-    
+        repository (str): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 정책 검사를 통과한 표준 trusted 저장소 문자열입니다.
     """
     parsed = github_repository_from_source(repository)
     if parsed is None:
@@ -48,37 +34,21 @@ def normalize_trusted_repository(repository: str) -> str:
 
 
 def default_trusted_repositories() -> list[str]:
-    """default_trusted_repositories 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        list[str]: 처리 결과를 반환합니다.
-    """
     return sorted(DEFAULT_TRUSTED_REPOSITORIES)
 
 
 def default_trusted_owner_patterns() -> list[str]:
-    """default_trusted_owner_patterns 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        list[str]: 처리 결과를 반환합니다.
-    """
     return default_trusted_repositories()
 
 
 def load_user_trusted_repositories(path: Path | None = None) -> list[str]:
-    """load_user_trusted_repositories 함수를 실행하고 결과를 반환합니다.
-    
+    """user trusted 저장소 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        path (Path | None): 경로 문자열입니다.
-    
+        path (Path | None): 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
+
     Returns:
-        list[str]: 처리 결과를 반환합니다.
+        list[str]: 호출자가 순회하거나 화면에 표시할 user trusted 저장소 항목 목록입니다.
     """
     config_path = path or trusted_repository_config_path()
     if not config_path.exists():
@@ -106,14 +76,11 @@ def save_user_trusted_repositories(
     repositories: list[str],
     path: Path | None = None,
 ) -> None:
-    """save_user_trusted_repositories 함수를 실행하고 결과를 반환합니다.
-    
+    """user trusted 저장소 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        repositories (list[str]): `repositories` 값입니다.
-        path (Path | None): 경로 문자열입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
+        repositories (list[str]): user trusted 저장소을 계산하거나 검증할 때 필요한 저장소 입력입니다.
+        path (Path | None): 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
     """
     config_path = path or trusted_repository_config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -125,26 +92,26 @@ def save_user_trusted_repositories(
 
 
 def is_default_trusted_repository(repository: str) -> bool:
-    """is_default_trusted_repository 함수를 실행하고 결과를 반환합니다.
-    
+    """default trusted 저장소 여부를 실제 파일, 설정, 또는 런타임 상태를 기준으로 판정합니다.
+
     Args:
-        repository (str): `repository` 값입니다.
-    
+        repository (str): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: default trusted 저장소 조건을 만족하면 True, 아니면 False입니다.
     """
     normalized = normalize_trusted_repository(repository)
     return normalized in DEFAULT_TRUSTED_REPOSITORIES
 
 
 def is_trusted_repository(repository: str) -> bool:
-    """is_trusted_repository 함수를 실행하고 결과를 반환합니다.
-    
+    """trusted 저장소 여부를 실제 파일, 설정, 또는 런타임 상태를 기준으로 판정합니다.
+
     Args:
-        repository (str): `repository` 값입니다.
-    
+        repository (str): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: trusted 저장소 조건을 만족하면 True, 아니면 False입니다.
     """
     normalized = normalize_trusted_repository(repository)
     if is_default_trusted_repository(normalized):
@@ -153,13 +120,13 @@ def is_trusted_repository(repository: str) -> bool:
 
 
 def ensure_trusted_repository(repository: str) -> str:
-    """ensure_trusted_repository 함수를 실행하고 결과를 반환합니다.
-    
+    """trusted 저장소 조건을 확인하고 위반 시 호출자가 중단할 수 있는 예외를 발생시킵니다.
+
     Args:
-        repository (str): `repository` 값입니다.
-    
+        repository (str): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 trusted 저장소 문자열입니다.
     """
     normalized = normalize_trusted_repository(repository)
     if not is_trusted_repository(normalized):
@@ -171,14 +138,6 @@ def ensure_trusted_repository(repository: str) -> str:
 
 
 def add_user_trusted_repository(repository: str) -> str:
-    """add_user_trusted_repository 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        repository (str): `repository` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     normalized = normalize_trusted_repository(repository)
     repositories = load_user_trusted_repositories()
     if normalized not in repositories:
@@ -188,13 +147,13 @@ def add_user_trusted_repository(repository: str) -> str:
 
 
 def remove_user_trusted_repository(repository: str) -> str:
-    """remove_user_trusted_repository 함수를 실행하고 결과를 반환합니다.
-    
+    """user trusted 저장소 항목을 현재 상태와 저장소에서 제거합니다.
+
     Args:
-        repository (str): `repository` 값입니다.
-    
+        repository (str): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 user trusted 저장소 문자열입니다.
     """
     normalized = normalize_trusted_repository(repository)
     repositories = [item for item in load_user_trusted_repositories() if item != normalized]

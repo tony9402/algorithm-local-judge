@@ -1,10 +1,4 @@
-"""problem 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다.
 """
 from __future__ import annotations
 
@@ -17,14 +11,6 @@ from judge.core.remote import install_problem_source
 
 
 def print_installed_problem_source(result: dict) -> None:
-    """print_installed_problem_source 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        result (dict): `result` 값입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
     install_type = result.get("installType") or "pack"
     label = "source package" if install_type == "source" else "problem pack"
     print(f"Installed {label}: {result.get('label') or result.get('installedPath')}")
@@ -56,13 +42,13 @@ def print_installed_problem_source(result: dict) -> None:
 
 
 def handle(args: argparse.Namespace) -> int:
-    """handle 함수를 실행하고 결과를 반환합니다.
-    
+    """problem CLI 명령의 옵션을 해석하고 필요한 서비스 호출과 출력 작업을 수행합니다.
+
     Args:
-        args (argparse.Namespace): `args` 값입니다.
-    
+        args (argparse.Namespace): argparse가 파싱한 명령 옵션과 대상 값을 담은 네임스페이스입니다.
+
     Returns:
-        int: 처리 결과를 반환합니다.
+        int: 명령 성공 여부를 나타내는 프로세스 종료 코드입니다.
     """
     if args.problem_command == "install":
         result = install_problem_source(

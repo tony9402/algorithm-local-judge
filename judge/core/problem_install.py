@@ -1,10 +1,4 @@
-"""problem_install 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제 설치 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -29,14 +23,6 @@ from judge.core.source_install import (
 
 
 def install_problem_pack(archive_path: Path) -> dict[str, Any]:
-    """install_problem_pack 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        archive_path (Path): `archive_path` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     target = install_pack(archive_path)
     return {
         "installedPath": str(target),
@@ -51,15 +37,6 @@ def install_local_problem_source(
     *,
     ref: str | None = None,
 ) -> dict[str, Any]:
-    """install_local_problem_source 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        local_path (Path): `local_path` 값입니다.
-        ref (str | None): `ref` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     if local_path.is_file():
         if local_path.suffix == ".aljpack":
             result = install_problem_pack(local_path.resolve())
@@ -94,18 +71,6 @@ def install_problem_source(
     checksum: str | None = None,
     checksum_url: str | None = None,
 ) -> dict[str, Any]:
-    """install_problem_source 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        source (str | None): `source` 값입니다.
-        asset_name (str | None): `asset_name` 값입니다.
-        ref (str | None): `ref` 값입니다.
-        checksum (str | None): `checksum` 값입니다.
-        checksum_url (str | None): `checksum_url` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     source = source or official_pack_repository()
     local_path = Path(source).expanduser()
     parsed_source = urlparse(source)

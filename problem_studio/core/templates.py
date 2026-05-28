@@ -1,10 +1,4 @@
-"""templates 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""템플릿 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -94,19 +88,19 @@ def create_problem(
     default_profile: str = "hidden",
     limits: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """create_problem 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        workspace (Path): 작업 공간 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        title (str): `title` 값입니다.
-        folder (str): `folder` 값입니다.
-        version (int): `version` 값입니다.
-        default_profile (str): `default_profile` 값입니다.
-        limits (dict[str, Any] | None): `limits` 값입니다.
-    
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        title (str): 문제을 계산하거나 검증할 때 필요한 title 입력입니다.
+        folder (str): 문제을 계산하거나 검증할 때 필요한 폴더 입력입니다.
+        version (int): 문제을 계산하거나 검증할 때 필요한 version 입력입니다.
+        default_profile (str): 문제을 계산하거나 검증할 때 필요한 default 프로필 입력입니다.
+        limits (dict[str, Any] | None): 문제을 계산하거나 검증할 때 필요한 limits 입력입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 데이터입니다.
     """
     validate_safe_id("problem id", problem_id)
     target = problem_dir(workspace, problem_id)

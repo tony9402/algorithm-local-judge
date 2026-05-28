@@ -1,10 +1,4 @@
-"""service_runs 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""서비스 실행 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
 """
 from __future__ import annotations
 
@@ -44,17 +38,6 @@ def enrich_run_result(
     source: Path | None = None,
     message: str | None = None,
 ) -> dict[str, Any]:
-    """enrich_run_result 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        result (dict[str, Any]): `result` 값입니다.
-        run_dir (Path | None): `run_dir` 값입니다.
-        source (Path | None): `source` 값입니다.
-        message (str | None): 메시지입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     result = dict(result)
     first_failed = next((case for case in result.get("cases", []) if case["status"] != "ok"), None)
     metrics = result.get("metrics") or {}
@@ -79,15 +62,15 @@ def enrich_run_result(
 
 
 def build_run_result(run_dir: Path, source: Path, message: str) -> dict[str, Any]:
-    """build_run_result 함수를 실행하고 결과를 반환합니다.
-    
+    """실행 결과에 필요한 경로, 메타데이터, 파일 목록을 조립합니다.
+
     Args:
-        run_dir (Path): `run_dir` 값입니다.
-        source (Path): `source` 값입니다.
-        message (str): 메시지입니다.
-    
+        run_dir (Path): 실행 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        message (str): 사용자에게 표시하거나 커밋/진행 상태에 기록할 메시지입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 실행 결과 데이터입니다.
     """
     result = enrich_run_result(read_json(run_dir / "result.json"), run_dir, source, message)
     source_id = attach_run_to_source(source, result)
@@ -97,13 +80,13 @@ def build_run_result(run_dir: Path, source: Path, message: str) -> dict[str, Any
 
 
 def resolve_run_profile(profile: str | None) -> str:
-    """resolve_run_profile 함수를 실행하고 결과를 반환합니다.
-    
+    """실행 프로필 식별자나 상대 경로를 실제 사용할 수 있는 대상으로 확정합니다.
+
     Args:
-        profile (str | None): `profile` 값입니다.
-    
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+
     Returns:
-        str: 처리 결과를 반환합니다.
+        str: 호출자가 식별자, 경로, 메시지로 사용할 실행 프로필 문자열입니다.
     """
     normalized = (profile or "").strip()
     return normalized or FULL_PROFILE
@@ -117,18 +100,18 @@ def run_problem(
     source_text: str | None,
     filename: str | None,
 ) -> dict[str, Any]:
-    """run_problem 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str | None): `profile` 값입니다.
-        source_mode (str): `source_mode` 값입니다.
-        source_path (str | None): `source_path` 값입니다.
-        source_text (str | None): `source_text` 값입니다.
-        filename (str | None): `filename` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        source_mode (str): 소스가 경로, 업로드, 직접 입력 중 어떤 방식으로 전달됐는지 나타냅니다.
+        source_path (str | None): 로컬에서 실행할 제출 소스 파일 경로입니다.
+        source_text (str | None): 요청 본문으로 전달된 제출 소스 코드입니다.
+        filename (str | None): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 데이터입니다.
     """
     source = source_path_from_request(problem_id, source_mode, source_path, source_text, filename)
     run_profile = resolve_run_profile(profile)
@@ -144,16 +127,16 @@ def run_problem_source_with_progress(
     source: Path,
     progress,
 ) -> dict[str, Any]:
-    """run_problem_source_with_progress 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 소스 진행 상태 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str | None): `profile` 값입니다.
-        source (Path): `source` 값입니다.
-        progress (Any): `progress` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        progress (Any): 장시간 작업의 단계와 메시지를 UI 작업 상태로 전달하는 콜백입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 소스 진행 상태 데이터입니다.
     """
     run_profile = resolve_run_profile(profile)
     output = io.StringIO()
@@ -168,16 +151,16 @@ def run_uploaded_problem(
     file_obj: BinaryIO,
     filename: str | None,
 ) -> dict[str, Any]:
-    """run_uploaded_problem 함수를 실행하고 결과를 반환합니다.
-    
+    """uploaded 문제 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str | None): `profile` 값입니다.
-        file_obj (BinaryIO): `file_obj` 값입니다.
-        filename (str | None): `filename` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        file_obj (BinaryIO): uploaded 문제을 계산하거나 검증할 때 필요한 파일 obj 입력입니다.
+        filename (str | None): 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 uploaded 문제 데이터입니다.
     """
     source = save_uploaded_source(file_obj, filename, problem_id)
     return run_problem(problem_id, profile, "upload", str(source), None, None)
@@ -188,38 +171,22 @@ def run_problem_events(
     profile: str | None,
     source: Path,
 ) -> Iterator[str]:
-    """run_problem_events 함수를 실행하고 결과를 반환합니다.
-    
+    """문제 events 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        profile (str | None): `profile` 값입니다.
-        source (Path): `source` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+
     Returns:
-        Iterator[str]: 처리 결과를 반환합니다.
+        Iterator[str]: 클라이언트에 순서대로 전달할 SSE 이벤트 문자열 반복자입니다.
     """
     events: queue.Queue[dict[str, Any] | object] = queue.Queue()
 
     def progress(message: str) -> None:
-    """progress 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        message (str): 메시지입니다.
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         events.put({"event": "log", "data": {"message": message}})
 
     def worker() -> None:
-    """worker 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
-    Returns:
-        None: 처리 결과를 반환합니다.
-    """
         output = io.StringIO()
         try:
             run_profile = resolve_run_profile(profile)
@@ -250,18 +217,18 @@ def save_source_for_stream(
     text_filename: str | None,
     problem_id: str,
 ) -> Path:
-    """save_source_for_stream 함수를 실행하고 결과를 반환합니다.
-    
+    """소스 스트림 데이터를 다음 요청에서도 사용할 수 있도록 안전한 위치에 저장합니다.
+
     Args:
-        source_mode (str): `source_mode` 값입니다.
-        file_obj (BinaryIO | None): `file_obj` 값입니다.
-        upload_filename (str | None): `upload_filename` 값입니다.
-        source_text (str | None): `source_text` 값입니다.
-        text_filename (str | None): `text_filename` 값입니다.
-        problem_id (str): 문제 ID입니다.
-    
+        source_mode (str): 소스가 경로, 업로드, 직접 입력 중 어떤 방식으로 전달됐는지 나타냅니다.
+        file_obj (BinaryIO | None): 소스 스트림을 계산하거나 검증할 때 필요한 파일 obj 입력입니다.
+        upload_filename (str | None): 소스 스트림을 계산하거나 검증할 때 필요한 업로드 filename 입력입니다.
+        source_text (str | None): 요청 본문으로 전달된 제출 소스 코드입니다.
+        text_filename (str | None): 소스 스트림을 계산하거나 검증할 때 필요한 텍스트 filename 입력입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+
     Returns:
-        Path: 처리 결과를 반환합니다.
+        Path: 검증된 소스 스트림 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     if source_mode == "upload":
         if file_obj is None:
@@ -275,13 +242,13 @@ def save_source_for_stream(
 
 
 def run_result(run_id: str) -> dict[str, Any]:
-    """run_result 함수를 실행하고 결과를 반환합니다.
-    
+    """결과 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
     Args:
-        run_id (str): `run_id` 값입니다.
-    
+        run_id (str): 저장된 실행 결과와 산출물 디렉터리를 찾는 실행 ID입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 결과 데이터입니다.
     """
     validate_safe_id("run id", run_id)
     run_dir = cache_root() / "runs" / run_id
@@ -292,15 +259,6 @@ def run_result(run_id: str) -> dict[str, Any]:
 
 
 def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dict[str, Any]:
-    """preview_artifact_text 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        text (str): `text` 값입니다.
-        limit (int): `limit` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     if len(text) <= limit:
         return {"text": text, "truncated": False, "omittedChars": 0}
     omitted = len(text) - limit
@@ -310,15 +268,6 @@ def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dic
 
 
 def wrong_case(run_id: str, case_id: str) -> dict[str, Any]:
-    """wrong_case 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        run_id (str): `run_id` 값입니다.
-        case_id (str): `case_id` 값입니다.
-    
-    Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
-    """
     raw_data = wrong_artifacts(run_id, case_id)
     raw_data["diff"] = wrong_diff_text(run_id, case_id)
     result: dict[str, Any] = {"previewLimit": ARTIFACT_PREVIEW_LIMIT, "truncation": {}}

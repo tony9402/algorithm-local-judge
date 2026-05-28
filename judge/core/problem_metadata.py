@@ -1,10 +1,4 @@
-"""problem_metadata 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제 메타데이터 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -20,14 +14,6 @@ from judge.utils.fs import read_json
 
 
 def forbidden_metadata_keys(metadata: dict[str, Any]) -> set[str]:
-    """forbidden_metadata_keys 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        metadata (dict[str, Any]): `metadata` 값입니다.
-    
-    Returns:
-        set[str]: 처리 결과를 반환합니다.
-    """
     forbidden = set()
     for key in metadata:
         lowered = key.lower()
@@ -41,14 +27,14 @@ def forbidden_metadata_keys(metadata: dict[str, Any]) -> set[str]:
 
 
 def load_problem(problem_id: str, root: Path | None = None) -> tuple[Path, Path, dict[str, Any]]:
-    """load_problem 함수를 실행하고 결과를 반환합니다.
-    
+    """문제을 파일이나 캐시에서 읽고 필요한 기본값을 적용합니다.
+
     Args:
-        problem_id (str): 문제 ID입니다.
-        root (Path | None): `root` 값입니다.
-    
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+
     Returns:
-        tuple[Path, Path, dict[str, Any]]: 처리 결과를 반환합니다.
+        tuple[Path, Path, dict[str, Any]]: 검증된 문제 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     validate_safe_id("problem id", problem_id)
     problem_dir = find_problem_dir(problem_id, root)
@@ -67,13 +53,13 @@ def load_problem(problem_id: str, root: Path | None = None) -> tuple[Path, Path,
 
 
 def is_precompiled_problem(metadata: dict[str, Any]) -> bool:
-    """is_precompiled_problem 함수를 실행하고 결과를 반환합니다.
-    
+    """precompiled 문제 여부를 실제 파일, 설정, 또는 런타임 상태를 기준으로 판정합니다.
+
     Args:
-        metadata (dict[str, Any]): `metadata` 값입니다.
-    
+        metadata (dict[str, Any]): 문제, 소스, 실행 결과에 붙는 제목, 제한, 경로 같은 부가 정보입니다.
+
     Returns:
-        bool: 처리 결과를 반환합니다.
+        bool: precompiled 문제 조건을 만족하면 True, 아니면 False입니다.
     """
     tools = metadata.get("tools", {})
     return tools.get("mode") == PRECOMPILED_TOOL_MODE
@@ -82,15 +68,6 @@ def is_precompiled_problem(metadata: dict[str, Any]) -> bool:
 def tool_paths(
     problem_id: str, root: Path | None = None
 ) -> tuple[Path, Path, dict[str, Any], dict[str, Path]]:
-    """tool_paths 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        tuple[Path, Path, dict[str, Any], dict[str, Path]]: 처리 결과를 반환합니다.
-    """
     display_root = root or repo_root()
     problem_dir, metadata_path, metadata = load_problem(problem_id, root)
     tools = metadata.get("tools", {})
@@ -114,14 +91,4 @@ def tool_paths(
 
 
 def tool_output_path(problem_id: str, name: str, root: Path | None = None) -> Path:
-    """tool_output_path 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        problem_id (str): 문제 ID입니다.
-        name (str): 이름입니다.
-        root (Path | None): `root` 값입니다.
-    
-    Returns:
-        Path: 처리 결과를 반환합니다.
-    """
     return build_root(root) / "tools" / problem_id / name

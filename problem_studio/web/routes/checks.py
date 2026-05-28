@@ -1,10 +1,4 @@
-"""checks 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""검사 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -32,15 +26,15 @@ def api_run_all_checks_job(
     problem_id: str,
     body: DataValidateRequest | None = None,
 ) -> dict:
-    """api_run_all_checks_job 함수를 실행하고 결과를 반환합니다.
-    
+    """all 검사 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        problem_id (str): 문제 ID입니다.
-        body (DataValidateRequest | None): `body` 값입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (DataValidateRequest | None): API 요청 본문을 검증한 스키마 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 all 검사 작업 데이터입니다.
     """
     try:
         ensure_local_write_allowed(request, "full problem check")
@@ -49,15 +43,6 @@ def api_run_all_checks_job(
         force = True if body is None else body.force
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             progress("Compiling cases.yml.", current=1, total=4, label="cases.yml 검사")
             cases = compile_cases(workspace, problem_id, None)
             cancel_token.check()

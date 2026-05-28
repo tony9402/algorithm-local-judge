@@ -1,10 +1,4 @@
-"""packs 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""문제팩 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
 """
 from __future__ import annotations
 
@@ -22,13 +16,10 @@ router = APIRouter(prefix="/api/packs", tags=["packs"])
 
 @router.get("")
 def api_packs() -> list[dict]:
-    """api_packs 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        없음
-    
+    """문제팩 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Returns:
-        list[dict]: 처리 결과를 반환합니다.
+        list[dict]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 데이터입니다.
     """
     try:
         return services.list_packs()
@@ -38,14 +29,14 @@ def api_packs() -> list[dict]:
 
 @router.post("/install")
 def api_pack_install(http_request: Request, request: PackInstallRequest) -> dict:
-    """api_pack_install 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 설치 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (PackInstallRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (PackInstallRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 설치 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(http_request, "pack install")
@@ -56,29 +47,20 @@ def api_pack_install(http_request: Request, request: PackInstallRequest) -> dict
 
 @router.post("/install/jobs")
 def api_pack_install_job(http_request: Request, request: PackInstallRequest) -> dict:
-    """api_pack_install_job 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 설치 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (PackInstallRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (PackInstallRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 설치 작업 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(http_request, "pack install")
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             progress("Installing local problem pack.", label="Pack install")
             cancel_token.check()
             result = services.install_problem_pack(request.archive_path)
@@ -105,14 +87,14 @@ def api_pack_install_job(http_request: Request, request: PackInstallRequest) -> 
 
 @router.post("/upload")
 def api_pack_upload(request: Request, file: Annotated[UploadFile, File()]) -> dict:
-    """api_pack_upload 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 업로드 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        file (Annotated[UploadFile, File()]): 파일 경로 또는 파일 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        file (Annotated[UploadFile, File()]): 업로드 요청에서 받은 파일 스트림 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 업로드 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(request, "pack upload")
@@ -123,14 +105,14 @@ def api_pack_upload(request: Request, file: Annotated[UploadFile, File()]) -> di
 
 @router.post("/upload/jobs")
 def api_pack_upload_job(request: Request, file: Annotated[UploadFile, File()]) -> dict:
-    """api_pack_upload_job 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 업로드 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        request (Request): HTTP 요청 객체입니다.
-        file (Annotated[UploadFile, File()]): 파일 경로 또는 파일 객체입니다.
-    
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        file (Annotated[UploadFile, File()]): 업로드 요청에서 받은 파일 스트림 객체입니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 업로드 작업 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(request, "pack upload")
@@ -138,15 +120,6 @@ def api_pack_upload_job(request: Request, file: Annotated[UploadFile, File()]) -
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             progress("Installing uploaded problem pack.", label="Pack upload")
             cancel_token.check()
             result = services.install_problem_pack(str(uploaded))
@@ -177,14 +150,14 @@ def api_pack_upload_job(request: Request, file: Annotated[UploadFile, File()]) -
 
 @router.post("/download")
 def api_pack_download(http_request: Request, request: PackDownloadRequest) -> dict:
-    """api_pack_download 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 다운로드 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (PackDownloadRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (PackDownloadRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 다운로드 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(http_request, "pack download")
@@ -199,29 +172,20 @@ def api_pack_download(http_request: Request, request: PackDownloadRequest) -> di
 
 @router.post("/download/jobs")
 def api_pack_download_job(http_request: Request, request: PackDownloadRequest) -> dict:
-    """api_pack_download_job 함수를 실행하고 결과를 반환합니다.
-    
+    """문제팩 다운로드 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
     Args:
-        http_request (Request): `http_request` 값입니다.
-        request (PackDownloadRequest): HTTP 요청 객체입니다.
-    
+        http_request (Request): 원격 실행 허용 여부를 판단할 FastAPI 요청 객체입니다.
+        request (PackDownloadRequest): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+
     Returns:
-        dict: 처리 결과를 반환합니다.
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 다운로드 작업 데이터입니다.
     """
     try:
         ensure_local_web_action_allowed(http_request, "pack download")
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
-        """operation 함수를 실행하고 결과를 반환합니다.
-        
-        Args:
-            cancel_token (Any): `cancel_token` 값입니다.
-            progress (Any): `progress` 값입니다.
-        
-        Returns:
-            Any: 처리 결과를 반환합니다.
-        """
             progress("Downloading official problem pack.", label="Official pack install")
             cancel_token.check()
             result = services.download_official_problem_pack(

@@ -1,10 +1,4 @@
-"""cli_normalize 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""CLI normalize 기능을 담당하는 모듈입니다.
 """
 from __future__ import annotations
 
@@ -17,13 +11,10 @@ RUN_GLOBAL_OPTIONS_WITH_VALUES = {"--problem", "--profile"}
 
 
 def run_global_option_name(token: str) -> str | None:
-    """run_global_option_name 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        token (str): `token` 값입니다.
-    
-    Returns:
-        str | None: 처리 결과를 반환합니다.
+    """global option 이름 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
+        Args:
+            token (str): global option 이름을 계산하거나 검증할 때 필요한 token 입력입니다.
     """
     if token in RUN_GLOBAL_OPTIONS_WITH_VALUES:
         return token
@@ -34,14 +25,11 @@ def run_global_option_name(token: str) -> str | None:
 
 
 def run_global_command_error(option: str, command: str) -> JudgeError:
-    """run_global_command_error 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        option (str): 옵션입니다.
-        command (str): `command` 값입니다.
-    
-    Returns:
-        JudgeError: 처리 결과를 반환합니다.
+    """global 명령 오류 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
+
+        Args:
+            option (str): global 명령 오류을 계산하거나 검증할 때 필요한 option 입력입니다.
+            command (str): global 명령 오류을 계산하거나 검증할 때 필요한 명령 입력입니다.
     """
     hint = {
         "generate": "judge generate <problem> --profile <profile>",
@@ -51,13 +39,13 @@ def run_global_command_error(option: str, command: str) -> JudgeError:
 
 
 def normalize_argv(argv: Sequence[str]) -> list[str]:
-    """normalize_argv 함수를 실행하고 결과를 반환합니다.
-    
+    """argv 입력을 비교와 저장에 쓰기 쉬운 표준 형식으로 정규화합니다.
+
     Args:
-        argv (Sequence[str]): `argv` 값입니다.
-    
+        argv (Sequence[str]): 프로그램 이름을 제외한 CLI 인자 목록입니다. None이면 현재 프로세스의 인자를 읽습니다.
+
     Returns:
-        list[str]: 처리 결과를 반환합니다.
+        list[str]: 호출자가 순회하거나 화면에 표시할 argv 항목 목록입니다.
     """
     argv = list(argv)
     if not argv:

@@ -1,10 +1,4 @@
-"""remote_install 모듈의 공개 동작을 설명합니다.
-
-Args:
-    없음
-
-Returns:
-    None: 처리 결과를 반환합니다.
+"""원격 설치 도메인 로직과 파일시스템 변경 정책을 담당합니다.
 """
 from __future__ import annotations
 
@@ -41,15 +35,15 @@ def download_problem_pack_from_github(
     asset_name: str | None = None,
     ref: str | None = None,
 ) -> dict[str, Any]:
-    """download_problem_pack_from_github 함수를 실행하고 결과를 반환합니다.
-    
+    """다운로드 문제 문제팩 GitHub 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        repository (str | None): `repository` 값입니다.
-        asset_name (str | None): `asset_name` 값입니다.
-        ref (str | None): `ref` 값입니다.
-    
+        repository (str | None): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
+        asset_name (str | None): asset 이름를 사용자 표시와 내부 조회에 함께 사용하는 이름입니다.
+        ref (str | None): GitHub API나 Git 명령에서 사용할 브랜치, 태그, 커밋 참조입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 다운로드 문제 문제팩 GitHub 데이터입니다.
     """
     repo = ensure_trusted_repository(official_pack_repository(repository))
     if not ref:
@@ -115,15 +109,6 @@ def download_problem_pack_from_github(
 
 
 def direct_pack_checksum_url(source_url: str, checksum_url: str | None) -> str:
-    """direct_pack_checksum_url 함수를 실행하고 결과를 반환합니다.
-    
-    Args:
-        source_url (str): `source_url` 값입니다.
-        checksum_url (str | None): `checksum_url` 값입니다.
-    
-    Returns:
-        str: 처리 결과를 반환합니다.
-    """
     if checksum_url:
         parsed = urlparse(checksum_url)
         if parsed.scheme not in {"http", "https"}:
@@ -138,15 +123,15 @@ def download_problem_pack_from_url(
     checksum: str | None = None,
     checksum_url: str | None = None,
 ) -> dict[str, Any]:
-    """download_problem_pack_from_url 함수를 실행하고 결과를 반환합니다.
-    
+    """다운로드 문제 문제팩 URL 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
+
     Args:
-        source_url (str): `source_url` 값입니다.
-        checksum (str | None): `checksum` 값입니다.
-        checksum_url (str | None): `checksum_url` 값입니다.
-    
+        source_url (str): 다운로드 문제 문제팩 URL을 계산하거나 검증할 때 필요한 소스 URL 입력입니다.
+        checksum (str | None): 다운로드 문제 문제팩 URL을 계산하거나 검증할 때 필요한 체크섬 입력입니다.
+        checksum_url (str | None): 다운로드 문제 문제팩 URL을 계산하거나 검증할 때 필요한 체크섬 URL 입력입니다.
+
     Returns:
-        dict[str, Any]: 처리 결과를 반환합니다.
+        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 다운로드 문제 문제팩 URL 데이터입니다.
     """
     parsed = urlparse(source_url)
     if parsed.scheme not in {"http", "https"} or not parsed.path.endswith(".aljpack"):
