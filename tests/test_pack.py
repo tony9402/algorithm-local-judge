@@ -1,3 +1,5 @@
+"""문제 패키지 빌드, 검증, 설치와 아카이브 보안 제한을 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import io
@@ -20,10 +22,10 @@ PROBLEM_SOURCE_ROOT = ROOT / "problems" / "algorithm-package" / "problems"
 
 
 class ProblemPackTest(unittest.TestCase):
-    """Tests for source-free problem pack build, verify, and install flows."""
+    """문제 패키지 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_build_verify_and_install_problem_pack(self) -> None:
-        """A built pack should verify, exclude sources, and install into data home."""
+        """빌드 검증 및 설치 문제 패키지 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-pack-test-") as tmp:
             tmp_path = Path(tmp)
             output_dir = tmp_path / "dist"
@@ -88,7 +90,7 @@ class ProblemPackTest(unittest.TestCase):
                 self.assertTrue((generated / "manifest.json").exists())
 
     def test_pack_archive_rejects_links_and_special_members(self) -> None:
-        """Pack extraction should reject links and special tar member types."""
+        """패키지 아카이브 거부 링크 및 특수 멤버 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         unsafe_members = [
             ("symlink", tarfile.SYMTYPE, "target.txt"),
             ("hardlink", tarfile.LNKTYPE, "target.txt"),
@@ -117,7 +119,7 @@ class ProblemPackTest(unittest.TestCase):
                     )
 
     def test_pack_archive_rejects_parent_traversal(self) -> None:
-        """Pack extraction should reject parent traversal paths."""
+        """패키지 아카이브 거부 상위 경로 순회 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-pack-traversal-") as tmp:
             tmp_path = Path(tmp)
             archive_path = tmp_path / "unsafe.aljpack"
@@ -133,7 +135,7 @@ class ProblemPackTest(unittest.TestCase):
             self.assertIn("unsafe path in pack archive", str(raised.exception))
 
     def test_pack_archive_rejects_member_count_and_size_caps(self) -> None:
-        """Pack archives should enforce extraction resource caps."""
+        """패키지 아카이브 거부 멤버 개수 및 크기 상한 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-pack-cap-") as tmp:
             tmp_path = Path(tmp)
             member_archive = tmp_path / "too-many.aljpack"

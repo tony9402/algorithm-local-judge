@@ -1,3 +1,5 @@
+"""문제 스튜디오의 검증 작업, 솔루션 실행, 패키지 빌드, 일괄 빌드 화면 흐름을 브라우저에서 검증하는 모듈입니다."""
+
 from __future__ import annotations
 
 import json
@@ -46,6 +48,19 @@ def completed_studio_job(
     problem_id: str = "alpha",
     last_log: str = "job finished",
 ) -> dict:
+    """화면이 완료된 작업을 렌더링할 수 있도록 스튜디오 작업 작업 응답 페이로드를 구성합니다.
+
+    Args:
+        job_id (str): 조회하거나 구성할 백그라운드 작업 식별자입니다.
+        kind (str): 작업 큐 화면에서 구분할 작업 종류입니다.
+        title (str): 작업 목록이나 문제 메타데이터에 표시할 제목입니다.
+        result (dict): 완료된 작업 응답에 포함할 결과 페이로드입니다.
+        problem_id (str): 테스트가 생성하거나 조회할 문제 식별자입니다.
+        last_log (str): 완료된 작업 응답에 마지막 로그로 노출할 메시지입니다.
+
+    Returns:
+        dict: 완료된 문제 스튜디오 작업을 나타내는 작업 큐 응답 객체입니다.
+    """
     return {
         "jobId": job_id,
         "kind": kind,
@@ -62,14 +77,33 @@ def completed_studio_job(
 
 
 def route_studio_jobs(page, jobs: dict[str, dict]) -> None:
+    """브라우저 테스트에서 스튜디오 작업 요청을 가로채 고정된 API 응답을 제공하도록 설정합니다.
+
+    Args:
+        page (Any): 브라우저 상호작용을 수행할 Playwright 페이지입니다.
+        jobs (dict[str, dict]): 브라우저 라우팅에 사용할 작업 목록 응답 데이터입니다.
+    """
     page.route("**/api/jobs", lambda route: route.fulfill(json={"jobs": list(jobs.values())}))
 
 
 class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
+    """문제 스튜디오 빌드 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+
     def test_validation_actions_are_queued_without_blocking_workspace_in_browser(self) -> None:
+        """검증 동작 대기 중 없이 차단 작업공간 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         active_jobs = {"count": 0, "max": 0, "total": 0}
 
         def slow_validate_all_data(*args, progress=None, **kwargs) -> dict:
+            """느린 검증 전체 데이터 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                progress (Any): 가짜 실행기가 진행 로그를 전달할 콜백입니다.
+                kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             active_jobs["count"] += 1
             active_jobs["total"] += 1
             active_jobs["max"] = max(active_jobs["max"], active_jobs["count"])
@@ -118,6 +152,7 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_solution_run_all_pack_and_bulk_build_ui_in_browser(self) -> None:
+        """솔루션 실행 전체 패키지 및 일괄 빌드 화면 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha Build", "E2E")
             create_problem(workspace, "beta", "Beta Build", "E2E")
@@ -197,9 +232,15 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     self.assert_no_browser_errors()
 
     def test_pack_build_is_blocked_after_full_test_failure(self) -> None:
+        """패키지 빌드 차단 이후 전체 테스트 실패 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         pack_build_called = {"value": False}
 
         def fail_if_pack_build(route):
+            """실패 조건 패키지 빌드 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             pack_build_called["value"] = True
             route.fulfill(json={"jobId": "unexpected", "status": "running"})
 
@@ -246,6 +287,11 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 }
 
                 def queue_failed_check(route):
+                    """큐 실패한 검사 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                    Args:
+                        route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+                    """
                     job = completed_studio_job(
                         "full-check-gate",
                         "full-check",
@@ -270,9 +316,19 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_problem_studio_pack_installs_and_runs_in_judge(self) -> None:
+        """문제 스튜디오 패키지 설치 및 실행 채점기 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         archive_holder: dict[str, Path] = {}
 
         def build_and_capture(*args, **kwargs) -> dict:
+            """빌드 및 캡처 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             result = fake_build_runnable_pack(*args, **kwargs)
             archive_holder["path"] = Path(result["archivePath"])
             return result
@@ -352,6 +408,7 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 self.assertEqual(payload["status"], "accepted")
 
     def test_no_fake_template_problem_pack_production_e2e(self) -> None:
+        """없는 가짜 템플릿 문제 패키지 운영 종단 간 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-real-pack-e2e-") as (_directory, workspace):
             create_problem(workspace, "realpack", "Real Pack", "E2E")
             link_testlib(workspace)
@@ -404,6 +461,7 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 self.assertEqual(payload["status"], "accepted")
 
     def test_background_pack_job_recovers_after_reload_and_exposes_download(self) -> None:
+        """백그라운드 패키지 작업 복구 이후 새로고침 및 노출 다운로드 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-pack-reload-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha Reload", "E2E")
             patches = [
@@ -459,6 +517,7 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     self.assert_no_browser_errors()
 
     def test_pack_and_bulk_build_cancel_ui_in_browser(self) -> None:
+        """패키지 및 일괄 빌드 취소 화면 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-cancel-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha Cancel", "E2E")
             create_problem(workspace, "beta", "Beta Cancel", "E2E")
@@ -466,6 +525,16 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
             bulk_calls = {"count": 0}
 
             def cancel_then_success_pack(*args, cancel_token=None, **kwargs) -> dict:
+                """취소 성공 패키지 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                    cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+                    kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+                Returns:
+                    dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+                """
                 pack_calls["count"] += 1
                 if pack_calls["count"] == 1:
                     return fake_cancellable_slow_build_runnable_pack(
@@ -476,6 +545,16 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 return fake_build_runnable_pack(*args, cancel_token=cancel_token, **kwargs)
 
             def cancel_then_success_bulk(*args, cancel_token=None, **kwargs) -> dict:
+                """취소 성공 일괄 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                    cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+                    kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+                Returns:
+                    dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+                """
                 bulk_calls["count"] += 1
                 if bulk_calls["count"] == 1:
                     return fake_cancellable_slow_bulk_build(
@@ -523,6 +602,7 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     page = self.new_page(server.url)
 
                     def close_alerts() -> None:
+                        """닫기 알림 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다."""
                         page.locator("#alertStack").evaluate(
                             "node => node.querySelectorAll('.app-alert')"
                             ".forEach((item) => item.remove())"
@@ -576,6 +656,7 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     self.assert_no_browser_errors()
 
     def test_stale_background_pack_job_can_be_dismissed_in_browser(self) -> None:
+        """오래된 백그라운드 패키지 작업 가능 정리 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-stale-pack-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha Stale", "E2E")
             dismissed = {"value": False}
@@ -595,6 +676,11 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
             }
 
             def stale_job_route(route):
+                """오래된 작업 라우트 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+                """
                 if route.request.method == "DELETE":
                     dismissed["value"] = True
                     route.fulfill(json={"dismissed": True, "jobId": "stale-job"})
@@ -628,10 +714,16 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_missing_background_pack_job_is_shown_as_stale_after_reload(self) -> None:
+        """누락 백그라운드 패키지 작업 표시 오래된 이후 새로고침 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-missing-pack-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha Missing", "E2E")
 
             def missing_job_route(route):
+                """누락 작업 라우트 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+                """
                 route.fulfill(status=404, json={"detail": "pack build job not found"})
 
             with run_app(create_app(workspace)) as server:
@@ -665,6 +757,7 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 self.assertEqual(unexpected_errors, [])
 
     def test_dirty_file_is_auto_saved_before_actions(self) -> None:
+        """변경 파일 파일 자동 저장 전에 동작 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-dirty-autosave-e2e-") as (_directory, root):
             workspace = root / "workspace"
             workspace.mkdir()
@@ -743,6 +836,7 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     self.assert_no_browser_errors()
 
     def test_bulk_build_deselect_zero_selection_and_partial_failure_ui(self) -> None:
+        """일괄 빌드 선택 해제 0개 선택 및 부분 실패 화면 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-bulk-gap-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha Bulk", "E2E")
             create_problem(workspace, "beta", "Beta Bulk", "E2E")

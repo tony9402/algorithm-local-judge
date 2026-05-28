@@ -1,3 +1,5 @@
+"""문제 스튜디오 API와 백그라운드 작업 저장소의 작업 흐름, 보안 정책, 일괄 빌드 계약을 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import json
@@ -27,16 +29,27 @@ from problem_studio.web.routes.bulk import WORKSPACE_JOB_PROBLEM_ID
 
 
 class ProblemStudioTest(unittest.TestCase):
-    """Smoke tests for the separated problem authoring web app."""
+    """문제 스튜디오 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def make_client(self) -> tuple[tempfile.TemporaryDirectory[str], TestClient, Path]:
-        """Create a temporary authoring workspace and TestClient."""
+        """클라이언트 테스트가 후속 API 호출이나 명령 실행에 사용할 임시 리소스를 준비합니다.
+
+        Returns:
+            tuple[tempfile.TemporaryDirectory[str], TestClient, Path]: 정리 대상 임시 디렉터리, API 클라이언트, 작업공간 경로입니다.
+        """
         directory = tempfile.TemporaryDirectory(prefix="alj-problem-studio-")
         workspace = Path(directory.name)
         return directory, TestClient(create_app(workspace)), workspace
 
     def sse_events(self, text: str) -> list[tuple[str, dict]]:
-        """Parse buffered Server-Sent Events from TestClient responses."""
+        """서버 전송 이벤트 응답 본문을 이벤트 이름과 JSON 페이로드 목록으로 파싱합니다.
+
+        Args:
+            text (str): 파일에 기록하거나 브라우저에서 기다릴 텍스트입니다.
+
+        Returns:
+            list[tuple[str, dict]]: 이벤트 이름과 JSON 페이로드를 순서대로 담은 목록입니다.
+        """
         events = []
         for block in text.strip().split("\n\n"):
             if not block:
@@ -52,7 +65,7 @@ class ProblemStudioTest(unittest.TestCase):
         return events
 
     def test_static_ui_and_workspace_status(self) -> None:
-        """The studio app should serve its UI and workspace summary."""
+        """정적 화면 및 작업공간 상태 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
 
@@ -283,7 +296,10 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("function openSolutionCasesModal", script_text)
         self.assertIn("function renderSolutionCasesBody", script_text)
         self.assertIn('optional("solutionStressModal")?.classList.add("hidden")', script_text)
-        self.assertIn('optional("solutionStressReviewModal")?.classList.add("hidden")', script_text)
+        self.assertIn(
+            'optional("solutionStressReviewModal")?.classList.add("hidden")',
+            script_text,
+        )
         self.assertIn("lastSolutionVerification", script_text)
         self.assertIn("beforeunload", script_text)
         self.assertIn("aria-selected", script_text)
@@ -471,7 +487,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertNotIn("warning", data)
 
     def test_workspace_status_warns_for_non_local_binding_policy(self) -> None:
-        """Non-local sessions should warn and block workspace write APIs."""
+        """작업공간 상태 경고 비 로컬 바인딩 정책 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory = tempfile.TemporaryDirectory(prefix="alj-problem-studio-warning-")
         self.addCleanup(directory.cleanup)
         workspace = Path(directory.name)
@@ -487,7 +503,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(created.status_code, 403, created.text)
 
     def test_create_edit_compile_and_list_solutions(self) -> None:
-        """A new problem should be editable and cases.yml should compile."""
+        """생성 편집 컴파일 및 목록 솔루션 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
 
@@ -639,7 +655,7 @@ class ProblemStudioTest(unittest.TestCase):
         )
 
     def test_problem_delete_requires_exact_confirmation(self) -> None:
-        """Deleting a problem should require the exact Korean confirmation phrase."""
+        """문제 삭제 요구 정확한 확인 문구 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
 
@@ -676,7 +692,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(deleted.json()["workspace"]["problemCount"], 0)
 
     def test_testlib_link_and_path_safety(self) -> None:
-        """The workspace helper should expose testlib.h without allowing traversal."""
+        """testlib 링크 및 경로 안전성 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "01", "title": "Safety"})
@@ -690,7 +706,7 @@ class ProblemStudioTest(unittest.TestCase):
             safe_problem_file(workspace, "01", "../escaped.txt")
 
     def test_build_pack_uses_workspace_pack_output_dir(self) -> None:
-        """The web pack flow should write artifacts below the workspace output folder."""
+        """빌드 패키지 사용 작업공간 패키지 출력 디렉터리 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-") as tmp:
             workspace = Path(tmp)
             (workspace / "problems" / "01").mkdir(parents=True)
@@ -717,7 +733,7 @@ class ProblemStudioTest(unittest.TestCase):
             )
 
     def test_verify_solutions_uses_sample_warmup(self) -> None:
-        """Problem Studio solution checks should warm submissions with sample data."""
+        """검증 솔루션 사용 샘플 워밍업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-") as tmp:
             workspace = Path(tmp)
             fake_result = SimpleNamespace(to_dict=lambda root: {"root": str(root)})
@@ -735,7 +751,7 @@ class ProblemStudioTest(unittest.TestCase):
             )
 
     def test_validate_stream_generates_every_profile(self) -> None:
-        """The validator tab should be able to force-generate and validate all profiles."""
+        """검증 스트림 생성 모든 프로필 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "01", "title": "Validation"})
@@ -766,6 +782,18 @@ class ProblemStudioTest(unittest.TestCase):
         data_dirs = {"sample": sample_dir, "hidden": hidden_dir}
 
         def fake_generate(problem_id, profile, force=False, root=None, progress=None):
+            """실제 생성 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+            Args:
+                problem_id (Any): 테스트가 생성하거나 조회할 문제 식별자입니다.
+                profile (Any): 검증이나 실행에 사용할 테스트 프로필 이름입니다.
+                force (Any): 캐시나 기존 산출물을 무시하고 다시 처리할지 결정하는 플래그입니다.
+                root (Any): 픽스처나 임시 작업공간을 생성할 기준 디렉터리입니다.
+                progress (Any): 가짜 실행기가 진행 로그를 전달할 콜백입니다.
+
+            Returns:
+                Any: 테스트 대상 API가 실제 실행 결과처럼 소비할 수 있는 결정적 결과 데이터입니다.
+            """
             for index in range(1, case_counts[profile] + 1):
                 if progress is not None:
                     progress(
@@ -804,7 +832,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual([profile["name"] for profile in result["profiles"]], ["sample", "hidden"])
 
     def test_pack_build_can_run_as_background_job(self) -> None:
-        """The web API should start pack builds as pollable background jobs."""
+        """패키지 빌드 가능 실행 백그라운드 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "01", "title": "Pack"})
@@ -856,7 +884,7 @@ class ProblemStudioTest(unittest.TestCase):
             self.assertEqual(download.content, b"pack")
 
     def test_pack_build_jobs_can_be_stale_and_dismissed(self) -> None:
-        """Completed background jobs should expose stale state and dismiss workflow."""
+        """패키지 빌드 작업 가능 오래된 및 정리 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.app.state.jobs = BackgroundJobStore(ttl_seconds=0, max_jobs=5)
@@ -906,7 +934,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(missing.status_code, 404, missing.text)
 
     def test_pack_build_job_can_be_cancelled(self) -> None:
-        """The pack build API should cancel a running background job."""
+        """패키지 빌드 작업 가능 취소 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "01", "title": "Pack"})
@@ -914,6 +942,16 @@ class ProblemStudioTest(unittest.TestCase):
         release = threading.Event()
 
         def slow_build(*args, cancel_token=None, **kwargs) -> dict:
+            """느린 빌드 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+                kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             started_event.set()
             release.wait(timeout=2)
             if cancel_token:
@@ -950,13 +988,23 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertTrue(status["cancelSupported"])
 
     def test_workspace_bulk_pack_build_can_run_as_cancellable_job(self) -> None:
-        """Workspace bulk builds should expose a cancellable background job API."""
+        """작업공간 일괄 패키지 빌드 가능 실행 취소 가능 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         started_event = threading.Event()
         release = threading.Event()
 
         def slow_bulk(*args, cancel_token=None, **kwargs) -> dict:
+            """느린 일괄 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+                kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             started_event.set()
             release.wait(timeout=2)
             if cancel_token:
@@ -1001,7 +1049,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertTrue(status["cancelSupported"])
 
     def test_background_job_store_retains_recent_completed_jobs(self) -> None:
-        """The in-memory job store should cap completed job retention."""
+        """백그라운드 작업 저장소 보존 최근 완료된 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs = BackgroundJobStore(max_jobs=2)
         for index in range(3):
             jobs.start(
@@ -1020,12 +1068,20 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(len(jobs.list()), 2)
 
     def test_background_job_store_can_cancel_running_job(self) -> None:
-        """Cancellable background jobs should finish with cancelled status."""
+        """백그라운드 작업 저장소 가능 취소 실행 중 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs = BackgroundJobStore(max_jobs=5)
         started = threading.Event()
         release = threading.Event()
 
         def operation(cancel_token) -> dict:
+            """작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             started.set()
             release.wait(timeout=2)
             cancel_token.check()
@@ -1057,7 +1113,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(data["status"], "cancelled")
 
     def test_background_job_store_rejects_cancel_for_non_cancellable_job(self) -> None:
-        """Jobs should opt in before the store accepts cancellation."""
+        """백그라운드 작업 저장소 거부 취소 비 취소 가능 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs = BackgroundJobStore(max_jobs=5)
         job = jobs.start(
             kind="test",
@@ -1069,13 +1125,18 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertFalse(jobs.cancel(job.job_id))
 
     def test_background_job_store_limits_running_jobs(self) -> None:
-        """The job store should queue work when the running cap is reached."""
+        """백그라운드 작업 저장소 제한 실행 중 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs = BackgroundJobStore(max_jobs=5, max_running_jobs=1)
         started = threading.Event()
         release = threading.Event()
         second_started = threading.Event()
 
         def operation() -> dict:
+            """작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             started.set()
             release.wait(timeout=2)
             return {"ok": True}
@@ -1103,7 +1164,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(jobs.get(second.job_id).status, "succeeded")
 
     def test_problem_studio_jobs_api_lists_and_cancels_queued_job(self) -> None:
-        """The generic jobs API should expose queued jobs and cancel them."""
+        """문제 스튜디오 작업 API 목록 조회 및 취소 대기 중 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.app.state.jobs.max_running_jobs = 1
@@ -1111,6 +1172,11 @@ class ProblemStudioTest(unittest.TestCase):
         release = threading.Event()
 
         def blocking_operation() -> dict:
+            """작업 큐 취소 테스트가 실행 중 상태를 관찰할 수 있도록 이벤트가 풀릴 때까지 대기합니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             started.set()
             release.wait(timeout=2)
             return {"ok": True}
@@ -1142,7 +1208,7 @@ class ProblemStudioTest(unittest.TestCase):
         release.set()
 
     def test_non_local_binding_blocks_workspace_and_problem_writes(self) -> None:
-        """Problem Studio should block workspace and authoring writes on non-local binding."""
+        """비 로컬 바인딩 차단 작업공간 및 문제 쓰기 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-remote-") as tmp:
             workspace = Path(tmp) / "workspace"
             create_problem(workspace, "alpha", "Alpha")
@@ -1219,7 +1285,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(problems.status_code, 200, problems.text)
 
     def test_non_local_binding_blocks_background_job_cancel_and_dismiss(self) -> None:
-        """Remote Problem Studio sessions may read jobs but not mutate them."""
+        """비 로컬 바인딩 차단 백그라운드 작업 취소 및 정리 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-remote-jobs-") as tmp:
             workspace = Path(tmp) / "workspace"
             create_problem(workspace, "alpha", "Alpha")
@@ -1237,6 +1303,14 @@ class ProblemStudioTest(unittest.TestCase):
             workspace_started = threading.Event()
 
             def pack_operation(cancel_token):
+                """패키지 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+
+                Returns:
+                    Any: 호출자가 다음 검증 단계에서 사용할 결과 값입니다.
+                """
                 pack_started.set()
                 release.wait(5)
                 return {
@@ -1245,6 +1319,14 @@ class ProblemStudioTest(unittest.TestCase):
                 }
 
             def workspace_operation(cancel_token):
+                """작업공간 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+
+                Returns:
+                    Any: 호출자가 다음 검증 단계에서 사용할 결과 값입니다.
+                """
                 workspace_started.set()
                 release.wait(5)
                 return {"problems": ["alpha"]}
@@ -1290,7 +1372,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(workspace_dismiss.status_code, 403, workspace_dismiss.text)
 
     def test_background_job_store_dismiss_waits_until_job_is_complete(self) -> None:
-        """Dismissing active work should be blocked until the job is terminal."""
+        """백그라운드 작업 저장소 정리 대기 까지 작업 완료 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs = BackgroundJobStore(max_jobs=5)
         started = threading.Event()
         release = threading.Event()
@@ -1298,6 +1380,14 @@ class ProblemStudioTest(unittest.TestCase):
         cancel_seen = {"value": False}
 
         def operation(cancel_token) -> dict:
+            """작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             started.set()
             release.wait(timeout=2)
             cancel_seen["value"] = cancel_token.cancelled
@@ -1323,7 +1413,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertTrue(jobs.dismiss(job.job_id))
 
     def test_workspace_can_stream_bulk_pack_build(self) -> None:
-        """The web API should stream an all-problem test and pack build."""
+        """작업공간 가능 스트림 일괄 패키지 빌드 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         fake_result = {
@@ -1386,13 +1476,22 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(mocked.call_args.args[8], ["01", "02"])
 
     def test_bulk_pack_build_runs_problems_in_parallel(self) -> None:
-        """The all-problem builder should run independent problems concurrently."""
+        """일괄 패키지 빌드 실행 문제 병렬 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-") as tmp:
             workspace = Path(tmp)
             first_started = threading.Event()
             second_started = threading.Event()
 
             def fake_full_test(*args, **kwargs) -> dict:
+                """실제 전체 테스트 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                    kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+                Returns:
+                    dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+                """
                 problem_id = args[1]
                 if problem_id == "01":
                     first_started.set()
@@ -1410,6 +1509,15 @@ class ProblemStudioTest(unittest.TestCase):
                 }
 
             def fake_pack(*args, **kwargs) -> dict:
+                """실제 패키지 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                    kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+                Returns:
+                    dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+                """
                 problem_ids = args[1]
                 return {
                     "archiveLabel": "dist/packs/basic.aljpack",
@@ -1438,12 +1546,22 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(result["packs"][0]["problems"], ["01", "02"])
 
     def test_bulk_pack_build_propagates_worker_cancellation(self) -> None:
-        """Worker cancellation should stop the bulk build instead of becoming a failed problem."""
+        """일괄 패키지 빌드 전파 작업자 취소 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-") as tmp:
             workspace = Path(tmp)
             cancel_token = CancelToken()
 
             def fake_full_test(*args, cancel_token=None, **kwargs) -> dict:
+                """실제 전체 테스트 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                    cancel_token (Any): 장시간 작업을 중단할 수 있는 취소 토큰입니다.
+                    kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+                Returns:
+                    dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+                """
                 progress = args[4]
                 cancel_token.cancel()
                 progress("cancel after worker progress")

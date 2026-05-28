@@ -1,3 +1,5 @@
+"""문제 스튜디오의 실제 API 조합이 파일 안전성, 빌드, Git 저장소, 레거시 작업공간 계약을 지키는지 검증하는 기능 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import json
@@ -18,14 +20,27 @@ from problem_studio.web.app import create_app
 
 
 class ProblemStudioFunctionalTest(unittest.TestCase):
-    """Functional safety net for problem-studio refactoring."""
+    """문제 스튜디오 기능 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def make_client(self) -> tuple[tempfile.TemporaryDirectory[str], TestClient, Path]:
+        """클라이언트 테스트가 후속 API 호출이나 명령 실행에 사용할 임시 리소스를 준비합니다.
+
+        Returns:
+            tuple[tempfile.TemporaryDirectory[str], TestClient, Path]: 정리 대상 임시 디렉터리, API 클라이언트, 작업공간 경로입니다.
+        """
         directory = tempfile.TemporaryDirectory(prefix="alj-problem-studio-functional-")
         workspace = Path(directory.name)
         return directory, TestClient(create_app(workspace)), workspace
 
     def sse_events(self, text: str) -> list[tuple[str, dict]]:
+        """서버 전송 이벤트 응답 본문을 이벤트 이름과 JSON 페이로드 목록으로 파싱합니다.
+
+        Args:
+            text (str): 파일에 기록하거나 브라우저에서 기다릴 텍스트입니다.
+
+        Returns:
+            list[tuple[str, dict]]: 이벤트 이름과 JSON 페이로드를 순서대로 담은 목록입니다.
+        """
         events = []
         for block in text.strip().split("\n\n"):
             if not block:
@@ -41,6 +56,16 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         return events
 
     def poll_job(self, client: TestClient, problem_id: str, job_id: str) -> dict:
+        """작업 비동기 작업이 종료될 때까지 API를 반복 조회하고 최종 상태를 반환합니다.
+
+        Args:
+            client (TestClient): 테스트 대상 API를 호출하는 FastAPI 테스트 클라이언트입니다.
+            problem_id (str): 테스트가 생성하거나 조회할 문제 식별자입니다.
+            job_id (str): 조회하거나 구성할 백그라운드 작업 식별자입니다.
+
+        Returns:
+            dict: 완료 상태가 된 문제별 백그라운드 작업 상태 응답입니다.
+        """
         status = {}
         for _ in range(50):
             response = client.get(f"/api/problems/{problem_id}/packs/jobs/{job_id}")
@@ -52,6 +77,15 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.fail("background job did not finish")
 
     def poll_generic_job(self, client: TestClient, job_id: str) -> dict:
+        """공통 작업 비동기 작업이 종료될 때까지 API를 반복 조회하고 최종 상태를 반환합니다.
+
+        Args:
+            client (TestClient): 테스트 대상 API를 호출하는 FastAPI 테스트 클라이언트입니다.
+            job_id (str): 조회하거나 구성할 백그라운드 작업 식별자입니다.
+
+        Returns:
+            dict: 완료 상태가 된 공통 백그라운드 작업 상태 응답입니다.
+        """
         status = {}
         for _ in range(50):
             response = client.get(f"/api/jobs/{job_id}")
@@ -63,6 +97,15 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.fail("background job did not finish")
 
     def git(self, cwd: Path, *args: str) -> str:
+        """테스트 저장소 안에서 Git 명령을 실행하고 실패 시 표준 오류를 포함해 즉시 실패시킵니다.
+
+        Args:
+            cwd (Path): Git 또는 명령줄 도구를 실행할 작업 디렉터리입니다.
+            args (str): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+
+        Returns:
+            str: Git 명령의 표준 출력에서 앞뒤 공백을 제거한 문자열입니다.
+        """
         result = subprocess.run(
             ["git", *args],
             cwd=cwd,
@@ -73,6 +116,14 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         return result.stdout.strip()
 
     def make_bare_remote(self, root: Path) -> Path:
+        """빈 원격 원격 테스트가 후속 API 호출이나 명령 실행에 사용할 임시 리소스를 준비합니다.
+
+        Args:
+            root (Path): 픽스처나 임시 작업공간을 생성할 기준 디렉터리입니다.
+
+        Returns:
+            Path: 테스트가 푸시 대상으로 사용할 빈 원격 Git 저장소 경로입니다.
+        """
         remote = root / "remote.git"
         seed = root / "seed"
         self.git(root, "init", "--bare", str(remote))
@@ -89,6 +140,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         return remote
 
     def test_problem_authoring_metadata_and_file_safety_contract(self) -> None:
+        """문제 문제 작성 메타데이터 및 파일 안전성 계약 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
 
@@ -129,6 +181,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertIn("invalid problem file path", rejected.json()["detail"])
 
     def test_problem_metadata_patch_rejects_unsafe_backend_values(self) -> None:
+        """문제 메타데이터 수정 거부 안전하지 않은 백엔드 값 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
 
@@ -172,6 +225,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertEqual(after, before)
 
     def test_problem_id_can_be_renamed_without_losing_files(self) -> None:
+        """문제 식별자 가능 이름 변경 없이 손실 파일 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post(
@@ -204,6 +258,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertEqual(new_note.json()["content"], "keep me\n")
 
     def test_problem_id_rename_rejects_conflicts_and_unsafe_ids(self) -> None:
+        """문제 식별자 이름 변경 거부 충돌 및 안전하지 않은 식별자 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "alpha", "title": "Alpha"})
@@ -218,6 +273,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertIn("invalid problem id", unsafe.json()["detail"])
 
     def test_static_index_fragments_are_expanded(self) -> None:
+        """정적 색인 조각 확장 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
 
@@ -241,6 +297,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertIn(selector, response.text)
 
     def test_generate_stream_reports_compile_error_event(self) -> None:
+        """생성 스트림 보고 컴파일 오류 이벤트 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "alpha", "title": "Broken Cases"})
@@ -261,6 +318,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertFalse(any(event == "result" for event, _ in events))
 
     def test_tools_and_solution_validation_contracts(self) -> None:
+        """도구 및 솔루션 검증 계약 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "alpha", "title": "Tools"})
@@ -294,6 +352,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertIn("unknown expected result token", invalid_create.json()["detail"])
 
     def test_solution_wrong_artifact_preview_contract(self) -> None:
+        """솔루션 오답 산출물 미리보기 계약 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "alpha", "title": "Artifacts"})
@@ -320,6 +379,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertEqual(mocked_diff.call_args.args[0:2], ("run-1", "001"))
 
     def test_solution_stress_api_contracts(self) -> None:
+        """솔루션 스트레스 API 계약 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, _workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "alpha", "title": "Stress"})
@@ -366,11 +426,15 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             },
         ) as mocked_preview:
             preview = client.get(
-                "/api/problems/alpha/solutions/stress/runs/stress-route/mismatches/000001/solution-key"
+                "/api/problems/alpha/solutions/stress/runs/stress-route/"
+                "mismatches/000001/solution-key"
             )
         self.assertEqual(preview.status_code, 200, preview.text)
         self.assertEqual(preview.json()["problemId"], "alpha")
-        self.assertEqual(mocked_preview.call_args.args[1:4], ("stress-route", "000001", "solution-key"))
+        self.assertEqual(
+            mocked_preview.call_args.args[1:4],
+            ("stress-route", "000001", "solution-key"),
+        )
 
         with patch(
             "problem_studio.web.routes.solutions.append_stress_case",
@@ -384,7 +448,8 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             },
         ) as mocked_append:
             appended = client.post(
-                "/api/problems/alpha/solutions/stress/runs/stress-route/mismatches/000001/solution-key/append",
+                "/api/problems/alpha/solutions/stress/runs/stress-route/"
+                "mismatches/000001/solution-key/append",
                 json={"profile": "hidden", "mode": "generator", "name": "stress-added"},
             )
         self.assertEqual(appended.status_code, 200, appended.text)
@@ -392,6 +457,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertEqual(mocked_append.call_args.kwargs["mode"], "generator")
 
     def test_background_pack_job_failure_and_download_safety(self) -> None:
+        """백그라운드 패키지 작업 실패 및 다운로드 안전성 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         client.post("/api/problems", json={"problem_id": "alpha", "title": "Pack"})
@@ -436,6 +502,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertIn("outside the output directory", download.json()["detail"])
 
     def test_bulk_build_rejects_unknown_ids_and_skips_pack_on_failure(self) -> None:
+        """일괄 빌드 거부 알 수 없는 식별자 및 건너뜀 패키지 실패 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-functional-") as tmp:
             workspace = Path(tmp)
             with patch("problem_studio.core.bulk.discover_problem_ids", return_value=["01"]):
@@ -448,6 +515,15 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                     )
 
             def failed_full_test(*args, **kwargs) -> dict:
+                """전체 검증 실패 결과를 만들어 패키지 빌드 차단 흐름을 검증합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                    kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+                Returns:
+                    dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+                """
                 return {
                     "problemId": args[1],
                     "passed": False,
@@ -476,10 +552,20 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         mocked_pack.assert_not_called()
 
     def test_bulk_build_deduplicates_ids_and_forwards_solution_checks(self) -> None:
+        """일괄 빌드 중복 제거 식별자 및 전달 솔루션 검사 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-functional-") as tmp:
             workspace = Path(tmp)
 
             def passed_full_test(*args, **kwargs) -> dict:
+                """전체 검증 성공 결과를 만들어 패키지 빌드 허용 흐름을 검증합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                    kwargs (dict[str, Any]): 대상 함수나 가짜 실행기에 전달할 추가 키워드 인자입니다.
+
+                Returns:
+                    dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+                """
                 problem_id = args[1]
                 return {
                     "problemId": problem_id,
@@ -521,6 +607,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         )
 
     def test_git_clone_commit_and_push_feature_branch(self) -> None:
+        """Git 복제 커밋 및 푸시 기능 브랜치 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
             root = Path(tmp)
             remote = self.make_bare_remote(root)
@@ -567,6 +654,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertIn("feature/studio", refs.splitlines())
 
     def test_git_dirty_path_preserves_leading_status_space_for_commit(self) -> None:
+        """Git 변경 파일 경로 보존 선행 상태 공간 커밋 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
             workspace = Path(tmp)
             problem_file = workspace / "problems" / "02" / "validator" / "validator.cpp"
@@ -588,6 +676,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertFalse(committed["dirty"])
 
     def test_git_push_allows_main_branch_and_redacts_remote(self) -> None:
+        """Git 푸시 허용 메인 브랜치 및 마스킹 원격 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
             root = Path(tmp)
             remote = self.make_bare_remote(root)
@@ -605,6 +694,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             )
 
     def test_git_write_actions_can_be_disabled_by_server_policy(self) -> None:
+        """Git 쓰기 동작 가능 비활성 서버 정책 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
             root = Path(tmp)
             remote = self.make_bare_remote(root)
@@ -630,6 +720,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertIn("network/write actions are disabled", committed.json()["detail"])
 
     def test_git_status_blocks_tool_repository_remote(self) -> None:
+        """Git 상태 차단 도구 저장소 원격 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
             root = Path(tmp)
             remote = self.make_bare_remote(root)
@@ -668,6 +759,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertIn("Git 동기화 작업을 막았습니다", committed.json()["detail"])
 
     def test_repository_clone_uses_workspace_problems_repo_name(self) -> None:
+        """저장소 복제 사용 작업공간 문제 저장소 이름 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
             root = Path(tmp)
             remote = self.make_bare_remote(root)
@@ -695,6 +787,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertEqual(payload["git"]["repositoryName"], "algorithm-package")
 
     def test_repository_select_scopes_problem_list(self) -> None:
+        """저장소 선택 범위 제한 문제 목록 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
             workspace = Path(tmp) / "studio"
             repo_a = workspace / "problems" / "repo-a"
@@ -716,6 +809,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertEqual(selected_b.json()["workspace"]["problems"][0]["title"], "Repo B")
 
     def test_repository_register_opens_existing_nested_repository(self) -> None:
+        """저장소 등록 열기 기존 중첩 저장소 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
             workspace = Path(tmp) / "studio"
             repo = workspace / "problems" / "existing.repo"
@@ -725,7 +819,10 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
 
             listed = client.get("/api/repositories")
             self.assertEqual(listed.status_code, 200, listed.text)
-            self.assertEqual([item["name"] for item in listed.json()["repositories"]], ["existing.repo"])
+            self.assertEqual(
+                [item["name"] for item in listed.json()["repositories"]],
+                ["existing.repo"],
+            )
 
             registered = client.post(
                 "/api/repositories/register",
@@ -739,6 +836,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertEqual(payload["workspace"]["problems"][0]["title"], "Existing Repo")
 
     def test_repository_scoped_jobs_do_not_mix_same_problem_id(self) -> None:
+        """저장소 범위 지정 작업 않도록 섞임 같은 문제 식별자 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
             workspace = Path(tmp) / "studio"
             repo_a = workspace / "problems" / "repo-a"
@@ -778,6 +876,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertEqual(repo_b_job_from_a.status_code, 404, repo_b_job_from_a.text)
 
     def test_git_commit_runs_inside_selected_repository(self) -> None:
+        """Git 커밋 실행 내부 선택된 저장소 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
             root = Path(tmp)
             remote = self.make_bare_remote(root)
@@ -811,6 +910,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertFalse((workspace / ".git").exists())
 
     def test_repository_name_rejects_unsafe_paths(self) -> None:
+        """저장소 이름 거부 안전하지 않은 경로 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
             client = TestClient(create_app(Path(tmp) / "studio"))
 
@@ -820,6 +920,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                 self.assertIn("invalid repository name", response.json()["detail"])
 
     def test_legacy_flat_workspace_still_works_with_repository_metadata(self) -> None:
+        """레거시 평면 작업공간 계속 동작 저장소 메타데이터 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
         create_problem(workspace, "alpha", "Legacy Alpha")

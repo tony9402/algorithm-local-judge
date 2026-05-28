@@ -1,3 +1,5 @@
+"""패키지 빌드, 설치, 삭제, 원격 다운로드 보안 경로를 실제 명령줄 흐름으로 검증하는 종단 간 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import contextlib
@@ -29,20 +31,35 @@ PROBLEM_SOURCE_ROOT = ROOT / "problems" / "algorithm-package" / "problems"
 
 
 class QuietDirectoryHandler(http.server.SimpleHTTPRequestHandler):
-    """Serve test fixtures without noisy request logs."""
+    """픽스처 HTTP 서버가 요청 로그를 출력하지 않도록 막아 테스트 출력이 안정적으로 유지되게 하는 핸들러입니다."""
 
     def log_message(self, format: str, *args: object) -> None:
+        """테스트 픽스처 HTTP 서버의 요청 로그 출력을 억제해 실패 출력이 핵심 진단만 담도록 합니다.
+
+        Args:
+            format (str): HTTP 서버 로그 포맷 문자열입니다.
+            args (object): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+        """
         return
 
 
 class ReusableThreadingTCPServer(socketserver.ThreadingTCPServer):
+    """짧은 시간에 반복 생성되는 픽스처 HTTP 서버가 같은 포트를 재사용할 수 있게 설정한 서버 클래스입니다."""
+
     allow_reuse_address = True
     daemon_threads = True
 
 
 @contextlib.contextmanager
 def serve_directory(directory: Path) -> Iterator[str]:
-    """Serve a local directory over HTTP for direct URL E2E tests."""
+    """로컬 디렉터리를 HTTP로 노출해 직접 URL 설치 시나리오가 실제 다운로드 경계를 지나가게 합니다.
+
+    Args:
+        directory (Path): 테스트 HTTP 서버가 정적 파일로 노출할 디렉터리입니다.
+
+    Returns:
+        Iterator[str]: 호출자가 비교하거나 다음 명령에 전달할 문자열입니다.
+    """
     handler = functools.partial(QuietDirectoryHandler, directory=str(directory))
     with ReusableThreadingTCPServer(("127.0.0.1", 0), handler) as server:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -56,9 +73,10 @@ def serve_directory(directory: Path) -> Iterator[str]:
 
 
 class JudgePackInstallE2ETest(unittest.TestCase):
-    """E2E coverage for pack and source install flows."""
+    """채점기 패키지 설치 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_pack_build_verify_install_and_generate_from_installed_pack(self) -> None:
+        """패키지 빌드 검증 설치 및 생성 설치된 패키지 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-pack-e2e-") as (_directory, runtime):
             output_dir = runtime / "dist"
             build = run_judge_cli(
@@ -120,6 +138,7 @@ class JudgePackInstallE2ETest(unittest.TestCase):
             self.assertEqual(payload["problemId"], "06")
 
     def test_pack_remove_hides_installed_problem_lifecycle(self) -> None:
+        """패키지 제거 숨김 설치된 문제 생명주기 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-pack-remove-e2e-") as (_directory, runtime):
             archive = create_runnable_minimal_pack(
                 runtime / "remove-pack.aljpack",
@@ -152,6 +171,7 @@ class JudgePackInstallE2ETest(unittest.TestCase):
             self.assertIn("problem metadata not found", generated.stderr.lower())
 
     def test_pack_install_rejects_unsafe_tar_member(self) -> None:
+        """패키지 설치 거부 안전하지 않은 tar 멤버 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-unsafe-pack-e2e-") as (_directory, runtime):
             archive = create_unsafe_tar(runtime / "unsafe.aljpack")
 
@@ -161,6 +181,7 @@ class JudgePackInstallE2ETest(unittest.TestCase):
             self.assertIn("unsafe path in pack archive", result.stderr)
 
     def test_pack_install_rejects_tar_links(self) -> None:
+        """패키지 설치 거부 tar 링크 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-unsafe-pack-link-e2e-") as (_directory, runtime):
             for label, hardlink in (("symlink", False), ("hardlink", True)):
                 with self.subTest(label=label):
@@ -175,6 +196,7 @@ class JudgePackInstallE2ETest(unittest.TestCase):
                     self.assertIn("unsafe link in pack archive", result.stderr)
 
     def test_source_directory_install_exposes_problem_list(self) -> None:
+        """소스 디렉터리 설치 노출 문제 목록 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-source-dir-e2e-") as (_directory, runtime):
             source_package = create_source_package(runtime, "alpha")
 
@@ -196,6 +218,7 @@ class JudgePackInstallE2ETest(unittest.TestCase):
             self.assertIn("Alpha Source Problem", problem_list.stdout)
 
     def test_source_archive_install_exposes_problem_list(self) -> None:
+        """소스 아카이브 설치 노출 문제 목록 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-source-zip-e2e-") as (_directory, runtime):
             archive = create_source_archive(runtime / "source-package.zip", "beta")
 
@@ -216,6 +239,7 @@ class JudgePackInstallE2ETest(unittest.TestCase):
             self.assertIn("Alpha Source Problem", problem_list.stdout)
 
     def test_source_archive_install_rejects_unsafe_zip_member_via_cli(self) -> None:
+        """소스 아카이브 설치 거부 안전하지 않은 zip 멤버 경유 명령줄 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-unsafe-source-e2e-") as (_directory, runtime):
             archive = create_unsafe_zip(runtime / "unsafe-source.zip")
 
@@ -225,6 +249,7 @@ class JudgePackInstallE2ETest(unittest.TestCase):
             self.assertIn("unsafe path in source archive", result.stderr)
 
     def test_source_archive_install_rejects_zip_symlink_via_cli(self) -> None:
+        """소스 아카이브 설치 거부 zip 심볼릭 링크 경유 명령줄 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-unsafe-source-link-e2e-") as (_directory, runtime):
             archive = create_unsafe_zip_symlink(runtime / "unsafe-source-link.zip")
 
@@ -234,6 +259,7 @@ class JudgePackInstallE2ETest(unittest.TestCase):
             self.assertIn("unsafe link in source archive", result.stderr)
 
     def test_direct_pack_url_requires_checksum_and_accepts_verified_sources(self) -> None:
+        """직접 패키지 주소 요구 체크섬 및 허용 검증된 소스 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-direct-pack-e2e-") as (_directory, runtime):
             explicit_archive = create_runnable_minimal_pack(
                 runtime / "direct-checksum.aljpack",

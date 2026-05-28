@@ -1,3 +1,5 @@
+"""문제 스튜디오의 문제 생성, 메타데이터 편집, 파일 저장, 화면 편집 흐름을 브라우저에서 검증하는 종단 간 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 from problem_studio.core.templates import create_problem
@@ -18,7 +20,10 @@ from tests.e2e.helpers import (
 
 
 class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
+    """문제 스튜디오 문제 작성 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+
     def test_create_problem_edit_metadata_and_save_file_in_browser(self) -> None:
+        """생성 문제 편집 메타데이터 및 저장 파일 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-e2e-") as (_directory, workspace):
             with run_app(create_app(workspace)) as server:
                 page = self.new_page(server.url)
@@ -70,6 +75,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_tabs_filters_stream_error_and_vim_mode_in_browser(self) -> None:
+        """탭 필터 스트림 오류 및 Vim 모드 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-e2e-") as (_directory, workspace):
             with run_app(create_app(workspace)) as server:
                 page = self.new_page(server.url)
@@ -108,6 +114,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_textarea_fallback_editor_saves_without_codemirror(self) -> None:
+        """텍스트 영역 대체 경로 편집기 저장 없이 CodeMirror 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-e2e-") as (_directory, workspace):
             with run_app(create_app(workspace)) as server:
                 page = self.new_page(server.url)
@@ -148,6 +155,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_problem_rename_and_delete_browser_flow(self) -> None:
+        """문제 이름 변경 및 삭제 브라우저 흐름 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-rename-delete-e2e-") as (
             _directory,
             workspace,
@@ -180,6 +188,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_textarea_vim_write_undo_and_redo_flow(self) -> None:
+        """텍스트 영역 Vim 쓰기 되돌리기 및 다시 실행 흐름 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-vim-command-e2e-") as (
             _directory,
             workspace,
@@ -224,6 +233,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_problem_studio_viewports_keep_core_controls_usable(self) -> None:
+        """문제 스튜디오 뷰포트 유지 핵심 컨트롤 사용 가능 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-view-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha View", "E2E")
             with run_app(create_app(workspace)) as server:

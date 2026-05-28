@@ -1,3 +1,5 @@
+"""cases.yml 컴파일 실패가 생성과 실행 흐름을 조기에 중단하는지 실제 명령 경계에서 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import unittest
@@ -12,10 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CasesCompileIntegrationTest(unittest.TestCase):
-    """Integration checks for preflight cases.yml compilation."""
+    """케이스 컴파일 통합 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_generate_stops_before_tool_compile_when_cases_compile_fails(self) -> None:
-        """Generate should not compile generator binaries after cases.yml fails."""
+        """생성 중단 전에 도구 컴파일 케이스 컴파일 실패 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with (
             patch(
                 "judge.core.generation.ensure_cases_compiled",
@@ -30,7 +32,7 @@ class CasesCompileIntegrationTest(unittest.TestCase):
         compile_tools.assert_not_called()
 
     def test_run_stops_before_submission_compile_when_cases_compile_fails(self) -> None:
-        """Run should not compile user code after cases.yml fails."""
+        """실행 중단 전에 제출 컴파일 케이스 컴파일 실패 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         source = ROOT / "tests" / "fixtures" / "accepted.py"
         with (
             patch(

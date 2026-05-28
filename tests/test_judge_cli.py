@@ -1,3 +1,5 @@
+"""judge 명령줄의 실행, 생성, 캐시, 진단, 설치 옵션 계약을 스모크 테스트로 검증하는 모듈입니다."""
+
 from __future__ import annotations
 
 import json
@@ -22,7 +24,16 @@ def run_judge(
     check: bool = False,
     extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run the judge CLI in the repository root for smoke tests."""
+    """채점기 흐름을 격리된 환경에서 실행해 종료 코드와 출력을 검증할 수 있게 합니다.
+
+    Args:
+        args (str): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+        check (bool): 하위 프로세스 실패를 예외로 처리할지 결정하는 플래그입니다.
+        extra_env (dict[str, str] | None): 격리 실행 환경에 추가로 주입할 환경 변수입니다.
+
+    Returns:
+        subprocess.CompletedProcess[str]: judge 명령줄 실행 결과 객체입니다.
+    """
     env = os.environ.copy()
     env["ALJ_CACHE_HOME"] = str(ROOT / ".judge-cache")
     env["ALJ_PYTHON"] = sys.executable
@@ -44,10 +55,10 @@ def run_judge(
 
 
 class JudgeCliSmokeTest(unittest.TestCase):
-    """End-to-end smoke tests for the judge command line interface."""
+    """채점기 명령줄 스모크 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_problem_metadata_has_no_forbidden_keys(self) -> None:
-        """Problem metadata should avoid external platform-specific fields."""
+        """문제 메타데이터 보유 없는 금지된 키 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         problem_dir = PROBLEM_SOURCE_ROOT / "06"
         metadata = json.loads((problem_dir / "problem.json").read_text(encoding="utf-8"))
         forbidden = {"externalId", "externalUrl", "externalPlatform", "platform"}
@@ -62,14 +73,14 @@ class JudgeCliSmokeTest(unittest.TestCase):
         self.assertIn("generatorConfig", metadata["tools"])
 
     def test_generate_and_reuse_sample_cache(self) -> None:
-        """Generating sample data twice should reuse a valid cache."""
+        """생성 및 재사용 샘플 캐시 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         first = run_judge("generate", "06", "--profile", "sample", "--force", check=True)
         self.assertIn("Generated data:", first.stdout)
         second = run_judge("generate", "06", "--profile", "sample", check=True)
         self.assertIn("Using cached data:", second.stdout)
 
     def test_solution_is_accepted_with_default_file_command(self) -> None:
-        """Implicit run syntax should accept the reference solution."""
+        """솔루션 정답 기본 파일 명령 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge(
             "--profile",
             "sample",
@@ -79,7 +90,7 @@ class JudgeCliSmokeTest(unittest.TestCase):
         self.assertIn("Accepted", result.stdout)
 
     def test_python_solution_is_accepted(self) -> None:
-        """Python submissions should run through the same judge flow."""
+        """Python 솔루션 정답 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge(
             "--problem", "06", "--profile", "sample", "tests/fixtures/accepted.py", check=True
         )
@@ -90,14 +101,14 @@ class JudgeCliSmokeTest(unittest.TestCase):
         "Java toolchain is not installed",
     )
     def test_java_solution_is_accepted(self) -> None:
-        """Java submissions should compile and run through the judge flow."""
+        """Java 솔루션 정답 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge(
             "--problem", "06", "--profile", "sample", "tests/fixtures/Main.java", check=True
         )
         self.assertIn("Accepted", result.stdout)
 
     def test_wrong_answer_writes_artifacts_and_can_show_diff(self) -> None:
-        """Wrong answers should save artifacts that show and diff can read."""
+        """오답 답안 쓰기 산출물 및 가능 조회 차이 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge(
             "--problem", "06", "--profile", "sample", "tests/fixtures/wrong.cpp", check=True
         )
@@ -117,7 +128,7 @@ class JudgeCliSmokeTest(unittest.TestCase):
         self.assertIn("--- expected", diff.stdout)
 
     def test_compile_error_writes_log(self) -> None:
-        """Compile errors should fail the run and point to compile.log."""
+        """컴파일 오류 쓰기 로그 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge(
             "--problem", "06", "--profile", "sample", "tests/fixtures/compile_error.cpp"
         )
@@ -126,7 +137,7 @@ class JudgeCliSmokeTest(unittest.TestCase):
         self.assertIn("compile.log", result.stderr)
 
     def test_cache_status_and_dry_run(self) -> None:
-        """Cache status and all-cache dry-run should report safely."""
+        """캐시 상태 및 드라이런 실행 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         run_judge("generate", "06", "--profile", "sample", check=True)
         status = run_judge("cache", "status", check=True)
         self.assertIn("cache:", status.stdout)
@@ -134,19 +145,19 @@ class JudgeCliSmokeTest(unittest.TestCase):
         self.assertIn("Dry run", dry_run.stdout)
 
     def test_compile_command_smoke(self) -> None:
-        """The compile command should build problem tools explicitly."""
+        """컴파일 명령 스모크 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge("compile", "06", check=True)
         self.assertIn("Compiled tools for problem 06", result.stdout)
 
     def test_cases_compile_problem_profile_smoke(self) -> None:
-        """The cases compile command should validate one problem profile."""
+        """케이스 컴파일 문제 프로필 스모크 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge("cases", "compile", "06", "--profile", "sample", check=True)
 
         self.assertIn("cases.yml: ok", result.stdout)
         self.assertIn("profile sample:", result.stdout)
 
     def test_cases_compile_file_json_and_preview(self) -> None:
-        """Cases compile should support --file, JSON output, and preview limits."""
+        """케이스 컴파일 파일 JSON 및 미리보기 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-cli-cases-") as tmp:
             path = Path(tmp) / "cases.yml"
             path.write_text(
@@ -194,7 +205,7 @@ profiles:
             self.assertIn("... 1 more case(s)", preview.stdout)
 
     def test_cases_compile_invalid_file_returns_one(self) -> None:
-        """Invalid cases.yml should return exit code 1 with a diagnostic."""
+        """케이스 컴파일 잘못된 파일 반환 하나 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-cli-cases-") as tmp:
             path = Path(tmp) / "cases.yml"
             path.write_text(
@@ -221,7 +232,7 @@ profiles:
             self.assertIn("matrix must be a mapping, got null", result.stdout)
 
     def test_cases_compile_invalid_json_and_argument_errors(self) -> None:
-        """CLI edge cases should keep predictable exit codes and output channels."""
+        """케이스 컴파일 잘못된 JSON 및 인자 오류 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-cli-cases-") as tmp:
             path = Path(tmp) / "cases.yml"
             path.write_text(
@@ -271,13 +282,13 @@ profiles:
             self.assertIn("global --profile can only be used with run", global_profile.stderr)
 
     def test_cache_clear_requires_target(self) -> None:
-        """Cache clear should reject invocations without a target."""
+        """캐시 삭제 요구 대상 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge("cache", "clear", "--dry-run")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("choose at least one target", result.stderr)
 
     def test_cache_clear_problem_and_runs_dry_run(self) -> None:
-        """Problem and runs cache targets should support dry-run output."""
+        """캐시 삭제 문제 및 실행 드라이런 실행 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         run_judge("generate", "06", "--profile", "sample", check=True)
         run_judge("--problem", "06", "--profile", "sample", "tests/fixtures/wrong.cpp", check=True)
         problem = run_judge("cache", "clear", "--problem", "06", "--dry-run", check=True)
@@ -286,7 +297,7 @@ profiles:
         self.assertIn("Dry run", runs.stdout)
 
     def test_rejects_run_global_options_before_non_run_commands(self) -> None:
-        """Run-only global options should fail before non-run commands."""
+        """거부 실행 전역 옵션 전에 비 실행 명령 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         generate = run_judge("--profile", "sample", "generate", "06")
         self.assertNotEqual(generate.returncode, 0)
         self.assertIn("global --profile can only be used with run", generate.stderr)
@@ -296,7 +307,7 @@ profiles:
         self.assertIn("global --problem can only be used with run", cache.stderr)
 
     def test_rejects_abbreviated_global_options(self) -> None:
-        """Long option abbreviations should be disabled for consistency."""
+        """거부 축약 전역 옵션 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge(
             "--prof",
             "sample",
@@ -306,20 +317,20 @@ profiles:
         self.assertIn("unrecognized arguments", result.stderr)
 
     def test_problem_id_inference_failure_is_actionable(self) -> None:
-        """Inference failures should tell users how to pass a problem id."""
+        """문제 식별자 추론 실패 조치 가능한 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge("--profile", "sample", "tests/fixtures/wrong.cpp")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("could not infer problem id", result.stderr)
         self.assertIn("--problem 06", result.stderr)
 
     def test_list_problems(self) -> None:
-        """The list command should show discovered problem ids."""
+        """목록 문제 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge("list", check=True)
         self.assertIn("Problems:", result.stdout)
         self.assertIn("06", result.stdout)
 
     def test_doctor_reports_local_environment(self) -> None:
-        """The doctor command should print a concise local readiness report."""
+        """진단 명령 보고 로컬 환경 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-doctor-") as tmp:
             tmp_path = Path(tmp)
             result = run_judge(
@@ -343,7 +354,7 @@ profiles:
         self.assertIn("Official repository: OK tony9402/algorithm-package", result.stdout)
 
     def test_doctor_verbose_and_json_output(self) -> None:
-        """Doctor verbose text and JSON output should expose stable diagnostics."""
+        """진단 명령 상세 및 JSON 출력 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-doctor-json-") as tmp:
             tmp_path = Path(tmp)
             env = {
@@ -368,7 +379,7 @@ profiles:
         )
 
     def test_doctor_reports_invalid_official_repository_without_crashing(self) -> None:
-        """Doctor should diagnose invalid configuration instead of failing outright."""
+        """진단 명령 보고 잘못된 공식 저장소 없이 중단 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge(
             "doctor",
             "--json",
@@ -382,7 +393,7 @@ profiles:
         self.assertIn("official repository", payload["officialRepository"]["error"])
 
     def test_problem_install_checksum_options_are_parsed(self) -> None:
-        """Direct URL checksum options should survive CLI parsing."""
+        """문제 설치 체크섬 옵션 파싱 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         parser = build_parser()
         checksum = "a" * 64
 
@@ -414,7 +425,7 @@ profiles:
         self.assertEqual(args.checksum_url, "https://example.com/basic.aljpack.sha256")
 
     def test_pack_trust_repository_management(self) -> None:
-        """The CLI should manage the local trusted repository allowlist."""
+        """패키지 신뢰 저장소 관리 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-pack-trust-cli-") as tmp:
             env = {"ALJ_DATA_HOME": str(Path(tmp) / "data")}
 
@@ -445,7 +456,7 @@ profiles:
             self.assertIn("example/problems", removed.stdout)
 
     def test_validate_problem_sequence_reports_missing_start(self) -> None:
-        """Problem numbering validation should report the missing starting id."""
+        """검증 문제 순서 보고 누락 시작 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-sequence-test-") as tmp:
             project_root = Path(tmp)
             shutil.copytree(PROBLEM_SOURCE_ROOT / "06", project_root / "problems" / "06")
@@ -461,7 +472,7 @@ profiles:
         self.assertIn("problem numbering must start at 1", result.stderr)
 
     def test_rejects_unsafe_problem_id(self) -> None:
-        """Unsafe problem ids should be rejected before cache path access."""
+        """거부 안전하지 않은 문제 식별자 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         result = run_judge("cache", "clear", "--problem", "../06", "--dry-run")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid problem id", result.stderr)

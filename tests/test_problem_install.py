@@ -1,3 +1,5 @@
+"""문제 설치 기능의 GitHub 입력 해석, 신뢰 정책, 체크섬, 다운로드 제한을 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import hashlib
@@ -35,10 +37,10 @@ from tests.e2e.pack_fixtures import create_minimal_pack
 
 
 class ProblemInstallTest(unittest.TestCase):
-    """Tests for easy problem installation helpers."""
+    """문제 설치 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_github_repository_from_source_accepts_common_forms(self) -> None:
-        """Repository input should work with owner/name, HTTPS, and SSH forms."""
+        """GitHub 저장소 소스 허용 공통 형식 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         self.assertEqual(
             github_repository_from_source("tony9402/algorithm-package"),
             "tony9402/algorithm-package",
@@ -53,17 +55,17 @@ class ProblemInstallTest(unittest.TestCase):
         )
 
     def test_official_repository_defaults_to_algorithm_package(self) -> None:
-        """The official install source should default to algorithm-package."""
+        """공식 저장소 기본값 알고리즘 패키지 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(official_pack_repository(), "tony9402/algorithm-package")
 
     def test_github_repository_from_source_rejects_non_github_source(self) -> None:
-        """Non-GitHub strings should be left for other installers to handle."""
+        """GitHub 저장소 소스 거부 비 GitHub 소스 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         self.assertIsNone(github_repository_from_source("not a repository"))
         self.assertIsNone(github_repository_from_source("https://example.com/owner/repo"))
 
     def test_select_pack_asset_prefers_requested_asset(self) -> None:
-        """Explicit asset names should pick the matching .aljpack asset."""
+        """선택 패키지 자산 우선 선택 요청된 자산 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         assets = [
             {"name": "notes.txt", "browser_download_url": "https://example.com/notes.txt"},
             {
@@ -77,12 +79,12 @@ class ProblemInstallTest(unittest.TestCase):
         self.assertEqual(selected["name"], "basic-1-macos-arm64.aljpack")
 
     def test_select_pack_asset_requires_pack_assets(self) -> None:
-        """Missing release pack assets should be reported clearly."""
+        """선택 패키지 자산 요구 패키지 자산 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with self.assertRaises(JudgeError):
             select_pack_asset([{"name": "notes.txt"}], None)
 
     def test_trusted_repository_policy_uses_default_owner_and_user_allowlist(self) -> None:
-        """Only the official repository and explicitly added repositories should be trusted."""
+        """신뢰된 저장소 정책 사용 기본 소유자 및 사용자 허용 목록 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-trusted-repo-test-") as tmp:
             with patch.dict(os.environ, {"ALJ_DATA_HOME": str(Path(tmp) / "data")}, clear=True):
                 self.assertTrue(is_trusted_repository("tony9402/algorithm-package"))
@@ -99,7 +101,7 @@ class ProblemInstallTest(unittest.TestCase):
                 self.assertFalse(is_trusted_repository("other/problems"))
 
     def test_install_source_package_exposes_problems(self) -> None:
-        """A source package with problems/ should install into the problem search path."""
+        """설치 소스 패키지 노출 문제 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-source-install-test-") as tmp:
             tmp_path = Path(tmp)
             package = tmp_path / "package"
@@ -129,7 +131,7 @@ class ProblemInstallTest(unittest.TestCase):
                 self.assertTrue((installed / "problems" / "testlib.h").exists())
 
     def test_source_archive_rejects_unsafe_member_paths(self) -> None:
-        """Source archives must not be allowed to escape extraction directories."""
+        """소스 아카이브 거부 안전하지 않은 멤버 경로 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-source-archive-test-") as tmp:
             archive = Path(tmp) / "unsafe.zip"
             with zipfile.ZipFile(archive, "w") as output:
@@ -139,7 +141,7 @@ class ProblemInstallTest(unittest.TestCase):
                 install_problem_source_archive(archive, repository="owner/repo", ref="main")
 
     def test_source_archive_rejects_symlink_member(self) -> None:
-        """Source zip archives must not install Unix symlink entries."""
+        """소스 아카이브 거부 심볼릭 링크 멤버 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-source-archive-link-test-") as tmp:
             archive = Path(tmp) / "unsafe-link.zip"
             link = zipfile.ZipInfo("package/problems/alpha/problem.json")
@@ -154,7 +156,7 @@ class ProblemInstallTest(unittest.TestCase):
             self.assertIn("unsafe link in source archive", str(raised.exception))
 
     def test_source_archive_rejects_member_count_and_size_caps(self) -> None:
-        """Source zip archives should enforce extraction resource caps before install."""
+        """소스 아카이브 거부 멤버 개수 및 크기 상한 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-source-archive-cap-test-") as tmp:
             tmp_path = Path(tmp)
             member_archive = tmp_path / "too-many.zip"
@@ -193,9 +195,17 @@ class ProblemInstallTest(unittest.TestCase):
             self.assertFalse(total_out.exists())
 
     def test_github_download_falls_back_to_source_archive_without_pack_asset(self) -> None:
-        """Repositories without .aljpack release assets should install source packages."""
+        """GitHub 다운로드 대체 복귀 소스 아카이브 없이 패키지 자산 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
 
         def fake_github_json(url: str) -> dict:
+            """실제 GitHub JSON 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+            Args:
+                url (str): 응답 준비 상태를 확인할 HTTP 주소입니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             if url.endswith("/releases/latest"):
                 raise JudgeError("GitHub request failed: HTTP 404")
             if url.endswith("/commits/main"):
@@ -227,7 +237,7 @@ class ProblemInstallTest(unittest.TestCase):
         self.assertEqual(install_archive.call_args.kwargs["commit_sha"], "abc123")
 
     def test_github_pack_download_requires_trusted_repository(self) -> None:
-        """Remote GitHub installs should reject repositories outside the trust policy."""
+        """GitHub 패키지 다운로드 요구 신뢰된 저장소 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-untrusted-repo-test-") as tmp:
             with patch.dict(os.environ, {"ALJ_DATA_HOME": str(Path(tmp) / "data")}, clear=True):
                 with (
@@ -239,7 +249,7 @@ class ProblemInstallTest(unittest.TestCase):
         github_json.assert_not_called()
 
     def test_github_pack_download_verifies_release_checksum(self) -> None:
-        """Trusted .aljpack release assets should verify their sidecar checksum."""
+        """GitHub 패키지 다운로드 검증 릴리스 체크섬 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         assets = [
             {
                 "name": "basic-1-macos-arm64.aljpack",
@@ -252,6 +262,12 @@ class ProblemInstallTest(unittest.TestCase):
         ]
 
         def fake_download(url: str, target: Path) -> None:
+            """실제 다운로드 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+            Args:
+                url (str): 응답 준비 상태를 확인할 HTTP 주소입니다.
+                target (Path): 생성된 파일, 아카이브, 제출 소스를 기록할 경로입니다.
+            """
             if url.endswith(".aljpack"):
                 create_minimal_pack(target)
                 return
@@ -287,7 +303,7 @@ class ProblemInstallTest(unittest.TestCase):
         install_pack.assert_called_once()
 
     def test_github_pack_download_rejects_missing_or_mismatched_checksum(self) -> None:
-        """Checksum absence or mismatch should fail instead of falling back silently."""
+        """GitHub 패키지 다운로드 거부 누락 또는 불일치 체크섬 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         pack_asset = {
             "name": "basic-1-macos-arm64.aljpack",
             "browser_download_url": "https://example.com/basic.aljpack",
@@ -318,6 +334,12 @@ class ProblemInstallTest(unittest.TestCase):
             install_pack.assert_not_called()
 
             def mismatched_download(url: str, target: Path) -> None:
+                """불일치 다운로드 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    url (str): 응답 준비 상태를 확인할 HTTP 주소입니다.
+                    target (Path): 생성된 파일, 아카이브, 제출 소스를 기록할 경로입니다.
+                """
                 if url.endswith(".aljpack"):
                     create_minimal_pack(target)
                     return
@@ -340,11 +362,17 @@ class ProblemInstallTest(unittest.TestCase):
             install_pack.assert_not_called()
 
     def test_direct_pack_download_requires_checksum_and_verifies_match(self) -> None:
-        """Direct .aljpack URLs should not install without a verifiable checksum."""
+        """직접 패키지 다운로드 요구 체크섬 및 검증 일치 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         pack_bytes = b"pack-bytes"
         digest = hashlib.sha256(pack_bytes).hexdigest()
 
         def fake_download_missing_sidecar(url: str, target: Path) -> None:
+            """실제 다운로드 누락 동반 파일 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+            Args:
+                url (str): 응답 준비 상태를 확인할 HTTP 주소입니다.
+                target (Path): 생성된 파일, 아카이브, 제출 소스를 기록할 경로입니다.
+            """
             if url.endswith(".sha256"):
                 raise JudgeError("problem pack download failed: HTTP 404")
             target.write_bytes(pack_bytes)
@@ -398,11 +426,17 @@ class ProblemInstallTest(unittest.TestCase):
             install_pack.assert_not_called()
 
     def test_direct_pack_download_uses_checksum_url_or_auto_sidecar(self) -> None:
-        """Direct .aljpack URLs should accept explicit or automatic checksum sidecars."""
+        """직접 패키지 다운로드 사용 체크섬 주소 또는 자동 동반 파일 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         pack_bytes = b"pack-bytes"
         digest = hashlib.sha256(pack_bytes).hexdigest()
 
         def fake_download(url: str, target: Path) -> None:
+            """실제 다운로드 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+            Args:
+                url (str): 응답 준비 상태를 확인할 HTTP 주소입니다.
+                target (Path): 생성된 파일, 아카이브, 제출 소스를 기록할 경로입니다.
+            """
             if url.endswith(".aljpack"):
                 target.write_bytes(pack_bytes)
                 return
@@ -428,17 +462,35 @@ class ProblemInstallTest(unittest.TestCase):
         self.assertEqual(automatic["checksumSha256"], digest)
 
     def test_download_asset_enforces_content_length_and_streaming_cap(self) -> None:
-        """Remote downloads should reject oversized responses and remove partial files."""
+        """다운로드 자산 강제 콘텐츠 길이 및 스트리밍 상한 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
 
         class FakeResponse(io.BytesIO):
+            """응답 테스트 지원에 필요한 상태와 동작을 함께 제공하는 클래스입니다."""
+
             def __init__(self, payload: bytes, headers: dict[str, str]) -> None:
+                """테스트용 난수 대역이 순환 반환할 값을 초기화합니다.
+
+                Args:
+                    payload (bytes): 페이로드 값을 지정하는 인자입니다.
+                    headers (dict[str, str]): 헤더 값을 지정하는 인자입니다.
+                """
                 super().__init__(payload)
                 self.headers = headers
 
             def __enter__(self) -> FakeResponse:
+                """시작 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Returns:
+                    FakeResponse: 호출자가 다음 검증 단계에서 사용할 결과 값입니다.
+                """
                 return self
 
             def __exit__(self, *args) -> None:
+                """종료 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                """
                 self.close()
 
         with tempfile.TemporaryDirectory(prefix="alj-download-cap-test-") as tmp:
@@ -464,17 +516,30 @@ class ProblemInstallTest(unittest.TestCase):
             self.assertFalse(target.exists())
 
     def test_download_asset_uses_certifi_or_custom_ca_bundle_context(self) -> None:
-        """HTTPS downloads should use a verifying CA bundle context."""
+        """다운로드 자산 사용 certifi 또는 사용자 지정 CA 번들 맥락 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
 
         class FakeResponse(io.BytesIO):
+            """응답 테스트 지원에 필요한 상태와 동작을 함께 제공하는 클래스입니다."""
+
             def __init__(self) -> None:
+                """테스트용 난수 대역이 순환 반환할 값을 초기화합니다."""
                 super().__init__(b"pack")
                 self.headers = {"Content-Length": "4"}
 
             def __enter__(self) -> FakeResponse:
+                """시작 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Returns:
+                    FakeResponse: 호출자가 다음 검증 단계에서 사용할 결과 값입니다.
+                """
                 return self
 
             def __exit__(self, *args) -> None:
+                """종료 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                Args:
+                    args (tuple[Any, ...]): 명령줄 호출이나 보조 함수에 그대로 전달할 추가 위치 인자입니다.
+                """
                 self.close()
 
         with tempfile.TemporaryDirectory(prefix="alj-download-ca-test-") as tmp:
@@ -483,6 +548,16 @@ class ProblemInstallTest(unittest.TestCase):
             captured: dict[str, object] = {}
 
             def fake_urlopen(request, *, timeout, context):
+                """실제 urlopen 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+                Args:
+                    request (Any): 요청 값을 지정하는 인자입니다.
+                    timeout (Any): 조건이 만족될 때까지 기다릴 최대 시간입니다.
+                    context (Any): 맥락 값을 지정하는 키워드 인자입니다.
+
+                Returns:
+                    Any: 테스트 대상 API가 실제 실행 결과처럼 소비할 수 있는 결정적 결과 데이터입니다.
+                """
                 captured["timeout"] = timeout
                 captured["context"] = context
                 return FakeResponse()
@@ -518,7 +593,7 @@ class ProblemInstallTest(unittest.TestCase):
             create_context.assert_called_once_with(cafile="/certifi/cacert.pem")
 
     def test_download_asset_ssl_certificate_failure_has_actionable_guidance(self) -> None:
-        """Certificate verification failures should explain the HTTPS/CA-bundle fix."""
+        """다운로드 자산 SSL 인증서 실패 보유 조치 가능한 안내 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-download-ssl-test-") as tmp:
             target = Path(tmp) / "asset.aljpack"
             reason = ssl.SSLCertVerificationError(

@@ -1,3 +1,5 @@
+"""채점 실행기가 검증기 오류 맥락과 샘플 워밍업 메트릭 계약을 지키는지 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import contextlib
@@ -17,9 +19,10 @@ from judge.utils.process import CommandResult
 
 
 class RunnerErrorMessageTest(unittest.TestCase):
-    """Runtime helper errors should be useful in the web UI."""
+    """실행기 오류 메시지 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_validator_error_includes_context_and_input_preview(self) -> None:
+        """검증기 오류 포함 맥락 및 입력 미리보기 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-runner-") as tmp:
             root = Path(tmp)
             input_path = root / "001.in"
@@ -51,7 +54,7 @@ class RunnerErrorMessageTest(unittest.TestCase):
         self.assertIn("   2 | 3 4", message)
 
     def test_run_submission_warms_up_with_sample_without_counting_metrics(self) -> None:
-        """A warmup profile should run before measured cases and stay out of maxTimeMs."""
+        """실행 제출 워밍업 샘플 없이 계산 지표 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-runner-") as tmp:
             root = Path(tmp)
             source = root / "solution.cpp"
@@ -99,6 +102,16 @@ class RunnerErrorMessageTest(unittest.TestCase):
                 )
 
             def fake_latest_cache(problem_id, profile, cache_root):
+                """실제 최신 캐시 경로를 대체해 외부 도구 없이도 성공, 실패, 진행 로그를 결정적으로 재현합니다.
+
+                Args:
+                    problem_id (Any): 테스트가 생성하거나 조회할 문제 식별자입니다.
+                    profile (Any): 검증이나 실행에 사용할 테스트 프로필 이름입니다.
+                    cache_root (Any): 캐시 루트 값을 지정하는 인자입니다.
+
+                Returns:
+                    Any: 테스트 대상 API가 실제 실행 결과처럼 소비할 수 있는 결정적 결과 데이터입니다.
+                """
                 self.assertEqual(problem_id, "01")
                 self.assertEqual(cache_root, root)
                 return {"sample": sample_dir, "hidden": hidden_dir}[profile]

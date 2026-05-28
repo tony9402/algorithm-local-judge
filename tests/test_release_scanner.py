@@ -1,3 +1,5 @@
+"""릴리스 산출물 스캐너가 공지 파일, 정적 자산, 체크섬, 플랫폼 대상을 올바르게 검증하는지 확인하는 모듈입니다."""
+
 from __future__ import annotations
 
 import hashlib
@@ -17,7 +19,7 @@ from tests.e2e.pack_fixtures import create_minimal_pack
 
 
 class ReleaseScannerTest(unittest.TestCase):
-    """Tests for local release artifact policy checks."""
+    """릴리스 스캐너 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def make_standalone_archive(
         self,
@@ -26,7 +28,16 @@ class ReleaseScannerTest(unittest.TestCase):
         include_notice: bool = True,
         include_static: bool = True,
     ) -> Path:
-        """Create a lightweight standalone archive with scanner-required files."""
+        """독립 실행 아카이브 테스트가 후속 API 호출이나 명령 실행에 사용할 임시 리소스를 준비합니다.
+
+        Args:
+            root (Path): 픽스처나 임시 작업공간을 생성할 기준 디렉터리입니다.
+            include_notice (bool): 독립 실행 산출물에 제3자 고지 파일을 넣을지 결정하는 플래그입니다.
+            include_static (bool): 독립 실행 산출물에 정적 웹 자산을 넣을지 결정하는 플래그입니다.
+
+        Returns:
+            Path: 스캐너 검증에 사용할 독립 실행 패키지 아카이브 경로입니다.
+        """
         app = root / "algorithm-local-judge"
         (app / "bin").mkdir(parents=True)
         (app / "bin" / "judge").write_text("#!/bin/sh\n", encoding="utf-8")
@@ -59,6 +70,7 @@ class ReleaseScannerTest(unittest.TestCase):
         return archive_path
 
     def test_standalone_requires_third_party_notice_and_static_assets(self) -> None:
+        """독립 실행 요구 제3자 제3자 고지 및 정적 자산 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-release-scan-") as tmp:
             root = Path(tmp)
             missing_notice = self.make_standalone_archive(root / "notice", include_notice=False)
@@ -70,12 +82,14 @@ class ReleaseScannerTest(unittest.TestCase):
                 scan_standalone_archive(missing_static)
 
     def test_standalone_accepts_required_notice_static_and_checksums(self) -> None:
+        """독립 실행 허용 필수 고지 정적 및 체크섬 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-release-scan-") as tmp:
             archive_path = self.make_standalone_archive(Path(tmp))
 
             scan_standalone_archive(archive_path)
 
     def test_pack_scan_requires_sidecar_checksum(self) -> None:
+        """패키지 스캔 요구 동반 파일 체크섬 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-release-pack-scan-") as tmp:
             pack_path = create_minimal_pack(Path(tmp) / "basic-1-macos-arm64.aljpack")
 
@@ -86,6 +100,7 @@ class ReleaseScannerTest(unittest.TestCase):
             scan_artifact(pack_path)
 
     def test_platform_targets_only_fail_when_requested(self) -> None:
+        """플랫폼 대상 요청된 경우만 실패 요청된 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         artifacts = [Path("dist/packs/basic-1-macos-arm64.aljpack")]
 
         validate_platform_targets(artifacts, ["macos-arm64"])

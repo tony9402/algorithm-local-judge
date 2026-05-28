@@ -1,3 +1,5 @@
+"""종단 간 테스트에서 여러 시나리오가 공유하는 경로와 실행 환경 보조 기능을 제공하는 모듈입니다."""
+
 from __future__ import annotations
 
 from tests.e2e.browser_helpers import (

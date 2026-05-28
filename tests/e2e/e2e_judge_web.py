@@ -1,3 +1,5 @@
+"""judge 웹 화면을 브라우저에서 조작하며 실행, 생성, 패키지 설치, 반응형 화면 계약을 검증하는 종단 간 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 from judge.web.app import create_app
@@ -23,6 +25,11 @@ VALID_CASES_COMPILE = {
 
 
 def stub_samples(page) -> None:
+    """브라우저 테스트가 샘플 생성 백엔드 없이 문제 샘플 목록을 렌더링하도록 응답을 대체합니다.
+
+    Args:
+        page (Any): 브라우저 상호작용을 수행할 Playwright 페이지입니다.
+    """
     page.route(
         "**/api/problems/06/samples**",
         lambda route: route.fulfill(
@@ -38,6 +45,12 @@ def stub_samples(page) -> None:
 
 
 def route_jobs_list(page, jobs: dict[str, dict]) -> None:
+    """브라우저 테스트에서 작업 목록 요청을 가로채 고정된 API 응답을 제공하도록 설정합니다.
+
+    Args:
+        page (Any): 브라우저 상호작용을 수행할 Playwright 페이지입니다.
+        jobs (dict[str, dict]): 브라우저 라우팅에 사용할 작업 목록 응답 데이터입니다.
+    """
     page.route("**/api/jobs", lambda route: route.fulfill(json={"jobs": list(jobs.values())}))
 
 
@@ -50,6 +63,19 @@ def completed_job(
     problem_id: str = "06",
     target: dict | None = None,
 ) -> dict:
+    """화면이 완료된 작업을 렌더링할 수 있도록 작업 작업 응답 페이로드를 구성합니다.
+
+    Args:
+        job_id (str): 조회하거나 구성할 백그라운드 작업 식별자입니다.
+        kind (str): 작업 큐 화면에서 구분할 작업 종류입니다.
+        title (str): 작업 목록이나 문제 메타데이터에 표시할 제목입니다.
+        result (dict): 완료된 작업 응답에 포함할 결과 페이로드입니다.
+        problem_id (str): 테스트가 생성하거나 조회할 문제 식별자입니다.
+        target (dict | None): 생성된 파일, 아카이브, 제출 소스를 기록할 경로입니다.
+
+    Returns:
+        dict: 완료된 judge 웹 작업을 나타내는 작업 큐 응답 객체입니다.
+    """
     return {
         "jobId": job_id,
         "kind": kind,
@@ -66,7 +92,10 @@ def completed_job(
 
 
 class JudgeWebE2ETest(BrowserE2ETestCase):
+    """채점기 웹 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+
     def test_selected_problem_is_restored_after_reload_in_browser(self) -> None:
+        """선택된 문제 복원 이후 새로고침 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         sample_payload = (
             '{"profile":"sample","caseCount":1,"label":"persist",'
             '"cases":[{"case":"001","name":"persist","input":"1\\n","expected":"1\\n"}]}'
@@ -128,6 +157,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_problem_folder_drag_drop_updates_problem_metadata_in_browser(self) -> None:
+        """문제 폴더 드래그 드롭 갱신 문제 메타데이터 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         problems = [
             {
                 "problemId": "alpha",
@@ -151,6 +181,11 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
         captured: dict[str, object] = {}
 
         def update_folder(route):
+            """갱신 폴더 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             body = route.request.post_data_json
             problem_id = route.request.url.split("/api/problems/", 1)[1].split("/", 1)[0]
             captured["problemId"] = problem_id
@@ -226,6 +261,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_pasted_source_runs_and_updates_history_in_browser(self) -> None:
+        """붙여넣은 소스 실행 및 갱신 기록 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         source = (ROOT / "tests" / "fixtures" / "accepted.py").read_text(encoding="utf-8")
         with isolated_runtime("alj-judge-web-e2e-") as (_directory, runtime):
             env = judge_env(runtime)
@@ -267,6 +303,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_uploaded_source_history_load_delete_and_cache_modal_in_browser(self) -> None:
+        """업로드된 소스 기록 로드 삭제 및 캐시 모달 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         source_path = ROOT / "tests" / "fixtures" / "accepted.py"
         with isolated_runtime("alj-judge-web-e2e-") as (_directory, runtime):
             with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
@@ -318,6 +355,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_wrong_answer_artifacts_and_pack_install_ui_in_browser(self) -> None:
+        """오답 답안 산출물 및 패키지 설치 화면 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         wrong_source = "print(42)\n"
         with isolated_runtime("alj-judge-web-e2e-") as (_directory, runtime):
             pack_path = create_minimal_pack(runtime / "e2e-pack.aljpack")
@@ -366,6 +404,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_generate_stream_success_updates_progress_in_browser(self) -> None:
+        """생성 스트림 성공 갱신 진행 상황 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-web-generate-e2e-") as (_directory, runtime):
             with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
                 page = self.new_page(server.url)
@@ -384,13 +423,24 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_run_job_queue_is_visible_and_cancelable_in_browser(self) -> None:
+        """실행 작업 큐 표시 및 취소 가능 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         source = "print(1)\n"
         jobs = {}
 
         def listed_jobs():
+            """목록화 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Returns:
+                Any: 호출자가 다음 검증 단계에서 사용할 결과 값입니다.
+            """
             return {"jobs": list(jobs.values())}
 
         def create_cases_job(route):
+            """케이스 작업 테스트에 필요한 파일 구조와 아카이브를 만들어 설치, 업로드, 보안 검증 경로를 재현합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             job = {
                 "jobId": "cases-1",
                 "kind": "judge-cases-compile",
@@ -407,6 +457,11 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
             route.fulfill(json=job)
 
         def create_run_job(route):
+            """실행 작업 테스트에 필요한 파일 구조와 아카이브를 만들어 설치, 업로드, 보안 검증 경로를 재현합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             job = {
                 "jobId": "run-1",
                 "kind": "judge-run",
@@ -423,6 +478,11 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
             route.fulfill(json=job)
 
         def cancel_job(route):
+            """취소 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             job = jobs["run-1"]
             job["status"] = "cancelled"
             job["cancelRequested"] = True
@@ -454,6 +514,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_cases_compile_failure_blocks_run_stream_in_browser(self) -> None:
+        """케이스 컴파일 실패 차단 실행 스트림 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         source = (ROOT / "tests" / "fixtures" / "accepted.py").read_text(encoding="utf-8")
         run_stream_called = {"value": False}
         invalid_compile = {
@@ -481,6 +542,11 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 route_jobs_list(page, jobs)
 
                 def invalid_cases_job(route):
+                    """잘못된 케이스 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                    Args:
+                        route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+                    """
                     job = completed_job(
                         "cases-invalid",
                         "judge-cases-compile",
@@ -493,6 +559,11 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.route("**/api/cases/jobs", invalid_cases_job)
 
                 def fail_if_run_job(route):
+                    """실패 조건 실행 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                    Args:
+                        route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+                    """
                     run_stream_called["value"] = True
                     route.fulfill(
                         status=500,
@@ -515,10 +586,16 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_run_stream_error_event_is_visible_in_browser(self) -> None:
+        """실행 스트림 오류 이벤트 표시 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         captured_run_request = {"body": ""}
         jobs: dict[str, dict] = {}
 
         def run_job_handler(route):
+            """작업 처리기 흐름을 격리된 환경에서 실행해 종료 코드와 출력을 검증할 수 있게 합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             captured_run_request["body"] = route.request.post_data or ""
             job = completed_job(
                 "run-error",
@@ -570,6 +647,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_runtime_and_time_limit_result_states_render_in_browser(self) -> None:
+        """런타임 및 시간 한도 결과 상태 렌더링 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         scenarios = [
             ("runtime_error", "Runtime crashed"),
             ("time_limit", "Time limit exceeded"),
@@ -579,7 +657,23 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 jobs: dict[str, dict] = {}
 
                 def make_run_job_handler(status_value, message_value, job_map=jobs):
+                    """실행 작업 처리기 테스트가 후속 API 호출이나 명령 실행에 사용할 임시 리소스를 준비합니다.
+
+                    Args:
+                        status_value (Any): 상태 값 값을 지정하는 인자입니다.
+                        message_value (Any): 작업 스트림 응답에 포함할 메시지 값입니다.
+                        job_map (Any): 작업 식별자별 상태를 보관하는 사전입니다.
+
+                    Returns:
+                        Any: 호출자가 다음 검증 단계에서 사용할 결과 값입니다.
+                    """
+
                     def fulfill_run_job(route):
+                        """응답 완료 실행 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                        Args:
+                            route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+                        """
                         result = {
                             "runId": f"run-{status_value}",
                             "problemId": "06",
@@ -622,6 +716,13 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         route_jobs_list(page, jobs)
 
                         def fulfill_cases_job(route, _request=None, job_map=jobs):
+                            """응답 완료 케이스 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+                            Args:
+                                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+                                _request (Any): 라우팅 시그니처를 맞추기 위해 받지만 본문에서는 사용하지 않는 요청 객체입니다.
+                                job_map (Any): 작업 식별자별 상태를 보관하는 사전입니다.
+                            """
                             job = job_map.setdefault(
                                 "cases-ok",
                                 completed_job(
@@ -652,10 +753,16 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         self.assert_no_browser_errors()
 
     def test_official_pack_download_ui_uses_repository_asset_and_ref(self) -> None:
+        """공식 패키지 다운로드 화면 사용 저장소 자산 및 참조 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         captured: dict[str, object] = {}
         jobs: dict[str, dict] = {}
 
         def capture_download(route):
+            """캡처 다운로드 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             captured["body"] = route.request.post_data_json
             job = completed_job(
                 "pack-download",
@@ -713,9 +820,15 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_official_pack_download_error_guidance_in_browser(self) -> None:
+        """공식 패키지 다운로드 오류 안내 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs: dict[str, dict] = {}
 
         def fail_download(route):
+            """실패 다운로드 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             job = completed_job(
                 "pack-download-failed",
                 "judge-pack-download",
@@ -754,6 +867,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assertEqual(unexpected_errors, [])
 
     def test_real_compile_error_source_is_visible_in_browser(self) -> None:
+        """실제 컴파일 오류 소스 표시 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-web-real-compile-error-e2e-") as (_directory, runtime):
             with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
                 page = self.new_page(server.url)
@@ -771,6 +885,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_drag_drop_upload_and_debug_mode_render_logs(self) -> None:
+        """드래그 드롭 업로드 및 디버그 모드 렌더링 로그 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         debug_env = {"ALJ_WEB_DEBUG": "1"}
         source = (ROOT / "tests" / "fixtures" / "accepted.py").read_text(encoding="utf-8")
         with isolated_runtime("alj-judge-web-debug-drop-e2e-") as (_directory, runtime):
@@ -807,6 +922,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_static_modules_and_styles_load_without_browser_errors(self) -> None:
+        """정적 모듈 및 스타일 로드 없이 브라우저 오류 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         static_urls: set[str] = set()
         with isolated_runtime("alj-judge-web-static-e2e-") as (_directory, runtime):
             with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
@@ -851,6 +967,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_problem_and_pack_metadata_escapes_html_in_browser(self) -> None:
+        """문제 및 패키지 메타데이터 이스케이프 HTML 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         malicious_img = '<img src=x onerror="window.__aljXss = true">'
         cache_payload = {
             "totalSizeLabel": "0 B",
@@ -913,6 +1030,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_invalid_pack_upload_shows_modal_error_in_browser(self) -> None:
+        """잘못된 패키지 업로드 표시 모달 오류 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-web-invalid-pack-e2e-") as (_directory, runtime):
             invalid_pack = runtime / "not-a-pack.txt"
             invalid_pack.write_text("not a pack", encoding="utf-8")
@@ -930,6 +1048,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 )
 
     def test_truncated_wrong_artifacts_are_displayed_in_browser(self) -> None:
+        """잘린 오답 산출물 표시 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         source = "print(42)\n"
         valid_compile = {
             "valid": True,
@@ -1036,6 +1155,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_mobile_text_run_workflow_keeps_result_visible(self) -> None:
+        """모바일 텍스트 실행 절차 유지 결과 표시 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         source = (ROOT / "tests" / "fixtures" / "accepted.py").read_text(encoding="utf-8")
         with isolated_runtime("alj-judge-web-mobile-run-e2e-") as (_directory, runtime):
             with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
@@ -1056,6 +1176,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_judge_web_viewports_keep_core_controls_usable(self) -> None:
+        """채점기 웹 뷰포트 유지 핵심 컨트롤 사용 가능 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-web-view-e2e-") as (_directory, runtime):
             with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
                 for width, height in [(1440, 900), (900, 900), (390, 844)]:

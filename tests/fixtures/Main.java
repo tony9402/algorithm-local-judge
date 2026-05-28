@@ -1,3 +1,6 @@
+// 컴파일러와 실행기 경로가 정상 Java 제출을 처리하는지 확인하는 픽스처입니다.
+// 표준 입력의 두 정수를 읽어 순열을 출력하므로 기대 출력 비교가 안정적으로 유지됩니다.
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.util.StringJoiner;

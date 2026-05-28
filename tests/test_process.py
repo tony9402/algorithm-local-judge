@@ -1,3 +1,5 @@
+"""하위 프로세스 실행 보강 로직이 출력 제한, 파일 제한, 타임아웃 종료를 지키는지 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import os
@@ -11,9 +13,10 @@ from judge.utils.process import run_command_result
 
 
 class ProcessHardeningTest(unittest.TestCase):
-    """Tests for subprocess timeout and output cap behavior."""
+    """프로세스 보강 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_stdout_and_stderr_are_capped(self) -> None:
+        """표준 출력 및 표준 오류 제한 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         script = "import sys; sys.stdout.write('o' * 200); sys.stderr.write('e' * 200)"
 
         result = run_command_result(
@@ -32,6 +35,7 @@ class ProcessHardeningTest(unittest.TestCase):
         self.assertIn(b"stderr truncated", result.stderr)
 
     def test_output_path_is_capped(self) -> None:
+        """출력 경로 제한 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-process-output-") as tmp:
             output = Path(tmp) / "actual.out"
             result = run_command_result(
@@ -49,6 +53,7 @@ class ProcessHardeningTest(unittest.TestCase):
 
     @unittest.skipIf(os.name == "nt", "process group cleanup is POSIX-specific")
     def test_timeout_kills_child_process_group(self) -> None:
+        """타임아웃 종료 자식 프로세스 그룹 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-process-group-") as tmp:
             marker = Path(tmp) / "child-survived.txt"
             script = (

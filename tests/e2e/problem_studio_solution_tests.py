@@ -1,3 +1,5 @@
+"""문제 스튜디오 솔루션 업로드, 검증, 스트레스 실행, 오답 산출물 확인 흐름을 브라우저에서 검증하는 모듈입니다."""
+
 from __future__ import annotations
 
 from problem_studio.core.templates import create_problem
@@ -19,6 +21,17 @@ def completed_solution_job(
     problem_id: str = "alpha",
     last_log: str = "solution verification finished",
 ) -> dict:
+    """화면이 완료된 작업을 렌더링할 수 있도록 솔루션 작업 작업 응답 페이로드를 구성합니다.
+
+    Args:
+        job_id (str): 조회하거나 구성할 백그라운드 작업 식별자입니다.
+        result (dict): 완료된 작업 응답에 포함할 결과 페이로드입니다.
+        problem_id (str): 테스트가 생성하거나 조회할 문제 식별자입니다.
+        last_log (str): 완료된 작업 응답에 마지막 로그로 노출할 메시지입니다.
+
+    Returns:
+        dict: 완료된 솔루션 검증 작업을 나타내는 작업 큐 응답 객체입니다.
+    """
     return {
         "jobId": job_id,
         "kind": "solution-verify",
@@ -35,6 +48,16 @@ def completed_solution_job(
 
 
 def completed_stress_job(job_id: str, result: dict, *, problem_id: str = "alpha") -> dict:
+    """화면이 완료된 작업을 렌더링할 수 있도록 스트레스 작업 작업 응답 페이로드를 구성합니다.
+
+    Args:
+        job_id (str): 조회하거나 구성할 백그라운드 작업 식별자입니다.
+        result (dict): 완료된 작업 응답에 포함할 결과 페이로드입니다.
+        problem_id (str): 테스트가 생성하거나 조회할 문제 식별자입니다.
+
+    Returns:
+        dict: 완료된 스트레스 실행 작업을 나타내는 작업 큐 응답 객체입니다.
+    """
     return {
         "jobId": job_id,
         "kind": "solution-stress",
@@ -60,11 +83,20 @@ def completed_stress_job(job_id: str, result: dict, *, problem_id: str = "alpha"
 
 
 def route_solution_jobs(page, jobs: dict[str, dict]) -> None:
+    """브라우저 테스트에서 솔루션 작업 요청을 가로채 고정된 API 응답을 제공하도록 설정합니다.
+
+    Args:
+        page (Any): 브라우저 상호작용을 수행할 Playwright 페이지입니다.
+        jobs (dict[str, dict]): 브라우저 라우팅에 사용할 작업 목록 응답 데이터입니다.
+    """
     page.route("**/api/jobs", lambda route: route.fulfill(json={"jobs": list(jobs.values())}))
 
 
 class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
+    """문제 스튜디오 솔루션 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+
     def test_solution_stress_mismatch_preview_and_append_in_browser(self) -> None:
+        """솔루션 스트레스 불일치 미리보기 및 추가 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs: dict[str, dict] = {}
         append_requests: list[dict] = []
 
@@ -102,11 +134,21 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
         }
 
         def stress_job(route):
+            """스트레스 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             job = completed_stress_job("stress-job", stress_result)
             jobs[job["jobId"]] = job
             route.fulfill(json=job)
 
         def preview_route(route):
+            """미리보기 라우트 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             route.fulfill(
                 json={
                     "problemId": "alpha",
@@ -129,6 +171,11 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
             )
 
         def append_route(route):
+            """추가 라우트 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             append_requests.append(route.request.post_data_json or {})
             route.fulfill(
                 json={
@@ -158,11 +205,13 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 route_solution_jobs(page, jobs)
                 page.route("**/api/problems/*/solutions/stress/jobs", stress_job)
                 page.route(
-                    "**/api/problems/alpha/solutions/stress/runs/stress-e2e/mismatches/000001/solutions__sneaky_wa_py-abc123",
+                    "**/api/problems/alpha/solutions/stress/runs/stress-e2e/"
+                    "mismatches/000001/solutions__sneaky_wa_py-abc123",
                     preview_route,
                 )
                 page.route(
-                    "**/api/problems/alpha/solutions/stress/runs/stress-e2e/mismatches/000001/solutions__sneaky_wa_py-abc123/append",
+                    "**/api/problems/alpha/solutions/stress/runs/stress-e2e/"
+                    "mismatches/000001/solutions__sneaky_wa_py-abc123/append",
                     append_route,
                 )
                 page.goto(server.url)
@@ -183,9 +232,15 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_solution_mismatch_artifact_preview_in_browser(self) -> None:
+        """솔루션 불일치 산출물 미리보기 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs: dict[str, dict] = {}
 
         def verify_job(route):
+            """검증 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             result = {
                 "problemId": "alpha",
                 "profile": "hidden",
@@ -219,6 +274,11 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
             route.fulfill(json=job)
 
         def artifact_route(route):
+            """산출물 라우트 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             route.fulfill(
                 json={
                     "problemId": "alpha",
@@ -268,10 +328,16 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_solution_upload_rename_edit_and_incremental_verify(self) -> None:
+        """솔루션 업로드 이름 변경 편집 및 증분 검증 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         verify_requests: list[dict] = []
         jobs: dict[str, dict] = {}
 
         def verify_job(route):
+            """검증 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
             body = route.request.post_data_json or {}
             verify_requests.append(body)
             problem_root = workspace / "problems" / "alpha"

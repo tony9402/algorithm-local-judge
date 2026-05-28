@@ -1,3 +1,5 @@
+"""judge 웹 API와 프런트엔드 안전성, 스트리밍, 캐시, 업로드 제한 계약을 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import json
@@ -26,7 +28,14 @@ FRONTEND_INNER_HTML_SAFE_MARKERS = (
 
 
 def sse_events(text: str) -> list[tuple[str, dict]]:
-    """Parse the small SSE subset emitted by the local web UI."""
+    """서버 전송 이벤트 응답 본문을 이벤트 이름과 JSON 페이로드 목록으로 파싱합니다.
+
+    Args:
+        text (str): 파일에 기록하거나 브라우저에서 기다릴 텍스트입니다.
+
+    Returns:
+        list[tuple[str, dict]]: 이벤트 이름과 JSON 페이로드를 순서대로 담은 목록입니다.
+    """
     events = []
     for block in text.strip().split("\n\n"):
         event = "message"
@@ -41,6 +50,15 @@ def sse_events(text: str) -> list[tuple[str, dict]]:
 
 
 def find_statement_end(source: str, start: int) -> int:
+    """JavaScript 소스에서 대입 문장의 끝 위치를 계산해 innerHTML 안전성 검사를 정확히 자릅니다.
+
+    Args:
+        source (str): 분석하거나 실행할 소스 코드 문자열입니다.
+        start (int): 문장 끝 위치를 찾기 시작할 소스 문자열 인덱스입니다.
+
+    Returns:
+        int: 대입 문장이 끝나는 소스 문자열 인덱스입니다.
+    """
     quote: str | None = None
     escaped = False
     for index in range(start, len(source)):
@@ -62,6 +80,14 @@ def find_statement_end(source: str, start: int) -> int:
 
 
 def iter_inner_html_assignments(source: str) -> list[tuple[int, str]]:
+    """프런트엔드 소스에서 innerHTML 대입문을 순서대로 추출해 무해화 누락을 검사합니다.
+
+    Args:
+        source (str): 분석하거나 실행할 소스 코드 문자열입니다.
+
+    Returns:
+        list[tuple[int, str]]: innerHTML 대입 위치와 문장 문자열을 순서대로 담은 목록입니다.
+    """
     assignments = []
     cursor = 0
     marker = ".innerHTML"
@@ -88,6 +114,14 @@ def iter_inner_html_assignments(source: str) -> list[tuple[int, str]]:
 
 
 def is_static_inner_html_assignment(statement: str) -> bool:
+    """innerHTML 대입문이 정적 초기화로 예외 처리되어도 되는지 판정합니다.
+
+    Args:
+        statement (str): 정적 HTML 대입인지 판정할 JavaScript 문장입니다.
+
+    Returns:
+        bool: 대입문이 정적 HTML 초기화로 취급되어도 되는지 여부입니다.
+    """
     rhs = statement.split("=", 1)[1].strip().removesuffix(";").strip()
     if rhs in {'""', "''", "``"}:
         return True
@@ -97,10 +131,10 @@ def is_static_inner_html_assignment(statement: str) -> bool:
 
 
 class WebUiTest(unittest.TestCase):
-    """Smoke tests for the local FastAPI web UI."""
+    """웹 화면 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_project_frontend_inner_html_assignments_are_sanitized(self) -> None:
-        """Dynamic innerHTML rendering should escape user/API-controlled values."""
+        """프로젝트 프런트엔드 내부 HTML 대입 무해화 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         unsafe = []
         roots = [
             ROOT / "judge" / "web" / "static" / "app",
@@ -119,7 +153,7 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual([], unsafe)
 
     def test_static_assets_reject_path_traversal(self) -> None:
-        """Nested static asset serving should stay inside the static root."""
+        """정적 자산 거부 경로 경로 순회 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         client = TestClient(create_app())
 
         response = client.get("/static/%2E%2E/pyproject.toml")
@@ -127,7 +161,7 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_dashboard_status_endpoint(self) -> None:
-        """The dashboard API should expose problems, packs, and cache status."""
+        """대시보드 상태 엔드포인트 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -256,7 +290,7 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(config.json()["judgeProfile"], "full")
 
     def test_problem_folder_update_allows_source_and_blocks_pack_problem(self) -> None:
-        """Problem folders should be editable for source problems, not installed packs."""
+        """문제 폴더 갱신 허용 소스 및 차단 패키지 문제 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-folder-test-") as tmp:
             tmp_path = Path(tmp)
             project = tmp_path / "project"
@@ -302,13 +336,18 @@ class WebUiTest(unittest.TestCase):
                 self.assertIn(".aljpack", blocked.json()["detail"])
 
     def test_judge_jobs_api_lists_and_cancels_queued_job(self) -> None:
-        """The generic Judge jobs API should expose queued jobs and cancel them."""
+        """채점기 작업 API 목록 조회 및 취소 대기 중 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         client = TestClient(create_app())
         client.app.state.jobs.max_running_jobs = 1
         started = threading.Event()
         release = threading.Event()
 
         def blocking_operation() -> dict:
+            """작업 큐 취소 테스트가 실행 중 상태를 관찰할 수 있도록 이벤트가 풀릴 때까지 대기합니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             started.set()
             release.wait(timeout=2)
             return {"ok": True}
@@ -343,12 +382,21 @@ class WebUiTest(unittest.TestCase):
         release.set()
 
     def test_pack_install_job_exposes_blocked_cancel_reason(self) -> None:
-        """Pack installation jobs should show why cancellation is unavailable."""
+        """패키지 설치 작업 노출 차단 취소 사유 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         client = TestClient(create_app())
         started = threading.Event()
         release = threading.Event()
 
         def slow_download(*_args, **_kwargs) -> dict:
+            """패키지 설치 취소 테스트가 대기 중인 다운로드 작업을 관찰할 수 있도록 지연 응답을 만듭니다.
+
+            Args:
+                _args (tuple[Any, ...]): 테스트 대역이 호출 시그니처를 맞추기 위해 받는 사용하지 않는 위치 인자입니다.
+                _kwargs (dict[str, Any]): 테스트 대역이 실제 함수 시그니처와 호환되도록 받는 사용하지 않는 키워드 인자입니다.
+
+            Returns:
+                dict: API 응답이나 가짜 실행 결과를 표현하는 구조화된 사전입니다.
+            """
             started.set()
             release.wait(timeout=2)
             return {"installType": "pack", "assetName": "basic.aljpack"}
@@ -370,7 +418,7 @@ class WebUiTest(unittest.TestCase):
             release.set()
 
     def test_run_pasted_python_submission(self) -> None:
-        """Pasted Python source should be judged through the web API."""
+        """실행 붙여넣은 Python 제출 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -420,11 +468,22 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(after_clear.json()["sources"], [])
 
     def test_run_defaults_to_full_profile_when_profile_is_omitted(self) -> None:
-        """Web run should default to the full profile instead of hidden."""
+        """실행 기본값 전체 프로필 프로필 생략 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             cache = Path(tmp) / "cache"
 
             def fake_run_submission(source, problem_id, profile, **_kwargs):
+                """실제 채점 실행을 대체해 웹 API와 솔루션 검증 테스트가 고정된 실행 결과를 받게 합니다.
+
+                Args:
+                    source (Any): 분석하거나 실행할 소스 코드 문자열입니다.
+                    problem_id (Any): 테스트가 생성하거나 조회할 문제 식별자입니다.
+                    profile (Any): 검증이나 실행에 사용할 테스트 프로필 이름입니다.
+                    _kwargs (dict[str, Any]): 테스트 대역이 실제 함수 시그니처와 호환되도록 받는 사용하지 않는 키워드 인자입니다.
+
+                Returns:
+                    Any: 테스트 대상 API가 실제 실행 결과처럼 소비할 수 있는 결정적 결과 데이터입니다.
+                """
                 self.assertEqual(profile, "full")
                 run_dir = cache / "runs" / "run-full"
                 run_dir.mkdir(parents=True)
@@ -468,7 +527,7 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual(response.json()["profile"], "full")
 
     def test_cached_source_can_be_deleted_individually(self) -> None:
-        """One cached source entry should be removable without clearing every cache."""
+        """캐시된 소스 가능 삭제 개별 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -491,7 +550,7 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(after.json()["sources"], [])
 
     def test_wrong_case_endpoint_truncates_large_artifacts(self) -> None:
-        """Large wrong-answer artifacts should be previewed instead of fully displayed."""
+        """오답 케이스 엔드포인트 잘라냄 큰 산출물 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         large_text = "x" * 13000
         with (
             patch(
@@ -513,7 +572,7 @@ class WebUiTest(unittest.TestCase):
         self.assertLess(len(data["input"]), len(large_text))
 
     def test_run_uploaded_python_submission_streams_progress(self) -> None:
-        """Uploaded source runs should emit progress events and a final result."""
+        """실행 업로드된 Python 제출 스트리밍 진행 상황 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -544,7 +603,7 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(result_events[-1]["profile"], "sample")
 
     def test_run_pasted_python_submission_streams_progress(self) -> None:
-        """Pasted source runs should use the same streaming path as uploads."""
+        """실행 붙여넣은 Python 제출 스트리밍 진행 상황 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -573,7 +632,7 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(result_events[-1]["profile"], "sample")
 
     def test_sample_cases_endpoint_returns_visible_io(self) -> None:
-        """The web API should expose sample inputs and expected outputs."""
+        """샘플 케이스 엔드포인트 반환 표시 입출력 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -596,7 +655,7 @@ class WebUiTest(unittest.TestCase):
         self.assertIn("expected", result["cases"][0])
 
     def test_sample_cases_endpoint_reuses_cached_data(self) -> None:
-        """Sample loading should generate once and use the manifest cache afterward."""
+        """샘플 케이스 엔드포인트 재사용 캐시된 데이터 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -626,7 +685,7 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual(not_modified.text, "")
 
     def test_debug_config_is_opt_in(self) -> None:
-        """Debug UI should only be enabled when the web debug flag is set."""
+        """디버그 설정 선택 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with patch.dict(os.environ, {"ALJ_WEB_DEBUG": "1"}, clear=False):
             client = TestClient(create_app())
             response = client.get("/api/status")
@@ -635,7 +694,7 @@ class WebUiTest(unittest.TestCase):
         self.assertTrue(response.json()["config"]["webDebug"])
 
     def test_non_local_binding_blocks_run_apis_without_explicit_opt_in(self) -> None:
-        """Remote bindings should not expose run APIs by default."""
+        """비 로컬 바인딩 차단 실행 API 없이 명시적 선택 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         client = TestClient(create_app(local_binding=False, remote_warning=True))
 
         run = client.post(
@@ -694,7 +753,7 @@ class WebUiTest(unittest.TestCase):
         self.assertFalse(config.json()["security"]["remoteRunAllowed"])
 
     def test_non_local_binding_blocks_execution_and_write_entrypoints(self) -> None:
-        """Remote bindings should block generation, pack writes, cache writes, and deletes."""
+        """비 로컬 바인딩 차단 실행 및 쓰기 진입점 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-remote-test-") as tmp:
             env = {
                 **os.environ,
@@ -759,7 +818,7 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual(source_delete.status_code, 403, source_delete.text)
 
     def test_non_local_binding_can_opt_in_to_run_api(self) -> None:
-        """The explicit unsafe opt-in should allow non-local run APIs."""
+        """비 로컬 바인딩 가능 선택 실행 API 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         client = TestClient(
             create_app(
                 local_binding=False,
@@ -783,7 +842,7 @@ class WebUiTest(unittest.TestCase):
         self.assertTrue(client.get("/api/config").json()["security"]["remoteRunAllowed"])
 
     def test_source_text_and_upload_size_limits_return_413(self) -> None:
-        """Oversized source text and uploads should be rejected before judging."""
+        """소스 텍스트 및 업로드 크기 제한 반환 413 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-limit-test-") as tmp:
             env = {
                 **os.environ,
@@ -838,7 +897,7 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual(partial_entries, [])
 
     def test_pack_upload_size_limit_returns_413_without_installing(self) -> None:
-        """Oversized pack uploads should not be installed."""
+        """패키지 업로드 크기 한도 반환 413 없이 설치 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-limit-test-") as tmp:
             env = {
                 **os.environ,
@@ -860,7 +919,7 @@ class WebUiTest(unittest.TestCase):
         install.assert_not_called()
 
     def test_generate_streams_progress(self) -> None:
-        """Generate should emit progress events and a final result."""
+        """생성 스트리밍 진행 상황 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -888,7 +947,7 @@ class WebUiTest(unittest.TestCase):
                 self.assertGreater(result_events[-1]["caseCount"], 0)
 
     def test_cases_compile_endpoint(self) -> None:
-        """The web API should expose structured cases.yml compile results."""
+        """케이스 컴파일 엔드포인트 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         client = TestClient(create_app())
 
         response = client.post(
@@ -903,7 +962,7 @@ class WebUiTest(unittest.TestCase):
         self.assertGreater(result["profiles"][0]["caseCount"], 0)
 
     def test_cases_compile_endpoint_returns_invalid_diagnostics(self) -> None:
-        """Invalid compile results should stay structured at the web boundary."""
+        """케이스 컴파일 엔드포인트 반환 잘못된 진단 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with patch("judge.web.services.compile_problem_cases_result") as compile_cases:
             compile_cases.return_value = {
                 "valid": False,
@@ -934,7 +993,7 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual(result["diagnostics"][0]["location"], "cases[0].matrix")
 
     def test_generate_stream_returns_error_when_cases_compile_fails(self) -> None:
-        """Generate stream should surface cases.yml compile errors as SSE errors."""
+        """생성 스트림 반환 오류 케이스 컴파일 실패 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with patch(
             "judge.web.service_generation.generate",
             side_effect=JudgeError("cases.yml compile failed"),
@@ -954,7 +1013,7 @@ class WebUiTest(unittest.TestCase):
         self.assertFalse(result_events)
 
     def test_run_stream_returns_error_when_cases_compile_fails(self) -> None:
-        """Run stream should surface cases.yml compile errors as SSE errors."""
+        """실행 스트림 반환 오류 케이스 컴파일 실패 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -989,7 +1048,7 @@ class WebUiTest(unittest.TestCase):
         self.assertFalse(result_events)
 
     def test_cache_clear_all_deletes_cache_root(self) -> None:
-        """Cache clear all from the web API should delete the configured cache root."""
+        """캐시 삭제 전체 삭제 캐시 루트 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             cache = Path(tmp) / "cache"
             target = cache / "runs" / "run-1" / "result.json"
@@ -1010,7 +1069,7 @@ class WebUiTest(unittest.TestCase):
                 self.assertFalse(cache.exists())
 
     def test_upload_pack_endpoint_persists_file_before_install(self) -> None:
-        """Pack uploads should be saved before the installer is called."""
+        """업로드 패키지 엔드포인트 저장 파일 전에 설치 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
             env = {
                 **os.environ,
@@ -1032,7 +1091,7 @@ class WebUiTest(unittest.TestCase):
                     self.assertEqual(uploaded_path.read_bytes(), b"pack-bytes")
 
     def test_download_pack_endpoint_uses_requested_repository(self) -> None:
-        """Official downloads should pass repository and asset choices to the service."""
+        """다운로드 패키지 엔드포인트 사용 요청된 저장소 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with patch("judge.web.services.download_official_problem_pack") as download:
             download.return_value = {
                 "installedPath": "/tmp/basic",

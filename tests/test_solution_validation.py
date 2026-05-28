@@ -1,3 +1,5 @@
+"""솔루션 기대 결과 추론과 문제 솔루션 검증 결과 집계 계약을 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import tempfile
@@ -15,7 +17,14 @@ from judge.utils.fs import write_json
 
 
 def create_problem(root: Path) -> Path:
-    """Create a minimal problem tree for solution verification unit tests."""
+    """문제 테스트에 필요한 파일 구조와 아카이브를 만들어 설치, 업로드, 보안 검증 경로를 재현합니다.
+
+    Args:
+        root (Path): 픽스처나 임시 작업공간을 생성할 기준 디렉터리입니다.
+
+    Returns:
+        Path: 솔루션 검증 테스트에 사용할 최소 문제 디렉터리 경로입니다.
+    """
     problem = root / "problems" / "01"
     for path in [
         problem / "generator" / "generator.cpp",
@@ -49,10 +58,10 @@ def create_problem(root: Path) -> Path:
 
 
 class SolutionValidationTest(unittest.TestCase):
-    """Tests for expected-result solution checks used before pack builds."""
+    """솔루션 검증 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_expected_status_from_solution_name(self) -> None:
-        """Expected result tokens should map to judge statuses."""
+        """기대 상태 솔루션 이름 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         self.assertEqual(
             expected_status_from_solution_name(Path("main_solution.ac.cpp")),
             ("ac", "accepted"),
@@ -73,7 +82,7 @@ class SolutionValidationTest(unittest.TestCase):
             expected_status_from_solution_name(Path("helper.cpp"))
 
     def test_discover_solution_expectations_requires_tokens(self) -> None:
-        """Every supported source under solutions should carry an expectation token."""
+        """탐색 솔루션 기대 결과 요구 토큰 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-solution-test-") as tmp:
             problem = Path(tmp) / "problem"
             solutions = problem / "solutions"
@@ -85,7 +94,7 @@ class SolutionValidationTest(unittest.TestCase):
                 discover_solution_expectations(problem)
 
     def test_verify_problem_solutions_passes_matching_results(self) -> None:
-        """Verification should pass when every solution produces its expected status."""
+        """검증 문제 솔루션 통과 일치 결과 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-solution-test-") as tmp:
             root = Path(tmp)
             create_problem(root)
@@ -98,6 +107,18 @@ class SolutionValidationTest(unittest.TestCase):
                 root: Path | None = None,
                 stop_on_first_failure: bool = True,
             ) -> Path:
+                """실제 채점 실행을 대체해 웹 API와 솔루션 검증 테스트가 고정된 실행 결과를 받게 합니다.
+
+                Args:
+                    source (Path): 분석하거나 실행할 소스 코드 문자열입니다.
+                    problem_id (str | None): 테스트가 생성하거나 조회할 문제 식별자입니다.
+                    profile (str | None): 검증이나 실행에 사용할 테스트 프로필 이름입니다.
+                    root (Path | None): 픽스처나 임시 작업공간을 생성할 기준 디렉터리입니다.
+                    stop_on_first_failure (bool): 첫 실패에서 검증을 중단해야 하는지 나타내는 플래그입니다.
+
+                Returns:
+                    Path: 테스트가 생성하거나 조회한 파일 시스템 경로입니다.
+                """
                 run_dir = run_root / source.stem
                 status = "wrong_answer" if ".wa." in source.name else "accepted"
                 write_json(
@@ -127,7 +148,7 @@ class SolutionValidationTest(unittest.TestCase):
         self.assertEqual(len(result.checks), 2)
 
     def test_verify_problem_solutions_reports_mismatch(self) -> None:
-        """Verification should fail when hidden data does not catch an expected WA."""
+        """검증 문제 솔루션 보고 불일치 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-solution-test-") as tmp:
             root = Path(tmp)
             create_problem(root)
@@ -140,6 +161,18 @@ class SolutionValidationTest(unittest.TestCase):
                 root: Path | None = None,
                 stop_on_first_failure: bool = True,
             ) -> Path:
+                """실제 채점 실행을 대체해 웹 API와 솔루션 검증 테스트가 고정된 실행 결과를 받게 합니다.
+
+                Args:
+                    source (Path): 분석하거나 실행할 소스 코드 문자열입니다.
+                    problem_id (str | None): 테스트가 생성하거나 조회할 문제 식별자입니다.
+                    profile (str | None): 검증이나 실행에 사용할 테스트 프로필 이름입니다.
+                    root (Path | None): 픽스처나 임시 작업공간을 생성할 기준 디렉터리입니다.
+                    stop_on_first_failure (bool): 첫 실패에서 검증을 중단해야 하는지 나타내는 플래그입니다.
+
+                Returns:
+                    Path: 테스트가 생성하거나 조회한 파일 시스템 경로입니다.
+                """
                 run_dir = run_root / source.stem
                 write_json(
                     run_dir / "result.json",
@@ -166,7 +199,7 @@ class SolutionValidationTest(unittest.TestCase):
                 verify_problem_solutions("01", "hidden", root)
 
     def test_verify_problem_solutions_can_return_mismatch_payload(self) -> None:
-        """The web UI should receive per-solution mismatch details without reading logs."""
+        """검증 문제 솔루션 가능 반환 불일치 페이로드 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-solution-test-") as tmp:
             root = Path(tmp)
             create_problem(root)
@@ -179,6 +212,18 @@ class SolutionValidationTest(unittest.TestCase):
                 root: Path | None = None,
                 stop_on_first_failure: bool = True,
             ) -> Path:
+                """실제 채점 실행을 대체해 웹 API와 솔루션 검증 테스트가 고정된 실행 결과를 받게 합니다.
+
+                Args:
+                    source (Path): 분석하거나 실행할 소스 코드 문자열입니다.
+                    problem_id (str | None): 테스트가 생성하거나 조회할 문제 식별자입니다.
+                    profile (str | None): 검증이나 실행에 사용할 테스트 프로필 이름입니다.
+                    root (Path | None): 픽스처나 임시 작업공간을 생성할 기준 디렉터리입니다.
+                    stop_on_first_failure (bool): 첫 실패에서 검증을 중단해야 하는지 나타내는 플래그입니다.
+
+                Returns:
+                    Path: 테스트가 생성하거나 조회한 파일 시스템 경로입니다.
+                """
                 run_dir = run_root / source.stem
                 write_json(
                     run_dir / "result.json",
@@ -219,7 +264,7 @@ class SolutionValidationTest(unittest.TestCase):
         self.assertEqual(failed[0]["metrics"]["maxMemoryBytes"], 2048)
 
     def test_verify_problem_solutions_can_limit_to_one_solution(self) -> None:
-        """Individual solution tests should not run every discovered solution."""
+        """검증 문제 솔루션 가능 한도 하나 솔루션 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-solution-test-") as tmp:
             root = Path(tmp)
             create_problem(root)
@@ -232,6 +277,18 @@ class SolutionValidationTest(unittest.TestCase):
                 root: Path | None = None,
                 stop_on_first_failure: bool = True,
             ) -> Path:
+                """실제 채점 실행을 대체해 웹 API와 솔루션 검증 테스트가 고정된 실행 결과를 받게 합니다.
+
+                Args:
+                    source (Path): 분석하거나 실행할 소스 코드 문자열입니다.
+                    problem_id (str | None): 테스트가 생성하거나 조회할 문제 식별자입니다.
+                    profile (str | None): 검증이나 실행에 사용할 테스트 프로필 이름입니다.
+                    root (Path | None): 픽스처나 임시 작업공간을 생성할 기준 디렉터리입니다.
+                    stop_on_first_failure (bool): 첫 실패에서 검증을 중단해야 하는지 나타내는 플래그입니다.
+
+                Returns:
+                    Path: 테스트가 생성하거나 조회한 파일 시스템 경로입니다.
+                """
                 run_dir = run_root / source.stem
                 write_json(
                     run_dir / "result.json",

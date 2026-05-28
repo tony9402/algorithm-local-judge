@@ -1,3 +1,5 @@
+"""테스트 데이터 생성 DSL의 반복, 행렬, 표현식 안전성, 합성 프로필 동작을 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import tempfile
@@ -8,10 +10,10 @@ from commons.generate import expand_cases, write_cases
 
 
 class GenerateDslTest(unittest.TestCase):
-    """Unit tests for the generator YAML expansion DSL."""
+    """생성 DSL 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def test_repeat_range_expands_and_renders_values(self) -> None:
-        """Repeat ranges should expand and preserve numeric rendered values."""
+        """반복 범위 확장 및 렌더링 값 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         cases = expand_cases(
             [
                 {
@@ -40,7 +42,7 @@ class GenerateDslTest(unittest.TestCase):
         self.assertIsInstance(cases[2]["args"]["maxN"], int)
 
     def test_fixed_content_preserves_newline(self) -> None:
-        """Fixed cases should keep trailing newlines after expression rendering."""
+        """고정 콘텐츠 보존 개행 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         cases = expand_cases(
             [
                 {
@@ -60,7 +62,7 @@ class GenerateDslTest(unittest.TestCase):
         self.assertEqual(cases[0]["content"], "1 1\n")
 
     def test_nested_repeat_can_use_parent_context(self) -> None:
-        """Nested repeat blocks should read variables from parent context."""
+        """중첩 반복 가능 사용 상위 맥락 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         cases = expand_cases(
             [
                 {
@@ -92,7 +94,7 @@ class GenerateDslTest(unittest.TestCase):
         )
 
     def test_matrix_expands_in_stable_order_and_filters(self) -> None:
-        """Matrix blocks should expand in stable order and honor where filters."""
+        """행렬 확장 안정된 순서 및 필터 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         cases = expand_cases(
             [
                 {
@@ -121,7 +123,7 @@ class GenerateDslTest(unittest.TestCase):
         self.assertEqual([case["seed"] for case in cases], [1011, 1021, 1022])
 
     def test_matrix_range_variables_expand_inclusively(self) -> None:
-        """Matrix variables may use repeat-style inclusive range blocks."""
+        """행렬 범위 변수 확장 포함 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         cases = expand_cases(
             [
                 {
@@ -164,7 +166,7 @@ class GenerateDslTest(unittest.TestCase):
         self.assertEqual([case["seed"] for case in cases], [2012, 2022, 2024, 2032, 2034, 2036])
 
     def test_unsafe_expression_is_rejected(self) -> None:
-        """Expression rendering should reject unsafe Python constructs."""
+        """안전하지 않은 표현식 거부 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with self.assertRaises(ValueError):
             expand_cases(
                 [
@@ -184,7 +186,7 @@ class GenerateDslTest(unittest.TestCase):
             )
 
     def test_duplicate_case_name_is_left_to_writer_layer(self) -> None:
-        """Expansion should not deduplicate names before the writer layer."""
+        """중복 케이스 이름 위임 작성기 계층 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         cases = expand_cases(
             [
                 {"name": "same", "type": "fixed", "content": "1 1\n"},
@@ -194,7 +196,7 @@ class GenerateDslTest(unittest.TestCase):
         self.assertEqual([case["name"] for case in cases], ["same", "same"])
 
     def test_synthetic_full_profile_writes_all_declared_profile_cases(self) -> None:
-        """`full` should write sample and hidden cases when no explicit full profile exists."""
+        """합성 전체 프로필 쓰기 전체 선언된 프로필 케이스 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         config = {
             "profiles": {
                 "sample": {

@@ -1,3 +1,5 @@
+"""cases.yml 확장 규칙, 스키마 검증, 진단 메시지 계약을 단위 수준에서 검증하는 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 import tempfile
@@ -8,10 +10,17 @@ from judge.core.cases_compile import compile_cases_file, format_compile_result
 
 
 class CasesCompileTest(unittest.TestCase):
-    """Unit tests for cases.yml compilation diagnostics."""
+    """케이스 컴파일 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
     def write_cases_yaml(self, text: str) -> Path:
-        """Write a temporary cases.yml fixture and return its path."""
+        """케이스 YAML 테스트 입력을 파일 시스템에 기록해 실제 파서와 실행기가 같은 경로를 읽도록 합니다.
+
+        Args:
+            text (str): 파일에 기록하거나 브라우저에서 기다릴 텍스트입니다.
+
+        Returns:
+            Path: 작성된 cases.yml 파일 경로입니다.
+        """
         directory = tempfile.TemporaryDirectory(prefix="alj-cases-compile-")
         self.addCleanup(directory.cleanup)
         path = Path(directory.name) / "cases.yml"
@@ -19,7 +28,7 @@ class CasesCompileTest(unittest.TestCase):
         return path
 
     def test_compiles_fixed_repeat_and_matrix_range(self) -> None:
-        """Valid DSL entries should expand into concrete case summaries."""
+        """컴파일 고정 반복 및 행렬 범위 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -77,7 +86,7 @@ profiles:
         )
 
     def test_matrix_null_reports_indentation_hint(self) -> None:
-        """A mis-indented matrix block should not leak a NoneType generator error."""
+        """행렬 널 보고 들여쓰기 힌트 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -108,7 +117,7 @@ profiles:
         self.assertIn("profile hidden, cases[0].matrix", format_compile_result(result))
 
     def test_unknown_expression_variable_is_diagnostic(self) -> None:
-        """Expression failures should be converted into compile diagnostics."""
+        """알 수 없는 표현식 변수 진단 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -132,7 +141,7 @@ profiles:
         self.assertIn("unknown variable: i", result.diagnostics[0].message)
 
     def test_schema_errors_are_collected_after_expansion(self) -> None:
-        """Concrete case schema issues should be reported without generation."""
+        """스키마 오류 수집 이후 확장 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -157,7 +166,7 @@ profiles:
         self.assertIn("unknown case type: unknown", messages)
 
     def test_duplicate_case_name_is_reported(self) -> None:
-        """Duplicate safe case names should be reported directly."""
+        """중복 케이스 이름 보고 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -178,7 +187,7 @@ profiles:
         self.assertIn("duplicate case name: same", [item.message for item in result.diagnostics])
 
     def test_bool_seed_is_not_treated_as_integer(self) -> None:
-        """YAML booleans should not satisfy integer seed validation."""
+        """불리언 시드 않도록 취급 정수 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -199,7 +208,7 @@ profiles:
         )
 
     def test_fixed_and_template_scalar_types_are_validated(self) -> None:
-        """Cases that would fail during rendering should fail at compile time."""
+        """고정 및 템플릿 스칼라 타입 검증 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -224,7 +233,7 @@ profiles:
         self.assertIn("template vars must be a mapping", messages)
 
     def test_null_args_vars_and_missing_type_are_reported(self) -> None:
-        """Explicit null mappings and missing type should fail before rendering."""
+        """널 인자 변수 및 누락 타입 보고 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -252,7 +261,7 @@ profiles:
         self.assertIn("template vars must be a mapping", messages)
 
     def test_yaml_and_basic_structure_errors_are_reported(self) -> None:
-        """Core structure diagnostics should be stable before CLI integration."""
+        """YAML 및 기본 구조 오류 보고 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         cases = [
             ("profiles: [", "yaml"),
             ("- not-a-mapping\n", "cases.yml must be a mapping"),
@@ -273,7 +282,7 @@ profiles:
                     self.assertIn(expected, result.diagnostics[0].message)
 
     def test_unknown_profile_is_reported(self) -> None:
-        """Selecting a missing profile should return a compile diagnostic."""
+        """알 수 없는 프로필 보고 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:
@@ -292,7 +301,7 @@ profiles:
         self.assertIn("unknown profile: hidden", result.diagnostics[0].message)
 
     def test_synthetic_full_profile_compiles_all_declared_profiles(self) -> None:
-        """`full` should mean every declared profile when no explicit full exists."""
+        """합성 전체 프로필 컴파일 전체 선언된 프로필 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         path = self.write_cases_yaml(
             """
 profiles:

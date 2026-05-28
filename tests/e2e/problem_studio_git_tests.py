@@ -1,3 +1,5 @@
+"""문제 스튜디오의 저장소 선택, 커밋, 푸시, 원격 경고 화면을 브라우저에서 검증하는 종단 간 테스트 모듈입니다."""
+
 from __future__ import annotations
 
 from problem_studio.core.templates import create_problem as create_problem_template
@@ -18,7 +20,10 @@ from tests.e2e.problem_studio_fakes import (
 
 
 class ProblemStudioGitE2ETest(BrowserE2ETestCase):
+    """문제 스튜디오 Git 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+
     def test_git_fetch_pull_main_branch_push_and_write_disabled_ui(self) -> None:
+        """Git 가져오기 풀 메인 브랜치 푸시 및 쓰기 비활성 화면 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-git-policy-e2e-") as (_directory, root):
             remote = root / "remote.git"
             workspace = root / "workspace"
@@ -86,6 +91,7 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_git_tool_repository_remote_is_warned_and_blocked_in_browser(self) -> None:
+        """Git 도구 저장소 원격 경고 및 차단 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-git-wrong-repo-e2e-") as (_directory, root):
             remote = root / "remote.git"
             workspace = root / "workspace"
@@ -128,6 +134,7 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_git_status_commit_push_and_responsive_layout_in_browser(self) -> None:
+        """Git 상태 커밋 푸시 및 반응형 배치 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-git-e2e-") as (_directory, root):
             remote = root / "remote.git"
             workspace = root / "workspace"
@@ -187,6 +194,7 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_repository_clone_select_commit_and_push_in_browser(self) -> None:
+        """저장소 복제 선택 커밋 및 푸시 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-repository-clone-e2e-") as (_directory, root):
             remote = root / "remote.git"
             seed = root / "seed"
@@ -235,6 +243,7 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_repository_selector_scopes_problem_list_in_browser(self) -> None:
+        """저장소 선택자 범위 제한 문제 목록 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-repository-switch-e2e-") as (_directory, root):
             workspace = root / "studio"
             repo_a = workspace / "problems" / "repo-a"
