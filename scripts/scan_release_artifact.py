@@ -1,3 +1,5 @@
+"""릴리스 산출물의 플랫폼 누락, 패키지 체크섬, standalone 아카이브 구성과 금지 파일 포함 여부를 검증하는 스크립트입니다."""
+
 from __future__ import annotations
 
 import argparse
@@ -20,7 +22,11 @@ FORBIDDEN_STANDALONE_NAMES = {".dsym", "__pycache__"}
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse release artifact scanner arguments."""
+    """릴리스 산출물 경로와 플랫폼 필수 여부, 패키지 체크섬 검사 옵션을 파싱합니다.
+
+    Returns:
+        argparse.Namespace: 릴리스 스캐너 실행 옵션을 담은 명령줄 인자 네임스페이스입니다.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("artifacts", nargs="*")
     parser.add_argument(
@@ -48,7 +54,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def safe_member_path(name: str) -> Path:
-    """Validate and return a safe archive member path."""
+    """아카이브 멤버명이 절대 경로나 상위 디렉터리 참조를 포함하지 않는지 검증합니다.
+
+    Args:
+        name (str): tar 아카이브에서 읽은 멤버 이름입니다.
+
+    Returns:
+        Path: 안전성이 확인된 상대 멤버 경로입니다.
+    """
     path = Path(name)
     if path.is_absolute() or ".." in path.parts:
         raise JudgeError(f"unsafe archive path: {name}")
@@ -56,7 +69,15 @@ def safe_member_path(name: str) -> Path:
 
 
 def read_member_bytes(archive: tarfile.TarFile, member_name: str) -> bytes:
-    """Read one regular file from a tar archive."""
+    """tar 아카이브에서 지정한 일반 파일 멤버를 읽어 바이트열로 반환합니다.
+
+    Args:
+        archive (tarfile.TarFile): 검사 중인 standalone tar 아카이브입니다.
+        member_name (str): 읽을 파일 멤버 이름입니다.
+
+    Returns:
+        bytes: 아카이브 멤버의 전체 바이트 내용입니다.
+    """
     member = archive.getmember(member_name)
     file = archive.extractfile(member)
     if file is None:
@@ -65,7 +86,12 @@ def read_member_bytes(archive: tarfile.TarFile, member_name: str) -> bytes:
 
 
 def validate_checksums(archive: tarfile.TarFile, root_name: str) -> None:
-    """Validate checksums.txt inside a standalone archive."""
+    """standalone 아카이브 안의 checksums.txt를 기준으로 포함 파일의 해시가 일치하는지 검증합니다.
+
+    Args:
+        archive (tarfile.TarFile): 검사 중인 standalone tar 아카이브입니다.
+        root_name (str): 아카이브 내부 앱 루트 디렉터리 이름입니다.
+    """
     checksums_name = f"{root_name}/checksums.txt"
     names = {member.name for member in archive.getmembers()}
     if checksums_name not in names:
@@ -84,14 +110,25 @@ def validate_checksums(archive: tarfile.TarFile, root_name: str) -> None:
 
 
 def require_member(names: set[str], root_name: str, relative: str) -> None:
-    """Fail when a standalone archive member is missing."""
+    """standalone 아카이브에 필수 상대 경로가 포함되어 있는지 확인합니다.
+
+    Args:
+        names (set[str]): 아카이브에 포함된 전체 멤버 이름 집합입니다.
+        root_name (str): 아카이브 내부 앱 루트 디렉터리 이름입니다.
+        relative (str): 앱 루트 기준으로 반드시 존재해야 하는 상대 경로입니다.
+    """
     member_name = f"{root_name}/{relative}"
     if member_name not in names:
         raise JudgeError(f"standalone archive missing {relative}")
 
 
 def validate_static_assets(names: set[str], root_name: str) -> None:
-    """Validate required static assets for the packaged judge Web UI."""
+    """패키징된 judge 웹 UI가 실행에 필요한 정적 자산과 모듈화된 하위 자산을 포함하는지 검증합니다.
+
+    Args:
+        names (set[str]): 아카이브에 포함된 전체 멤버 이름 집합입니다.
+        root_name (str): 아카이브 내부 앱 루트 디렉터리 이름입니다.
+    """
     required = [
         "bin/web/static/app.js",
         "bin/web/static/styles.css",
@@ -108,7 +145,11 @@ def validate_static_assets(names: set[str], root_name: str) -> None:
 
 
 def scan_standalone_archive(archive_path: Path) -> None:
-    """Scan a standalone tar.gz artifact for release policy violations."""
+    """standalone tar.gz 산출물이 실행 파일, 문서, 정적 자산, 금지 확장자, 체크섬 정책을 모두 만족하는지 검사합니다.
+
+    Args:
+        archive_path (Path): 검사할 standalone tar.gz 파일 경로입니다.
+    """
     with tarfile.open(archive_path, "r:*") as archive:
         members = archive.getmembers()
         if not members:
@@ -137,7 +178,11 @@ def scan_standalone_archive(archive_path: Path) -> None:
 
 
 def default_artifacts() -> list[Path]:
-    """Return release artifacts discovered in the default dist directories."""
+    """기본 dist 디렉터리에서 standalone 아카이브와 .aljpack 패키지를 찾습니다.
+
+    Returns:
+        list[Path]: 파일명 순으로 정렬된 기본 릴리스 산출물 경로 목록입니다.
+    """
     patterns = ["dist/standalone/*.tar.gz", "dist/packs/*.aljpack"]
     paths = []
     for pattern in patterns:
@@ -146,7 +191,14 @@ def default_artifacts() -> list[Path]:
 
 
 def artifact_platform(path: Path) -> str | None:
-    """Infer a release platform id from a known artifact file name."""
+    """릴리스 산출물 파일명에서 플랫폼 식별자를 추론합니다.
+
+    Args:
+        path (Path): 플랫폼 식별자를 읽을 릴리스 산출물 경로입니다.
+
+    Returns:
+        str | None: 파일명에서 추론한 플랫폼 식별자입니다. 형식이 맞지 않으면 `None`입니다.
+    """
     name = path.name
     for suffix in [".aljpack", ".tar.gz"]:
         if name.endswith(suffix):
@@ -161,7 +213,12 @@ def artifact_platform(path: Path) -> str | None:
 
 
 def validate_platform_targets(artifacts: list[Path], target_platforms: list[str]) -> None:
-    """Fail when requested release platforms are missing artifacts."""
+    """요청된 릴리스 플랫폼마다 대응하는 산출물이 존재하는지 확인합니다.
+
+    Args:
+        artifacts (list[Path]): 검사 대상 릴리스 산출물 경로 목록입니다.
+        target_platforms (list[str]): 반드시 존재해야 하는 플랫폼 식별자 목록입니다.
+    """
     available = {platform for path in artifacts if (platform := artifact_platform(path))}
     missing = sorted(set(target_platforms) - available)
     if missing:
@@ -169,7 +226,12 @@ def validate_platform_targets(artifacts: list[Path], target_platforms: list[str]
 
 
 def scan_artifact(path: Path, *, require_pack_checksum: bool = True) -> None:
-    """Scan one release artifact based on its file name."""
+    """파일 확장자에 따라 .aljpack 또는 standalone tar.gz 산출물 검사를 수행합니다.
+
+    Args:
+        path (Path): 검사할 릴리스 산출물 경로입니다.
+        require_pack_checksum (bool): .aljpack 산출물에 동반 SHA-256 체크섬 파일을 요구할지 여부입니다.
+    """
     if path.suffix == ".aljpack":
         verify_pack(path)
         if require_pack_checksum:
@@ -182,7 +244,11 @@ def scan_artifact(path: Path, *, require_pack_checksum: bool = True) -> None:
 
 
 def main() -> int:
-    """CLI entry point for release artifact scanning."""
+    """릴리스 산출물을 찾고 플랫폼 요구사항과 파일별 정책 검사를 실행합니다.
+
+    Returns:
+        int: 모든 검사가 통과하면 0, 릴리스 정책 오류가 있으면 1입니다.
+    """
     args = parse_args()
     artifacts = [Path(path) for path in args.artifacts] if args.artifacts else default_artifacts()
     target_platforms = list(args.target_platform)

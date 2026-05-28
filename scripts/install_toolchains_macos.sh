@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# 패키지 스모크 검증과 로컬 개발에 필요한 macOS 도구 체인을 설치합니다.
+# --run 없이 실행하면 실제 설치 대신 수행할 Homebrew 명령을 안내합니다.
 set -euo pipefail
 
 if [[ "${1:-}" != "--run" ]]; then

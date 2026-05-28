@@ -1,3 +1,5 @@
+"""Nuitka로 judge 독립 실행 배포판을 만들고 문서, 체크섬, 압축 아카이브를 구성하는 릴리스 빌드 스크립트입니다."""
+
 from __future__ import annotations
 
 import argparse
@@ -18,7 +20,11 @@ APP_DIR_NAME = "algorithm-local-judge"
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse standalone build script arguments."""
+    """독립 실행 배포판 빌드에 필요한 플랫폼, 빌드 디렉터리, 스테이징 디렉터리, 출력 디렉터리, 정리 옵션을 파싱합니다.
+
+    Returns:
+        argparse.Namespace: standalone 빌드 옵션을 담은 명령줄 인자 네임스페이스입니다.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--platform", default=current_platform_id())
     parser.add_argument("--build-dir", default="build/nuitka")
@@ -29,7 +35,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def run(command: list[str]) -> None:
-    """Run one build command and fail with a readable message."""
+    """릴리스 빌드 명령을 저장소 루트에서 실행하고 실패 시 종료 코드와 명령 문자열을 포함한 오류를 발생시킵니다.
+
+    Args:
+        command (list[str]): 하위 프로세스로 실행할 빌드 명령과 인자 목록입니다.
+    """
     env = os.environ.copy()
     env.setdefault("NUITKA_CACHE_DIR", str(ROOT / "build" / "nuitka-cache"))
     result = subprocess.run(command, cwd=ROOT, env=env, text=True, check=False)
@@ -38,7 +48,14 @@ def run(command: list[str]) -> None:
 
 
 def find_nuitka_dist(build_dir: Path) -> Path:
-    """Find the standalone distribution directory produced by Nuitka."""
+    """Nuitka 빌드 디렉터리에서 가장 최근에 생성된 `.dist` 디렉터리를 찾습니다.
+
+    Args:
+        build_dir (Path): Nuitka 산출물이 생성되는 빌드 디렉터리입니다.
+
+    Returns:
+        Path: 스테이징에 사용할 Nuitka standalone 배포 디렉터리입니다.
+    """
     candidates = sorted(
         [path for path in build_dir.rglob("*.dist") if path.is_dir()],
         key=lambda path: path.stat().st_mtime,
@@ -50,7 +67,11 @@ def find_nuitka_dist(build_dir: Path) -> Path:
 
 
 def write_checksums(app_root: Path) -> None:
-    """Write SHA-256 checksums for all regular files in the staged app."""
+    """스테이징된 앱 루트의 모든 일반 파일에 대해 SHA-256 체크섬 파일을 생성합니다.
+
+    Args:
+        app_root (Path): checksums.txt를 기록할 독립 실행 앱 루트 디렉터리입니다.
+    """
     entries = []
     for path in sorted(item for item in app_root.rglob("*") if item.is_file()):
         if path.name == "checksums.txt":
@@ -60,7 +81,11 @@ def write_checksums(app_root: Path) -> None:
 
 
 def copy_optional_docs(app_root: Path) -> None:
-    """Copy user-facing documents into the standalone app root when present."""
+    """배포판 루트에 포함할 사용자 문서가 저장소에 존재하면 함께 복사합니다.
+
+    Args:
+        app_root (Path): 문서를 복사할 독립 실행 앱 루트 디렉터리입니다.
+    """
     for name in ["README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]:
         source = ROOT / name
         if source.exists():
@@ -68,7 +93,16 @@ def copy_optional_docs(app_root: Path) -> None:
 
 
 def create_archive(app_root: Path, output_dir: Path, platform_id: str) -> Path:
-    """Create the final tar.gz standalone archive."""
+    """스테이징된 앱 루트를 버전과 플랫폼 식별자를 포함한 tar.gz 아카이브로 압축합니다.
+
+    Args:
+        app_root (Path): 압축할 독립 실행 앱 루트 디렉터리입니다.
+        output_dir (Path): 완성된 아카이브를 기록할 출력 디렉터리입니다.
+        platform_id (str): 파일명에 포함할 릴리스 플랫폼 식별자입니다.
+
+    Returns:
+        Path: 생성된 standalone tar.gz 아카이브 경로입니다.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     archive_path = output_dir / f"{APP_DIR_NAME}-{__version__}-{platform_id}.tar.gz"
     if archive_path.exists():
@@ -79,7 +113,14 @@ def create_archive(app_root: Path, output_dir: Path, platform_id: str) -> Path:
 
 
 def build_standalone(args: argparse.Namespace) -> Path:
-    """Build a Nuitka standalone app and return the archive path."""
+    """현재 플랫폼용 Nuitka standalone 앱을 빌드하고 실행 파일, 문서, 체크섬을 스테이징한 뒤 릴리스 아카이브를 만듭니다.
+
+    Args:
+        args (argparse.Namespace): standalone 빌드 명령줄 옵션입니다.
+
+    Returns:
+        Path: 생성된 standalone 릴리스 아카이브 경로입니다.
+    """
     current_platform = current_platform_id()
     if args.platform != current_platform:
         raise JudgeError(
@@ -137,7 +178,11 @@ def build_standalone(args: argparse.Namespace) -> Path:
 
 
 def main() -> int:
-    """CLI entry point for local standalone builds."""
+    """standalone 빌드를 실행하고 사용자에게 성공 경로 또는 오류 메시지를 출력합니다.
+
+    Returns:
+        int: 성공하면 0, 빌드 검증 오류가 발생하면 1입니다.
+    """
     try:
         archive_path = build_standalone(parse_args())
     except JudgeError as exc:
