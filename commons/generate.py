@@ -17,6 +17,7 @@ from typing import Any
 EXPR_RE = re.compile(r"\$\{([^{}]+)\}")
 MAX_NESTING_DEPTH = 2
 SAFE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+FULL_PROFILE = "full"
 
 
 def sha256_text(text: str) -> str:
@@ -444,9 +445,15 @@ def write_cases(
 ) -> list[dict[str, Any]]:
     """Write all expanded input cases for a profile and return summaries."""
     profiles = config.get("profiles", {})
-    if profile not in profiles:
+    if profile == FULL_PROFILE and profile not in profiles:
+        cases_source = []
+        for profile_config in profiles.values():
+            cases_source.extend(profile_config.get("cases", []))
+    elif profile in profiles:
+        cases_source = profiles[profile].get("cases", [])
+    else:
         raise ValueError(f"unknown profile: {profile}")
-    cases_config = expand_cases(profiles[profile].get("cases", []))
+    cases_config = expand_cases(cases_source)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cases = []

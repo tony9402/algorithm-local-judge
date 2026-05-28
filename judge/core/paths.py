@@ -13,6 +13,7 @@ ENV_PROJECT_ROOT = "ALJ_PROJECT_ROOT"
 ENV_DATA_HOME = "ALJ_DATA_HOME"
 ENV_CACHE_HOME = "ALJ_CACHE_HOME"
 ENV_PACK_HOME = "ALJ_PACK_HOME"
+ENV_SOURCE_HOME = "ALJ_SOURCE_HOME"
 
 
 def repo_root() -> Path:
@@ -78,6 +79,13 @@ def problem_pack_root() -> Path:
     if configured := _configured_path(ENV_PACK_HOME):
         return configured
     return user_data_root() / "problem-packs"
+
+
+def problem_source_root() -> Path:
+    """Return the directory where source problem packages are installed."""
+    if configured := _configured_path(ENV_SOURCE_HOME):
+        return configured
+    return user_data_root() / "problem-sources"
 
 
 def cache_root(root: Path | None = None) -> Path:

@@ -6,6 +6,12 @@ from pathlib import Path
 from judge.core.errors import JudgeError
 from judge.core.pack import build_pack, install_pack, installed_packs, remove_pack, verify_pack
 from judge.core.paths import current_platform_id, rel
+from judge.core.remote_trust import (
+    add_user_trusted_repository,
+    default_trusted_repositories,
+    load_user_trusted_repositories,
+    remove_user_trusted_repository,
+)
 
 
 def handle(args: argparse.Namespace) -> int:
@@ -53,4 +59,21 @@ def handle(args: argparse.Namespace) -> int:
         removed = remove_pack(args.pack_id)
         print(f"Removed pack: {rel(removed)}")
         return 0
+    if args.pack_command == "trust":
+        if args.trust_command == "list":
+            print("Trusted repositories:")
+            for repository in default_trusted_repositories():
+                print(f"  {repository} (default)")
+            for repository in load_user_trusted_repositories():
+                print(f"  {repository} (user)")
+            return 0
+        if args.trust_command == "add":
+            repository = add_user_trusted_repository(args.repository)
+            print(f"Trusted repository added: {repository}")
+            return 0
+        if args.trust_command == "remove":
+            repository = remove_user_trusted_repository(args.repository)
+            print(f"Trusted repository removed: {repository}")
+            return 0
+        raise JudgeError(f"unknown pack trust command: {args.trust_command}")
     raise JudgeError(f"unknown pack command: {args.pack_command}")

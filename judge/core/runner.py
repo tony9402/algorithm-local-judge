@@ -29,9 +29,7 @@ def input_preview(input_path: Path) -> str:
     text = data[:INPUT_PREVIEW_BYTES].decode("utf-8", errors="replace")
     lines = text.splitlines() or [""]
     preview_lines = lines[:INPUT_PREVIEW_LINES]
-    rendered = [
-        f"{index:>4} | {line}" for index, line in enumerate(preview_lines, start=1)
-    ]
+    rendered = [f"{index:>4} | {line}" for index, line in enumerate(preview_lines, start=1)]
     if len(lines) > INPUT_PREVIEW_LINES or truncated:
         rendered.append("     | ... preview truncated ...")
     return "\n".join(rendered)

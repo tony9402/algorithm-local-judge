@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import platform
+import signal
 import subprocess
 import threading
 import time
@@ -18,6 +20,14 @@ class CommandResult:
     stderr: bytes
     elapsed_ms: int
     memory_bytes: int | None
+    stdout_truncated: bool = False
+    stderr_truncated: bool = False
+    output_truncated: bool = False
+
+
+DEFAULT_CAPTURE_LIMIT_BYTES = 1024 * 1024
+DEFAULT_FILE_OUTPUT_LIMIT_BYTES = 10 * 1024 * 1024
+PROCESS_GROUP_KILL_GRACE_SECONDS = 0.2
 
 
 class MemorySampler:
@@ -92,6 +102,65 @@ def darwin_process_memory_bytes(pid: int) -> int | None:
         return None
 
 
+def truncated_bytes(data: bytes, limit: int, label: str) -> tuple[bytes, bool]:
+    """Return data capped to limit bytes with a short marker when truncated."""
+    if limit <= 0:
+        return b"", bool(data)
+    if len(data) <= limit:
+        return data, False
+    marker = f"\n... {label} truncated to {limit} bytes ...\n".encode()
+    if len(marker) >= limit:
+        return marker[:limit], True
+    return data[: limit - len(marker)] + marker, True
+
+
+def append_stderr_note(stderr: bytes, note: str, limit: int) -> tuple[bytes, bool]:
+    """Append a diagnostic note to stderr while respecting the stderr cap."""
+    suffix = (b"\n" if stderr else b"") + note.encode("utf-8")
+    return truncated_bytes(stderr + suffix, limit, "stderr")
+
+
+def truncate_output_file(path: Path, limit: int) -> bool:
+    """Cap an output file in place and return whether it was truncated."""
+    if limit <= 0:
+        path.write_bytes(b"")
+        return True
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return False
+    if size <= limit:
+        return False
+    with path.open("r+b") as output:
+        output.truncate(limit)
+    return True
+
+
+def terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+    """Terminate a subprocess and its children on platforms that expose process groups."""
+    if process.poll() is not None:
+        return
+    if os.name != "nt":
+        try:
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+        except ProcessLookupError:
+            return
+        except OSError:
+            process.terminate()
+        try:
+            process.wait(timeout=PROCESS_GROUP_KILL_GRACE_SECONDS)
+            return
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+            except ProcessLookupError:
+                return
+            except OSError:
+                process.kill()
+            return
+    process.kill()
+
+
 def run_command_result(
     command: Sequence[str],
     timeout_ms: int | None,
@@ -99,6 +168,9 @@ def run_command_result(
     input_path: Path | None = None,
     output_path: Path | None = None,
     log_path: Path | None = None,
+    stdout_limit_bytes: int = DEFAULT_CAPTURE_LIMIT_BYTES,
+    stderr_limit_bytes: int = DEFAULT_CAPTURE_LIMIT_BYTES,
+    output_limit_bytes: int = DEFAULT_FILE_OUTPUT_LIMIT_BYTES,
 ) -> CommandResult:
     """Run a subprocess and return output plus elapsed time and peak RSS."""
     stdin = None
@@ -119,6 +191,7 @@ def run_command_result(
             stdin=stdin,
             stdout=stdout,
             stderr=subprocess.PIPE,
+            start_new_session=os.name != "nt",
         )
         sampler = MemorySampler(process.pid)
         sampler.start()
@@ -128,7 +201,7 @@ def run_command_result(
             )
             returncode = process.returncode
         except subprocess.TimeoutExpired as exc:
-            process.kill()
+            terminate_process_group(process)
             stdout_data, stderr = process.communicate()
             returncode = 124
             timeout_message = str(exc).encode("utf-8")
@@ -155,16 +228,36 @@ def run_command_result(
         if output_path is not None and hasattr(stdout, "close"):
             stdout.close()
 
+    stdout_data = stdout_data or b""
     stderr = stderr or b""
+    stdout_data, stdout_truncated = truncated_bytes(
+        b"" if output_path is not None else stdout_data,
+        stdout_limit_bytes,
+        "stdout",
+    )
+    stderr, stderr_truncated = truncated_bytes(stderr, stderr_limit_bytes, "stderr")
+    output_truncated = False
+    if output_path is not None and output_path.exists():
+        output_truncated = truncate_output_file(output_path, output_limit_bytes)
+        if output_truncated:
+            stderr, note_truncated = append_stderr_note(
+                stderr,
+                f"actual output truncated to {output_limit_bytes} bytes: {output_path}",
+                stderr_limit_bytes,
+            )
+            stderr_truncated = stderr_truncated or note_truncated
     if log_path and returncode != 124:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_bytes(stderr)
     return CommandResult(
         returncode,
-        b"" if output_path is not None else stdout_data or b"",
+        stdout_data,
         stderr,
         elapsed_ms,
         memory_bytes,
+        stdout_truncated,
+        stderr_truncated,
+        output_truncated,
     )
 
 

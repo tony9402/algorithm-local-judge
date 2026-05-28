@@ -4,6 +4,7 @@ import argparse
 import sys
 
 from judge.core.errors import JudgeError
+from judge.core.paths import repo_root
 from judge.core.problem import discover_problem_ids, load_problem, validate_problem_sequence
 
 
@@ -19,7 +20,8 @@ def handle(args: argparse.Namespace) -> int:
             print(f"  {problem_id}  {metadata.get('title', '')}")
 
     if args.validate:
-        errors = validate_problem_sequence(problem_ids)
+        validation_problem_ids = discover_problem_ids(repo_root())
+        errors = validate_problem_sequence(validation_problem_ids)
         if errors:
             for error in errors:
                 print(f"error: {error}", file=sys.stderr)
