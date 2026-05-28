@@ -1,3 +1,7 @@
+/**
+ * 모달 codemirror 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { optional } from "../dom.js";
 import { EDITOR_INDENT, state } from "../state.js";
 import {
@@ -6,68 +10,25 @@ import {
 } from "./highlight.js";
 
 const modalCallbacks = {
-  /**
-   * createSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   createSolution: async () => {},
-  /**
-   * renameSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renameSolution: async () => {},
-  /**
-   * updateEditorSettingsUi 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   updateEditorSettingsUi: () => {},
-  /**
-   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} action `action` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   withErrors: async (action) => action(),
 };
-
-/**
- * configureModalCodeMirror 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureModalCodeMirror(callbacks = {}) {
   Object.assign(modalCallbacks, callbacks);
 }
 
-/**
- * withModalErrors 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} action `action` 값입니다.
- * @param {any} message 메시지입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function withModalErrors(action, message) {
   return modalCallbacks.withErrors(action, message);
 }
-
-/**
- * modalEditorKeyMap 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function modalEditorKeyMap() {
   return state.editorMode === "vim" ? "vim" : "default";
 }
-
 /**
- * handleModalBeforeInput 함수를 실행하고 반환 값을 계산합니다.
+ * 모달 before 입력 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  *
- * @param {any} event 발생한 이벤트입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} event 브라우저 이벤트 또는 서버 이벤트 스트림에서 받은 이벤트 객체입니다.
  */
 function handleModalBeforeInput(event) {
   const wrapperMode = event.target?.closest?.(".CodeMirror")?.dataset?.vimMode;
@@ -76,38 +37,17 @@ function handleModalBeforeInput(event) {
     event.preventDefault();
   }
 }
-
-/**
- * stopVimEscapeFromClosingModal 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} event 발생한 이벤트입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function stopVimEscapeFromClosingModal(event) {
   if (event.key === "Escape" && state.editorMode === "vim") {
     event.stopPropagation();
   }
 }
-
-/**
- * modalEditorKeyForElement 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} element `element` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function modalEditorKeyForElement(element) {
   const modal = element?.closest?.("#solutionCreateModal, #solutionEditModal");
   if (modal?.id === "solutionCreateModal") return "create";
   if (modal?.id === "solutionEditModal") return "edit";
   return "";
 }
-
-/**
- * focusModalEditor 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} key `key` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function focusModalEditor(key) {
   const editor = state.modalEditors[key];
   if (!editor) return;
@@ -117,22 +57,9 @@ export function focusModalEditor(key) {
   });
 }
 
-/**
- * modalEditorLanguage 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} key `key` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function modalEditorLanguage(key) {
   return optional(key === "create" ? "solutionCreateLanguage" : "solutionLanguage")?.value || "cpp";
 }
-
-/**
- * syncModalEditorMode 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} key `key` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function syncModalEditorMode(key) {
   const editor = state.modalEditors[key];
   if (!editor) return;
@@ -143,12 +70,6 @@ function syncModalEditorMode(key) {
   }
   editor.getWrapperElement().dataset.language = language;
 }
-
-/**
- * initializeSourceModalEditors 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function initializeSourceModalEditors() {
   if (!window.CodeMirror) return;
   const configs = [
@@ -156,22 +77,12 @@ export function initializeSourceModalEditors() {
       key: "create",
       textareaId: "solutionCreateSource",
       languageId: "solutionCreateLanguage",
-      /**
-       * save 함수를 실행하고 반환 값을 계산합니다.
-       *
-       * @returns {any} 처리 결과를 반환합니다.
-       */
       save: () => void withModalErrors(modalCallbacks.createSolution, "솔루션 파일을 생성하는 중입니다."),
     },
     {
       key: "edit",
       textareaId: "solutionEditSource",
       languageId: "solutionLanguage",
-      /**
-       * save 함수를 실행하고 반환 값을 계산합니다.
-       *
-       * @returns {any} 처리 결과를 반환합니다.
-       */
       save: () => void withModalErrors(modalCallbacks.renameSolution, "솔루션 파일명을 변경하는 중입니다."),
     },
   ];
@@ -188,12 +99,6 @@ export function initializeSourceModalEditors() {
       lineWrapping: false,
       keyMap: modalEditorKeyMap(),
       extraKeys: {
-        /**
-         * Tab 함수를 실행하고 반환 값을 계산합니다.
-         *
-         * @param {any} instance `instance` 값입니다.
-         * @returns {any} 처리 결과를 반환합니다.
-         */
         Tab: (instance) => {
           if (instance.somethingSelected()) instance.indentSelection("add");
           else instance.replaceSelection(EDITOR_INDENT, "end");
@@ -222,11 +127,8 @@ export function initializeSourceModalEditors() {
   }
   updateModalEditorOptions();
 }
-
 /**
- * updateModalEditorOptions 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 모달 편집기 options 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateModalEditorOptions() {
   const createEditor = state.modalEditors.create;
@@ -246,12 +148,10 @@ export function updateModalEditorOptions() {
     editEditor?.refresh();
   });
 }
-
 /**
- * updateModalWrapperMode 함수를 실행하고 반환 값을 계산합니다.
+ * 모달 wrapper mode 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor 모달 wrapper mode을 계산하거나 검증할 때 필요한 편집기 입력입니다.
  */
 function updateModalWrapperMode(editor) {
   const wrapper = editor.getWrapperElement();
@@ -264,24 +164,15 @@ function updateModalWrapperMode(editor) {
         : "normal"
       : "insert";
 }
-
-/**
- * getModalEditorValue 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} key `key` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function getModalEditorValue(key) {
   if (state.modalEditors[key]) return state.modalEditors[key].getValue();
   return optional(key === "create" ? "solutionCreateSource" : "solutionEditSource")?.value || "";
 }
-
 /**
- * setModalEditorValue 함수를 실행하고 반환 값을 계산합니다.
+ * 모달 편집기 value 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} key `key` 값입니다.
- * @param {any} value 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} key 상태 맵, 로컬 스토리지, 객체에서 값을 찾는 키입니다.
+ * @param {any} value 검증하거나 상태에 반영할 입력 값입니다.
  */
 export function setModalEditorValue(key, value) {
   const textareaId = key === "create" ? "solutionCreateSource" : "solutionEditSource";
@@ -295,12 +186,10 @@ export function setModalEditorValue(key, value) {
   }
   window.requestAnimationFrame(() => state.modalEditors[key]?.refresh());
 }
-
 /**
- * refreshModalEditor 함수를 실행하고 반환 값을 계산합니다.
+ * 모달 편집기 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  *
- * @param {any} key `key` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} key 상태 맵, 로컬 스토리지, 객체에서 값을 찾는 키입니다.
  */
 export function refreshModalEditor(key) {
   const editor = state.modalEditors[key];

@@ -1,3 +1,7 @@
+/**
+ * visuals 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { $, optional, setText } from "../dom.js";
 import { state } from "../state.js";
 import {
@@ -9,11 +13,8 @@ import { highlightCode, languageForPath } from "./highlight.js";
 import { editorLineColumn } from "./position.js";
 import { isVimVisualMode, vimModeClassName } from "./selection.js";
 import { editorModeBadgeText } from "./vim.js";
-
 /**
- * updateEditorVisuals 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 편집기 visuals 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateEditorVisuals() {
   if (state.codeMirror) {
@@ -31,12 +32,6 @@ export function updateEditorVisuals() {
   syncEditorScroll();
   updateEditorStatus();
 }
-
-/**
- * syncEditorScroll 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function syncEditorScroll() {
   if (state.codeMirror) return;
   const editor = $("fileEditor");
@@ -44,12 +39,10 @@ export function syncEditorScroll() {
   $("codeHighlight").scrollLeft = editor.scrollLeft;
   $("editorLineNumbers").scrollTop = editor.scrollTop;
 }
-
 /**
- * ensureEditorCursorVisible 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 cursor visible 조건을 확인하고 위반 시 호출자가 중단할 수 있는 예외를 발생시킵니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor 편집기 cursor visible을 계산하거나 검증할 때 필요한 편집기 입력입니다.
  */
 export function ensureEditorCursorVisible(editor) {
   if (state.codeMirror) {
@@ -81,12 +74,6 @@ export function ensureEditorCursorVisible(editor) {
   syncEditorScroll();
 }
 
-/**
- * languageLabelForPath 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function languageLabelForPath(path) {
   const language = languageForPath(path);
   return {
@@ -98,12 +85,6 @@ function languageLabelForPath(path) {
     text: "Text",
   }[language] || "Text";
 }
-
-/**
- * commandStatusText 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function commandStatusText() {
   if (state.editorMode !== "vim") return "";
   const count = state.vimCount ? state.vimCount : "";
@@ -112,11 +93,8 @@ function commandStatusText() {
   const prefix = [count, pending].filter(Boolean).join(" ");
   return [prefix, visual, state.vimMessage].filter(Boolean).join(" · ");
 }
-
 /**
- * updateEditorStatus 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 편집기 상태 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateEditorStatus() {
   const editor = optional("fileEditor");

@@ -1,11 +1,10 @@
+/**
+ * 편집기 mode 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
 
-/**
- * clearSourceInputs 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function clearSourceInputs() {
   const fileInput = app.optional("sourceFileInput");
   const filenameInput = app.optional("filenameInput");
@@ -17,12 +16,10 @@ function clearSourceInputs() {
   app.updateEditorView();
   app.syncEditorScroll();
 }
-
 /**
- * setMode 함수를 실행하고 반환 값을 계산합니다.
+ * mode 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} mode `mode` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} mode mode을 계산하거나 검증할 때 필요한 mode 입력입니다.
  */
 function setMode(mode) {
   state.sourceMode = mode;
@@ -34,11 +31,8 @@ function setMode(mode) {
   app.$("textSourcePanel").classList.toggle("hidden", mode !== "text");
   app.updateLanguageBadge();
 }
-
 /**
- * bindDropZone 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * drop zone 이벤트를 DOM 요소와 핸들러에 연결합니다.
  */
 function bindDropZone() {
   const zone = app.$("uploadSourcePanel");

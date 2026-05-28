@@ -1,3 +1,7 @@
+/**
+ * 문제 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { api } from "../api.js";
 import { clearPackJob } from "./build.js";
 import { clearEditor, openFile } from "./files.js";
@@ -51,53 +55,17 @@ import { updateBuildPanel } from "../build-view.js";
 import { refreshGitStatus } from "./git.js";
 
 const problemCallbacks = {
-  /**
-   * closeModals 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   closeModals: () => {},
-  /**
-   * isCurrentView 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} seq `seq` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   isCurrentView: (seq) => seq === state.viewSeq,
-  /**
-   * nextViewSeq 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   nextViewSeq: () => {
     state.viewSeq += 1;
     return state.viewSeq;
   },
-  /**
-   * openModal 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openModal: () => {},
 };
-
-/**
- * configureProblemActions 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureProblemActions(callbacks = {}) {
   Object.assign(problemCallbacks, callbacks);
 }
-
-/**
- * migrateTabSelections 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} previousProblemId `previousProblemId` 값입니다.
- * @param {any} nextProblemId `nextProblemId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function migrateTabSelections(previousProblemId, nextProblemId) {
   if (!previousProblemId || !nextProblemId || previousProblemId === nextProblemId) return;
   const migrated = {};
@@ -107,14 +75,6 @@ function migrateTabSelections(previousProblemId, nextProblemId) {
   }
   state.tabSelections = migrated;
 }
-
-/**
- * applyProblemRenameResult 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @param {any} previousProblemId `previousProblemId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function applyProblemRenameResult(result, previousProblemId) {
   const nextProblemId = result.problemId;
   if (!nextProblemId || nextProblemId === previousProblemId) return;
@@ -136,13 +96,6 @@ function applyProblemRenameResult(result, previousProblemId) {
   }
   rememberView();
 }
-
-/**
- * restoreProblemLastResult 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemId `problemId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function restoreProblemLastResult(problemId = state.selectedProblem) {
   const result = currentProblemResult(problemId);
   state.lastSolutionVerification = result?.solutionVerification || null;
@@ -155,13 +108,6 @@ export function restoreProblemLastResult(problemId = state.selectedProblem) {
   renderLastRunPanel();
   updateBuildPanel();
 }
-
-/**
- * markFullTestDirty 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} reason `reason` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function markFullTestDirty(reason = "변경사항이 저장되어 전체 테스트가 필요합니다.") {
   if (!state.selectedProblem) return;
   const current = currentProblemResult() || {};
@@ -176,11 +122,8 @@ export function markFullTestDirty(reason = "변경사항이 저장되어 전체 
   updateBuildPanel();
   renderTabFiles();
 }
-
 /**
- * refresh 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 데이터 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  */
 export async function refresh() {
   const seq = problemCallbacks.nextViewSeq();
@@ -214,14 +157,6 @@ export async function refresh() {
     clearEditor();
   }
 }
-
-/**
- * selectProblem 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemId `problemId` 값입니다.
- * @param {any} seq `seq` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function selectProblem(problemId, seq = problemCallbacks.nextViewSeq()) {
   const switchedProblem = state.selectedProblem !== problemId;
   if (switchedProblem && !confirmDiscardChanges()) return;
@@ -245,14 +180,6 @@ export async function selectProblem(problemId, seq = problemCallbacks.nextViewSe
   rememberView();
   await selectTab(state.selectedTab, seq);
 }
-
-/**
- * selectTab 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} tabId `tabId` 값입니다.
- * @param {any} seq `seq` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function selectTab(tabId, seq = problemCallbacks.nextViewSeq()) {
   if (tabId !== state.selectedTab && !confirmDiscardChanges()) return;
   rememberSelectedFile();
@@ -281,11 +208,8 @@ export async function selectTab(tabId, seq = problemCallbacks.nextViewSeq()) {
     renderTabFiles();
   }
 }
-
 /**
- * saveMetadata 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 메타데이터 데이터를 다음 요청에서도 사용할 수 있도록 안전한 위치에 저장합니다.
  */
 export async function saveMetadata() {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
@@ -320,11 +244,8 @@ export async function saveMetadata() {
   );
   if (state.selectedFile === "problem.json") await openFile("problem.json", true);
 }
-
 /**
- * createProblem 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 문제에 필요한 초기 파일과 메타데이터를 생성합니다.
  */
 export async function createProblem() {
   const problemId = $("newProblemId").value.trim();
@@ -354,11 +275,8 @@ export async function createProblem() {
   await selectProblem(problemId);
   showResult(`Created problem ${problemId}`, "summary success");
 }
-
 /**
- * updateDeleteProblemButton 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * delete 문제 button 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateDeleteProblemButton() {
   const input = optional("deleteProblemConfirmInput");
@@ -370,11 +288,8 @@ export function updateDeleteProblemButton() {
     || document.body.getAttribute("aria-busy") === "true"
   );
 }
-
 /**
- * openDeleteProblemModal 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * delete 문제 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  */
 export function openDeleteProblemModal() {
   if (!state.selectedProblem) throw new Error("삭제할 문제를 먼저 선택하세요.");
@@ -385,11 +300,8 @@ export function openDeleteProblemModal() {
   updateDeleteProblemButton();
   problemCallbacks.openModal("deleteProblemModal");
 }
-
 /**
- * deleteSelectedProblem 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * selected 문제 파일이나 상태 항목을 안전성 검사를 거쳐 제거합니다.
  */
 export async function deleteSelectedProblem() {
   if (!state.selectedProblem) throw new Error("삭제할 문제를 먼저 선택하세요.");

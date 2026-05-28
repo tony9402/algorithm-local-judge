@@ -1,12 +1,10 @@
+/**
+ * 문제팩 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
 
-/**
- * installLabel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function installLabel(result) {
   const target = result.assetName || result.label || result.installedPath || "installed problems";
   if (result.installType === "source") {
@@ -16,12 +14,6 @@ function installLabel(result) {
   return `Installed pack: ${target}${security}`;
 }
 
-/**
- * officialPackErrorMessage 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} error `error` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function officialPackErrorMessage(error) {
   const detail = String(error?.message || "unknown error");
   const lower = detail.toLowerCase();
@@ -45,12 +37,10 @@ function officialPackErrorMessage(error) {
   }
   return `Official pack install failed: ${detail}`;
 }
-
 /**
- * renderPacks 함수를 실행하고 반환 값을 계산합니다.
+ * 문제팩 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} packs `packs` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {Array} packs 문제팩을 계산하거나 검증할 때 필요한 문제팩 입력입니다.
  */
 function renderPacks(packs) {
   const list = app.$("packList");
@@ -64,30 +54,15 @@ function renderPacks(packs) {
   for (const pack of packs) {
     const item = document.createElement("div");
     item.className = "list-item";
-    /**
-     * platforms 함수를 실행하고 반환 값을 계산합니다.
-     *
-     * @param {any} pack `pack` 값입니다.
-     * @returns {any} 처리 결과를 반환합니다.
-     */
     const platforms = (pack.supportedPlatforms || []).join(", ");
-    /**
-     * problems 함수를 실행하고 반환 값을 계산합니다.
-     *
-     * @param {any} pack `pack` 값입니다.
-     * @returns {any} 처리 결과를 반환합니다.
-     */
     const problems = (pack.problems || []).join(", ");
     const packLabel = `${app.escapeHtml(pack.packId)} ${app.escapeHtml(pack.version || "")}`;
     item.innerHTML = `<strong>${packLabel}</strong><span>${app.escapeHtml(platforms)} · ${app.escapeHtml(problems)}</span>`;
     list.appendChild(item);
   }
 }
-
 /**
- * uploadPack 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 업로드 문제팩 장시간 작업을 큐에 등록하고 UI가 추적할 작업 상태를 구성합니다.
  */
 async function uploadPack() {
   const file = app.$("packFileInput").files[0];
@@ -105,11 +80,8 @@ async function uploadPack() {
   app.clearSampleCache();
   await app.refresh();
 }
-
 /**
- * downloadOfficialPack 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 다운로드 official 문제팩 장시간 작업을 큐에 등록하고 UI가 추적할 작업 상태를 구성합니다.
  */
 async function downloadOfficialPack() {
   const repository = app.$("officialRepoInput").value.trim();
@@ -138,11 +110,8 @@ async function downloadOfficialPack() {
   app.clearSampleCache();
   await app.refresh();
 }
-
 /**
- * updatePackActionState 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 문제팩 action state 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 function updatePackActionState() {
   const fileInput = app.optional("packFileInput");

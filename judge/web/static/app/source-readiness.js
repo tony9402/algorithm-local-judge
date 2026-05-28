@@ -1,19 +1,11 @@
+/**
+ * 소스 readiness 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
 
-/**
- * languageFromName 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} name 이름입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function languageFromName(name) {
-  /**
-   * lowered 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} name 이름입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const lowered = (name || "").toLowerCase();
   if (lowered.endsWith(".cpp") || lowered.endsWith(".cc") || lowered.endsWith(".cxx")) return "C++";
   if (lowered.endsWith(".py")) return "Python";
@@ -21,58 +13,24 @@ function languageFromName(name) {
   return "Unknown";
 }
 
-/**
- * sourceTextReady 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function sourceTextReady() {
   const input = app.optional("sourceTextInput");
   return Boolean(input?.value.trim());
 }
 
-/**
- * sourceUploadReady 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function sourceUploadReady() {
   return Boolean(app.optional("sourceFileInput")?.files[0]);
 }
-
-/**
- * hasSelectedProblem 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function hasSelectedProblem() {
   return Boolean(state.selectedProblem || app.optional("problemSelect")?.value);
 }
-
-/**
- * hasRunnableSource 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function hasRunnableSource() {
   return state.sourceMode === "upload" ? sourceUploadReady() : sourceTextReady();
 }
-
-/**
- * activeSourceName 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function activeSourceName() {
   if (state.sourceMode === "upload") return app.$("sourceFileInput").files[0]?.name || "source";
   return app.$("filenameInput").value.trim() || app.$("languageHint").value || "source";
 }
-
-/**
- * sourceReadinessText 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function sourceReadinessText() {
   if (!hasSelectedProblem()) return "Install a problem first";
   if (!hasRunnableSource()) {
@@ -80,11 +38,8 @@ function sourceReadinessText() {
   }
   return `${activeSourceName()} ready`;
 }
-
 /**
- * updateActionState 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * action state 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 function updateActionState() {
   const hasProblem = hasSelectedProblem();
@@ -100,21 +55,13 @@ function updateActionState() {
   }
 }
 
-/**
- * syncFilenamePlaceholder 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function syncFilenamePlaceholder() {
   const input = app.optional("filenameInput");
   const hint = app.optional("languageHint");
   if (input && hint) input.placeholder = hint.value || "main.cpp";
 }
-
 /**
- * updateLanguageBadge 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * language badge 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 function updateLanguageBadge() {
   const name =

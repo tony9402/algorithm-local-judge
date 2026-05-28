@@ -1,23 +1,14 @@
+/**
+ * 소스 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
 
-/**
- * formatSavedAt 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} savedAt `savedAt` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function formatSavedAt(savedAt) {
   if (!savedAt) return "saved source";
   return new Date(savedAt * 1000).toLocaleString();
 }
-
-/**
- * sourceMatchesHistoryFilters 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} source `source` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function sourceMatchesHistoryFilters(source) {
   const query = String(state.sourceHistoryFilter || "").trim().toLowerCase();
   const statusFilter = state.sourceHistoryStatusFilter || "all";
@@ -34,12 +25,10 @@ function sourceMatchesHistoryFilters(source) {
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(query));
 }
-
 /**
- * renderSourceHistory 함수를 실행하고 반환 값을 계산합니다.
+ * 소스 이력 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} data 처리할 데이터입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} data 파일, API 응답, UI 렌더링에 사용할 구조화된 데이터입니다.
  */
 function renderSourceHistory(data) {
   const list = app.optional("sourceHistoryList");
@@ -113,22 +102,17 @@ function renderSourceHistory(data) {
     list.appendChild(item);
   }
 }
-
 /**
- * refreshSourceHistory 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 소스 이력 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  */
 async function refreshSourceHistory() {
   const data = await app.api("/api/sources");
   renderSourceHistory(data);
 }
-
 /**
- * loadCachedSource 비동기 함수를 실행하고 반환 값을 계산합니다.
+ * cached 소스을 파일이나 캐시에서 읽고 필요한 기본값을 적용합니다.
  *
- * @param {any} sourceId `sourceId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} sourceId 소스 ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
  */
 async function loadCachedSource(sourceId) {
   const source = await app.api(`/api/sources/${encodeURIComponent(sourceId)}`);
@@ -151,24 +135,19 @@ async function loadCachedSource(sourceId) {
   }
   app.showToast(`Cached source loaded: ${source.filename || sourceId}`);
 }
-
 /**
- * deleteCachedSource 비동기 함수를 실행하고 반환 값을 계산합니다.
+ * cached 소스 파일이나 상태 항목을 안전성 검사를 거쳐 제거합니다.
  *
- * @param {any} sourceId `sourceId` 값입니다.
- * @param {any} filename `filename` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} sourceId 소스 ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+ * @param {any} filename 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
  */
 async function deleteCachedSource(sourceId, filename) {
   await app.api(`/api/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
   app.showToast(`Cached source deleted: ${filename}`);
   await app.refreshSecondaryData();
 }
-
 /**
- * updateSourceHistoryFilter 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 소스 이력 filter 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 function updateSourceHistoryFilter() {
   state.sourceHistoryFilter = app.optional("sourceHistoryFilterInput")?.value || "";

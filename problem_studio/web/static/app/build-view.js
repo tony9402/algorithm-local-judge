@@ -1,40 +1,25 @@
+/**
+ * build 화면 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { optional, setText } from "./dom.js";
 import { currentProblemResult, hasFreshFullTest } from "./results.js";
 import { PACK_OUTPUT_DIR, state } from "./state.js";
 import { updateEditorPanelMode } from "./tabs-view.js";
 
 const buildCallbacks = {
-  /**
-   * formatTime 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   formatTime: () => "",
-  /**
-   * packJobSummary 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   packJobSummary: () => "",
 };
-
-/**
- * configureBuildView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureBuildView(callbacks = {}) {
   Object.assign(buildCallbacks, callbacks);
 }
-
 /**
- * updateDownloadLink 함수를 실행하고 반환 값을 계산합니다.
+ * 다운로드 link 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  *
- * @param {any} link `link` 값입니다.
- * @param {any} pack `pack` 값입니다.
- * @param {any} fallbackLabel `fallbackLabel` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} link 다운로드 link을 계산하거나 검증할 때 필요한 link 입력입니다.
+ * @param {any} pack 다운로드 link을 계산하거나 검증할 때 필요한 문제팩 입력입니다.
+ * @param {any} fallbackLabel 다운로드 link을 계산하거나 검증할 때 필요한 fallback label 입력입니다.
  */
 export function updateDownloadLink(link, pack, fallbackLabel = "다운로드") {
   if (!link) return;
@@ -44,11 +29,8 @@ export function updateDownloadLink(link, pack, fallbackLabel = "다운로드") {
     link.textContent = `${pack.archiveLabel || fallbackLabel} 다운로드`;
   }
 }
-
 /**
- * updateBuildDashboard 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * build 대시보드 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateBuildDashboard() {
   const dashboard = optional("buildDashboard");
@@ -103,11 +85,8 @@ export function updateBuildDashboard() {
   );
   updateDownloadLink(optional("buildDashboardDownloadLink"), pack, "팩 파일");
 }
-
 /**
- * updateBuildPanel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * build panel 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateBuildPanel() {
   const panel = optional("buildPanel");

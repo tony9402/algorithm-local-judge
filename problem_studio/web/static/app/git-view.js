@@ -1,24 +1,18 @@
+/**
+ * Git 화면 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { escapeHtml, optional } from "./dom.js";
 import { state } from "./state.js";
-
 /**
- * renderGitStatus 함수를 실행하고 반환 값을 계산합니다.
+ * Git 상태 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} status `status` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {Array} status Git 상태을 계산하거나 검증할 때 필요한 상태 입력입니다.
  */
 export function renderGitStatus(status) {
   state.gitStatus = status;
   const panel = optional("gitStatus");
   if (!panel) return;
-  /**
-   * setDisabled 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} button `button` 값입니다.
-   * @param {any} disabled `disabled` 값입니다.
-   * @param {any} reason `reason` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const setDisabled = (button, disabled, reason = "") => {
     if (!button) return;
     button.disabled = disabled;
@@ -121,11 +115,6 @@ export function renderGitStatus(status) {
         : ""
     }
   `;
-  /**
-   * applyButtonPolicy 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const applyButtonPolicy = () => {
     const fetchButton = optional("gitFetchButton");
     const pullButton = optional("gitPullButton");

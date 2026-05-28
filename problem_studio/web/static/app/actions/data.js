@@ -1,3 +1,7 @@
+/**
+ * 데이터 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { api, normalizeErrorDetail } from "../api.js";
 import { setText } from "../dom.js";
 import {
@@ -32,21 +36,8 @@ const CASES_EXAMPLE_PREVIEW = [
   "        type: generate",
   "        seed: 1",
 ].join("\n");
-
-/**
- * showCasesAlertDetails 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function showCasesAlertDetails(result) {
   if (result.valid) return;
-  /**
-   * detail 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} result `result` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const detail = (result.diagnostics || [])
     .map((item) => {
       const location = [item.profile, item.location, item.line ? `line ${item.line}` : ""]
@@ -62,12 +53,6 @@ function showCasesAlertDetails(result) {
   );
 }
 
-/**
- * formatCasesDiagnostics 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function formatCasesDiagnostics(result) {
   const diagnostics = result.diagnostics || [];
   if (!diagnostics.length) return "cases.yml을 확인하세요.";
@@ -90,13 +75,6 @@ function formatCasesDiagnostics(result) {
     .join("\n\n")
     + `\n\n예제 preview:\n${CASES_EXAMPLE_PREVIEW}`;
 }
-
-/**
- * compileCases 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function compileCases(options = {}) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   if (options.clear !== false) clearOutput();
@@ -123,15 +101,6 @@ export async function compileCases(options = {}) {
   );
   return result;
 }
-
-/**
- * compileTool 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} tool `tool` 값입니다.
- * @param {any} label `label` 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function compileTool(tool, label, options = {}) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   if (options.clear !== false) clearOutput();
@@ -165,13 +134,6 @@ export async function compileTool(tool, label, options = {}) {
     throw error;
   }
 }
-
-/**
- * compileTools 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function compileTools(options = {}) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   if (options.clear !== false) clearOutput();
@@ -209,15 +171,6 @@ export async function compileTools(options = {}) {
     throw error;
   }
 }
-
-/**
- * streamRequest 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @param {any} body `body` 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function streamRequest(path, body, options = {}) {
   if (options.clear !== false) clearOutput();
   state.lastStreamDetail = "";
@@ -260,14 +213,6 @@ export async function streamRequest(path, body, options = {}) {
   }
   return finalResult;
 }
-
-/**
- * generateData 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} profile `profile` 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function generateData(profile = "hidden", options = {}) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   const ownsProgress = !state.progress.active;
@@ -304,13 +249,6 @@ export async function generateData(profile = "hidden", options = {}) {
     throw error;
   }
 }
-
-/**
- * validateAllData 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function validateAllData(options = {}) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   const ownsProgress = !state.progress.active;

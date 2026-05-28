@@ -1,12 +1,14 @@
+/**
+ * 모달 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { optional } from "./dom.js";
 import { state } from "./state.js";
-
 /**
- * openModal 함수를 실행하고 반환 값을 계산합니다.
+ * 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  *
- * @param {any} id 식별자입니다.
- * @param {any} trigger `trigger` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} id 모달을 계산하거나 검증할 때 필요한 ID 입력입니다.
+ * @param {any} trigger 모달을 계산하거나 검증할 때 필요한 trigger 입력입니다.
  */
 export function openModal(id, trigger = document.activeElement) {
   state.activeModalTrigger = trigger instanceof HTMLElement ? trigger : null;
@@ -15,13 +17,6 @@ export function openModal(id, trigger = document.activeElement) {
   const firstField = modal?.querySelector("input, select, textarea");
   if (firstField instanceof HTMLElement) firstField.focus();
 }
-
-/**
- * activeCodeEditorElement 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} event 발생한 이벤트입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function activeCodeEditorElement(event) {
   const target = event?.target instanceof Element ? event.target : null;
   const active = document.activeElement instanceof Element ? document.activeElement : null;
@@ -30,11 +25,8 @@ export function activeCodeEditorElement(event) {
     || active?.closest(".CodeMirror, .source-modal-editor, #fileEditor")
   );
 }
-
 /**
- * closeModals 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * modals 모달이나 열린 상태를 닫고 관련 임시 상태를 정리합니다.
  */
 export function closeModals() {
   optional("newProblemModal")?.classList.add("hidden");

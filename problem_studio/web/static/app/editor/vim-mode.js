@@ -1,3 +1,7 @@
+/**
+ * vim mode 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { optional } from "../dom.js";
 import { state } from "../state.js";
 import { pushEditorHistory } from "./history.js";
@@ -9,13 +13,11 @@ import {
   moveEditorCursor,
 } from "./selection.js";
 import { vimCallbacks } from "./vim-context.js";
-
 /**
- * setVimMode 함수를 실행하고 반환 값을 계산합니다.
+ * vim mode 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} mode `mode` 값입니다.
- * @param {any} editor `editor` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} mode vim mode을 계산하거나 검증할 때 필요한 mode 입력입니다.
+ * @param {any} editor vim mode을 계산하거나 검증할 때 필요한 편집기 입력입니다.
  */
 export function setVimMode(mode, editor = optional("fileEditor"), options = {}) {
   if (state.editorMode !== "vim") return;
@@ -41,24 +43,12 @@ export function setVimMode(mode, editor = optional("fileEditor"), options = {}) 
   }
   vimCallbacks.updateEditorSettingsUi();
 }
-
-/**
- * editorModeBadgeText 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function editorModeBadgeText() {
   if (state.editorMode !== "vim") return "기본";
   if (state.vimMode === "visual") return "VISUAL";
   if (state.vimMode === "visual-line") return "V-LINE";
   return state.vimMode === "insert" ? "INSERT" : "NORMAL";
 }
-
-/**
- * resetVimTransientState 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function resetVimTransientState() {
   state.vimPending = "";
   state.vimCount = "";

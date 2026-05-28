@@ -1,3 +1,7 @@
+/**
+ * events 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { $, optional } from "./dom.js";
 import { activeCodeEditorElement } from "./modal.js";
 import { LAST_RESULTS_STORAGE_KEY } from "./results.js";
@@ -7,12 +11,10 @@ import {
   runAllChannel,
   state,
 } from "./state.js";
-
 /**
- * bindAppEvents 함수를 실행하고 반환 값을 계산합니다.
+ * 애플리케이션 events 이벤트를 DOM 요소와 핸들러에 연결합니다.
  *
- * @param {any} actions `actions` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {Array} actions 애플리케이션 events을 계산하거나 검증할 때 필요한 actions 입력입니다.
  */
 export function bindAppEvents(actions) {
   actions.bindEditorEvents();

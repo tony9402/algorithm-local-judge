@@ -1,3 +1,7 @@
+/**
+ * 리소스 화면 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { normalizeErrorDetail } from "./api.js";
 import { $, escapeHtml, optional } from "./dom.js";
 import {
@@ -20,83 +24,22 @@ import {
 import { rememberView, selectionKey } from "./view-persistence.js";
 
 const resourceCallbacks = {
-  /**
-   * openFile 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openFile: async () => {},
-  /**
-   * openSolutionStressModal 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openSolutionStressModal: () => {},
-  /**
-   * openStressMismatchModal 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openStressMismatchModal: async () => {},
-  /**
-   * openSolutionCasesModal 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openSolutionCasesModal: async () => {},
-  /**
-   * openSolutionEditModal 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openSolutionEditModal: async () => {},
-  /**
-   * validationStatusForFile 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   validationStatusForFile: () => null,
-  /**
-   * verifySingleSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   verifySingleSolution: async () => {},
-  /**
-   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} action `action` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   withErrors: async (action) => action(),
 };
-
-/**
- * configureResourcesView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureResourcesView(callbacks = {}) {
   Object.assign(resourceCallbacks, callbacks);
 }
 
-/**
- * escapeAttribute 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} value 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function escapeAttribute(value) {
   return escapeHtml(value).replaceAll("'", "&#39;");
 }
-
-/**
- * filesForTab 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} tabId `tabId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function filesForTab(tabId = state.selectedTab) {
   if (!state.detail) return [];
   if (tabId === "solutions") {
@@ -107,20 +50,7 @@ export function filesForTab(tabId = state.selectedTab) {
     .map((path) => state.files.find((file) => file.path === path) || { path, size: 0 })
     .filter(Boolean);
 }
-
-/**
- * solutionParts 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function solutionParts(path) {
-  /**
-   * filename 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} path 경로 문자열입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const filename = (path || "").split("/").pop() || "";
   const match = filename.match(/^(.*)\.(ac|wa|tle|mle)(\.[^.]+)$/);
   const extension = match ? match[3] : filename.match(/\.[^.]+$/)?.[0] || ".cpp";
@@ -130,13 +60,6 @@ export function solutionParts(path) {
     language: LANGUAGE_BY_EXTENSION[extension.toLowerCase()] || "cpp",
   };
 }
-
-/**
- * roleForFile 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function roleForFile(path) {
   if (FILE_ROLES[path]) return FILE_ROLES[path];
   if (path?.startsWith("solutions/")) {
@@ -148,12 +71,6 @@ export function roleForFile(path) {
   return "작업 파일";
 }
 
-/**
- * tabResourceGroup 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function tabResourceGroup(path) {
   if (path === "problem.json") return "Metadata";
   if (path?.startsWith("generator/")) return "Generator";
@@ -162,34 +79,14 @@ function tabResourceGroup(path) {
   if (path?.startsWith("solutions/")) return "Solutions";
   return "Files";
 }
-
-/**
- * solutionExpectedStatusFromPath 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function solutionExpectedStatusFromPath(path) {
   const parts = solutionParts(path);
   return EXPECTED_STATUS_BY_TOKEN[parts.expected] || "unknown";
 }
-
-/**
- * isReferenceSolutionPath 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function isReferenceSolutionPath(path) {
   return Boolean(path && path === state.detail?.metadata?.tools?.solution);
 }
 
-/**
- * solutionRowFacts 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} file 파일 경로 또는 파일 객체입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function solutionRowFacts(file) {
   const check = solutionCheckForPath(file.path);
   const metrics = solutionCheckMetrics(check);
@@ -208,13 +105,11 @@ function solutionRowFacts(file) {
     message: normalizeErrorDetail(check?.message) || "",
   };
 }
-
 /**
- * renderSolutionResourceItem 함수를 실행하고 반환 값을 계산합니다.
+ * 솔루션 리소스 item 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} list `list` 값입니다.
- * @param {any} file 파일 경로 또는 파일 객체입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} list 솔루션 리소스 item을 계산하거나 검증할 때 필요한 목록 입력입니다.
+ * @param {any} file 업로드 요청에서 받은 파일 스트림 객체입니다.
  */
 function renderSolutionResourceItem(list, file) {
   const facts = solutionRowFacts(file);
@@ -293,12 +188,6 @@ function renderSolutionResourceItem(list, file) {
   });
   list.appendChild(item);
 }
-
-/**
- * renderTabFiles 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function renderTabFiles() {
   const list = $("tabFiles");
   const files = filesForTab();
@@ -386,11 +275,8 @@ export function renderTabFiles() {
     list.appendChild(item);
   }
 }
-
 /**
- * renderSolutionValidationSummary 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 솔루션 검증 summary 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 export function renderSolutionValidationSummary() {
   const panel = optional("solutionValidationSummary");
@@ -439,13 +325,6 @@ export function renderSolutionValidationSummary() {
     });
   }
 }
-
-/**
- * renderStressMismatchCard 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} item `item` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function renderStressMismatchCard(item) {
   const caseId = item.caseId || "";
   const solutionKey = item.solutionKey || "";
@@ -470,13 +349,6 @@ function renderStressMismatchCard(item) {
     </article>
   `;
 }
-
-/**
- * selectSolutionPath 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function selectSolutionPath(path) {
   if (!path) return;
   state.selectedFile = path;

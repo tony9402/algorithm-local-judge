@@ -1,3 +1,7 @@
+/**
+ * 문제팩 작업 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { api, normalizeErrorDetail } from "../api.js";
 import { updateBuildPanel } from "../build-view.js";
 import {
@@ -10,15 +14,6 @@ import { persistProblemLastResult } from "../results.js";
 import { PACK_JOB_KEY, PACK_OUTPUT_DIR, state } from "../state.js";
 import { readStorage, removeStorage, writeStorage } from "../storage.js";
 import { packJobSummary, updateGlobalActionState } from "./build-status.js";
-
-/**
- * persistPackJob 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} job `job` 값입니다.
- * @param {any} problemId `problemId` 값입니다.
- * @param {any} details `details` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function persistPackJob(job, problemId, details = {}) {
   const previous = state.activePackJob || {};
   state.activePackJob = {
@@ -39,11 +34,8 @@ export function persistPackJob(job, problemId, details = {}) {
   updateGlobalActionState();
   updateBuildPanel();
 }
-
 /**
- * clearPackJob 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 문제팩 작업 캐시, 선택 상태, 또는 화면 표시를 초기화합니다.
  */
 export function clearPackJob() {
   state.activePackJob = null;
@@ -55,14 +47,6 @@ export function clearPackJob() {
   updateGlobalActionState();
   updateBuildPanel();
 }
-
-/**
- * markPackJobStale 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} job `job` 값입니다.
- * @param {any} problemId `problemId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function markPackJobStale(job, problemId) {
   state.stalePackJob = {
     ...job,
@@ -80,12 +64,6 @@ function markPackJobStale(job, problemId) {
   updateGlobalActionState();
   updateBuildPanel();
 }
-
-/**
- * dismissStalePackJob 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function dismissStalePackJob() {
   const job = state.stalePackJob;
   state.stalePackJob = null;
@@ -101,29 +79,12 @@ export async function dismissStalePackJob() {
     // The job may already be gone after a server restart or retention cleanup.
   }
 }
-
-/**
- * schedulePackJobPoll 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemId `problemId` 값입니다.
- * @param {any} jobId `jobId` 값입니다.
- * @param {any} delay `delay` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function schedulePackJobPoll(problemId, jobId, delay = 1500) {
   if (state.packPollTimer) window.clearTimeout(state.packPollTimer);
   state.packPollTimer = window.setTimeout(() => {
     void pollPackJob(problemId, jobId);
   }, delay);
 }
-
-/**
- * pollPackJob 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemId `problemId` 값입니다.
- * @param {any} jobId `jobId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 async function pollPackJob(problemId, jobId) {
   try {
     const job = await api(
@@ -196,12 +157,6 @@ async function pollPackJob(problemId, jobId) {
     showAlert(error.message, "error", { title: "팩 빌드 상태 확인 실패", timeout: 9000 });
   }
 }
-
-/**
- * syncPackJobFromStorage 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function syncPackJobFromStorage() {
   const job = readStorage(PACK_JOB_KEY);
   if (!job?.jobId || !job?.problemId) {
@@ -227,12 +182,6 @@ export function syncPackJobFromStorage() {
   updateGlobalActionState();
   if (!alreadyPolling) schedulePackJobPoll(job.problemId, job.jobId, 250);
 }
-
-/**
- * cancelActivePackJob 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function cancelActivePackJob() {
   const job = state.activePackJob;
   if (!job?.jobId || !job?.problemId) return;

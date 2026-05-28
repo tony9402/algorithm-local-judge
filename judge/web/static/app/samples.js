@@ -1,11 +1,13 @@
+/**
+ * 샘플 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
-
 /**
- * clearSampleCache 함수를 실행하고 반환 값을 계산합니다.
+ * 샘플 캐시 캐시, 선택 상태, 또는 화면 표시를 초기화합니다.
  *
- * @param {any} problemId `problemId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} problemId 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
  */
 function clearSampleCache(problemId = null) {
   if (problemId) {
@@ -14,12 +16,10 @@ function clearSampleCache(problemId = null) {
   }
   state.sampleCache = {};
 }
-
 /**
- * renderSamples 함수를 실행하고 반환 값을 계산합니다.
+ * 샘플 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} data 처리할 데이터입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} data 파일, API 응답, UI 렌더링에 사용할 구조화된 데이터입니다.
  */
 function renderSamples(data) {
   const container = app.optional("sampleCases");
@@ -73,12 +73,10 @@ function renderSamples(data) {
     container.appendChild(item);
   }
 }
-
 /**
- * renderSampleLoading 함수를 실행하고 반환 값을 계산합니다.
+ * 샘플 loading 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} problemId `problemId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} problemId 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
  */
 function renderSampleLoading(problemId) {
   const container = app.optional("sampleCases");
@@ -107,12 +105,10 @@ function renderSampleLoading(problemId) {
   loading.appendChild(text);
   container.appendChild(loading);
 }
-
 /**
- * loadSamples 비동기 함수를 실행하고 반환 값을 계산합니다.
+ * 샘플을 파일이나 캐시에서 읽고 필요한 기본값을 적용합니다.
  *
- * @param {any} options `options` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} options 호출자가 동작 일부를 조정하기 위해 넘기는 선택 옵션 묶음입니다.
  */
 async function loadSamples({ force = false } = {}) {
   if (!state.selectedProblem) {

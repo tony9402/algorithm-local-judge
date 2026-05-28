@@ -1,10 +1,11 @@
+/**
+ * events 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
-
 /**
- * bindEvents 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * events 이벤트를 DOM 요소와 핸들러에 연결합니다.
  */
 function bindEvents() {
   app.applyTheme(app.preferredTheme());

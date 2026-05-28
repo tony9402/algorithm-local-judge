@@ -1,10 +1,9 @@
+/**
+ * 편집기 highlight 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 
-/**
- * updateEditorLineNumbers 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function updateEditorLineNumbers() {
   const input = app.optional("sourceTextInput");
   const gutter = app.optional("sourceLineNumbers");
@@ -17,23 +16,10 @@ function updateEditorLineNumbers() {
   gutter.textContent = numbers.join("\n");
 }
 
-/**
- * escapeHtml 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} value 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function escapeHtml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
-/**
- * highlightToken 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} token `token` 값입니다.
- * @param {any} language `language` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function highlightToken(token, language) {
   const isComment = token.startsWith("//") || token.startsWith("/*") || token.startsWith("#");
   if (isComment) return `<span class="hl-comment">${token}</span>`;
@@ -44,13 +30,6 @@ function highlightToken(token, language) {
   return `<span class="hl-keyword">${token}</span>`;
 }
 
-/**
- * highlightCode 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} source `source` 값입니다.
- * @param {any} language `language` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function highlightCode(source, language) {
   const escaped = escapeHtml(source || " ");
   const commonNumber = "\\b\\d+(?:\\.\\d+)?\\b";
@@ -60,12 +39,6 @@ function highlightCode(source, language) {
     "abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|false|final|finally|float|for|if|implements|import|instanceof|int|interface|long|new|null|package|private|protected|public|return|short|static|super|switch|this|throw|throws|true|try|void|while|String|System";
   const pyKeywords =
     "False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|print|range|len|int|str|list|dict|set|tuple";
-  /**
-   * languageKey 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} language `language` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const languageKey = (language || "").toLowerCase();
   const keywordPattern = languageKey.includes("python")
     ? pyKeywords
@@ -84,11 +57,6 @@ function highlightCode(source, language) {
   return escaped.replace(tokenPattern, (token) => highlightToken(token, languageKey));
 }
 
-/**
- * updateCodeHighlight 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function updateCodeHighlight() {
   const input = app.optional("sourceTextInput");
   const highlight = app.optional("sourceHighlight");
@@ -96,21 +64,11 @@ function updateCodeHighlight() {
   highlight.innerHTML = highlightCode(input.value, app.$("editorLanguageLabel").textContent);
 }
 
-/**
- * updateEditorView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function updateEditorView() {
   updateEditorLineNumbers();
   updateCodeHighlight();
 }
 
-/**
- * syncEditorScroll 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function syncEditorScroll() {
   const input = app.optional("sourceTextInput");
   const gutter = app.optional("sourceLineNumbers");
@@ -123,12 +81,6 @@ function syncEditorScroll() {
   }
 }
 
-/**
- * insertEditorText 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} text `text` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function insertEditorText(text) {
   const input = app.$("sourceTextInput");
   const start = input.selectionStart;

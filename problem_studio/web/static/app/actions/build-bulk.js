@@ -1,3 +1,7 @@
+/**
+ * build 일괄 작업 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { api, normalizeErrorDetail } from "../api.js";
 import { updateBuildPanel } from "../build-view.js";
 import { $, escapeHtml, optional } from "../dom.js";
@@ -28,46 +32,20 @@ import {
 } from "./build-status.js";
 
 const bulkCallbacks = {
-  /**
-   * openModal 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openModal: () => {},
-  /**
-   * restoreProblemLastResult 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   restoreProblemLastResult: () => {},
 };
 
 let bulkCancelRequestedJobId = null;
 
-/**
- * sleep 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} ms `ms` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
-
-/**
- * configureBulkBuildActions 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureBulkBuildActions(callbacks = {}) {
   Object.assign(bulkCallbacks, callbacks);
 }
-
 /**
- * renderBulkProblemList 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 일괄 작업 문제 목록 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 function renderBulkProblemList() {
   const list = $("bulkProblemList");
@@ -95,11 +73,8 @@ function renderBulkProblemList() {
   }
   updateBulkStartButton();
 }
-
 /**
- * openWorkspaceBuildModal 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 작업 공간 build 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  */
 export function openWorkspaceBuildModal() {
   if (!bulkProblemIds().length) throw new Error("빌드할 문제가 없습니다.");
@@ -110,13 +85,6 @@ export function openWorkspaceBuildModal() {
   bulkCallbacks.openModal("workspaceBuildModal");
 }
 
-/**
- * updateBulkProgressFromLog 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} message 메시지입니다.
- * @param {any} problemIds `problemIds` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function updateBulkProgressFromLog(message, problemIds) {
   const match = String(message || "").match(/^\[(\d+)\/(\d+)] Problem ([^:]+):\s*(.*)$/);
   if (!match) return;
@@ -133,13 +101,6 @@ function updateBulkProgressFromLog(message, problemIds) {
   setProgressInsight(`${problemId} 문제`, detail);
 }
 
-/**
- * persistBulkProblemResult 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} item `item` 값입니다.
- * @param {any} checkedAt `checkedAt` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function persistBulkProblemResult(item, checkedAt) {
   const problemId = item?.problemId;
   if (!problemId) return;
@@ -162,13 +123,6 @@ function persistBulkProblemResult(item, checkedAt) {
   }
   persistProblemLastResult(patch, problemId);
 }
-
-/**
- * applyBulkBuildResult 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function applyBulkBuildResult(result) {
   const checkedAt = Date.now();
   for (const item of result.problems || []) {
@@ -180,23 +134,11 @@ function applyBulkBuildResult(result) {
   updateBuildPanel();
 }
 
-/**
- * bulkBuildSummary 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function bulkBuildSummary(result) {
   const failed = result.failedCount || 0;
   const total = result.problemCount || 0;
   const packs = result.packCount || 0;
   if (!failed) return `${total}개 문제 전체 테스트 통과 · ${packs}개 팩 생성`;
-  /**
-   * failedProblems 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} result `result` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const failedProblems = (result.problems || [])
     .filter((item) => !item.passed)
     .slice(0, 4)
@@ -206,15 +148,6 @@ function bulkBuildSummary(result) {
   const packSummary = packs ? `${packs}개 팩 생성` : "팩 생성 안 함";
   return `${total}개 중 ${failed}개 문제 실패 · ${packSummary}\n${failedProblems}${remaining}`;
 }
-
-/**
- * persistBulkJob 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} job `job` 값입니다.
- * @param {any} problemIds `problemIds` 값입니다.
- * @param {any} details `details` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function persistBulkJob(job, problemIds, details = {}) {
   state.activeBulkJob = {
     jobId: job.jobId,
@@ -230,11 +163,8 @@ function persistBulkJob(job, problemIds, details = {}) {
   updateGlobalActionState();
   updateBuildPanel();
 }
-
 /**
- * clearBulkJob 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 일괄 작업 작업 캐시, 선택 상태, 또는 화면 표시를 초기화합니다.
  */
 function clearBulkJob() {
   state.activeBulkJob = null;
@@ -242,15 +172,6 @@ function clearBulkJob() {
   updateGlobalActionState();
   updateBuildPanel();
 }
-
-/**
- * waitForBulkJob 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} job `job` 값입니다.
- * @param {any} problemIds `problemIds` 값입니다.
- * @param {any} details `details` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 async function waitForBulkJob(job, problemIds, details) {
   persistBulkJob(job, problemIds, details);
   try {
@@ -298,13 +219,6 @@ async function waitForBulkJob(job, problemIds, details) {
     throw error;
   }
 }
-
-/**
- * buildAllPacks 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemIds `problemIds` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 async function buildAllPacks(problemIds = bulkProblemIds()) {
   if (!problemIds.length) throw new Error("빌드할 문제가 없습니다.");
   const packId = optional("bulkPackIdInput")?.value.trim()
@@ -348,12 +262,6 @@ async function buildAllPacks(problemIds = bulkProblemIds()) {
       clear: false,
       manualProgress: true,
       progressTitle: "전체 문제 테스트/팩 빌드",
-      /**
-       * onLog 함수를 실행하고 반환 값을 계산합니다.
-       *
-       * @param {any} message 메시지입니다.
-       * @returns {any} 처리 결과를 반환합니다.
-       */
       onLog: (message) => updateBulkProgressFromLog(message, problemIds),
     }
   );
@@ -374,12 +282,6 @@ async function buildAllPacks(problemIds = bulkProblemIds()) {
   });
   return result;
 }
-
-/**
- * cancelActiveBulkJob 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function cancelActiveBulkJob() {
   const job = state.activeBulkJob;
   if (!job?.jobId) return;
@@ -395,13 +297,6 @@ export async function cancelActiveBulkJob() {
   setProgressInsight("전체 문제 빌드 취소 중", "서버가 취소 요청을 접수했습니다.");
   updateGlobalActionState();
 }
-
-/**
- * buildAllPacksOnce 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemIds `problemIds` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function buildAllPacksOnce(problemIds = bulkProblemIds()) {
   if (state.activePackJob) throw new Error("팩 빌드 진행 중에는 전체 문제 빌드를 시작할 수 없습니다.");
   return withProblemTaskLock(async () => {

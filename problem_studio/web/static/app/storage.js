@@ -1,8 +1,5 @@
 /**
- * readStorage 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} key `key` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * storage 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
  */
 export function readStorage(key) {
   try {
@@ -12,13 +9,11 @@ export function readStorage(key) {
     return null;
   }
 }
-
 /**
- * writeStorage 함수를 실행하고 반환 값을 계산합니다.
+ * storage 데이터를 지정된 파일이나 응답 대상에 기록합니다.
  *
- * @param {any} key `key` 값입니다.
- * @param {any} value 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} key 상태 맵, 로컬 스토리지, 객체에서 값을 찾는 키입니다.
+ * @param {any} value 검증하거나 상태에 반영할 입력 값입니다.
  */
 export function writeStorage(key, value) {
   try {
@@ -27,12 +22,10 @@ export function writeStorage(key, value) {
     // Local storage may be unavailable in restricted browser contexts.
   }
 }
-
 /**
- * removeStorage 함수를 실행하고 반환 값을 계산합니다.
+ * storage 항목을 현재 상태와 저장소에서 제거합니다.
  *
- * @param {any} key `key` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} key 상태 맵, 로컬 스토리지, 객체에서 값을 찾는 키입니다.
  */
 export function removeStorage(key) {
   try {

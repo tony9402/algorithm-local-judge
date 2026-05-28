@@ -1,12 +1,10 @@
+/**
+ * 케이스 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
 
-/**
- * formatCaseDiagnostic 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} diagnostic `diagnostic` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function formatCaseDiagnostic(diagnostic) {
   const line = diagnostic.line ? `:${diagnostic.line}` : "";
   const profile = diagnostic.profile ? `profile ${diagnostic.profile}, ` : "";
@@ -15,12 +13,6 @@ function formatCaseDiagnostic(diagnostic) {
   return `${diagnostic.path}${line}\n  ${profile}${location}\n  ${diagnostic.message}${hint}`;
 }
 
-/**
- * formatCasesCompile 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function formatCasesCompile(result) {
   if (!result.valid) {
     return `cases.yml: invalid\n\n${result.diagnostics.map(formatCaseDiagnostic).join("\n\n")}`;
@@ -31,13 +23,6 @@ function formatCasesCompile(result) {
   }
   return lines.join("\n");
 }
-
-/**
- * compileCasesData 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} options `options` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 async function compileCasesData({ showSuccess = true } = {}) {
   app.setStatusCard("cases", "Checking", `${app.judgeProfile()} cases.yml`);
   const result = await app.runQueuedJob("/api/cases/jobs", {
@@ -74,21 +59,10 @@ async function compileCasesData({ showSuccess = true } = {}) {
   return result;
 }
 
-/**
- * compiledCaseCount 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function compiledCaseCount(result) {
   return result.profiles.reduce((total, profile) => total + (profile.caseCount || 0), 0);
 }
 
-/**
- * compileCasesOnly 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 async function compileCasesOnly() {
   await compileCasesData({ showSuccess: true });
 }

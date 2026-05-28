@@ -1,10 +1,11 @@
+/**
+ * refresh 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
-
 /**
- * refresh 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 데이터 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  */
 async function refresh() {
   app.setText("subtitle", "Connecting to local server");
@@ -22,11 +23,8 @@ async function refresh() {
   await samplePromise;
   await secondaryPromise;
 }
-
 /**
- * refreshSecondaryData 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * secondary 데이터 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  */
 async function refreshSecondaryData() {
   try {

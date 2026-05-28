@@ -1,32 +1,16 @@
+/**
+ * 화면 persistence 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { PERSISTED_VIEW_KEY, TAB_CONFIGS, activeRepositoryKey, state } from "./state.js";
 import { readStorage, writeStorage } from "./storage.js";
-
-/**
- * selectionKey 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemId `problemId` 값입니다.
- * @param {any} tabId `tabId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function selectionKey(problemId = state.selectedProblem, tabId = state.selectedTab) {
   return `${activeRepositoryKey()}:${problemId || "-"}:${tabId || "-"}`;
 }
-
-/**
- * persistedView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function persistedView() {
   const view = readStorage(PERSISTED_VIEW_KEY);
   return view && typeof view === "object" ? view : {};
 }
-
-/**
- * rememberView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function rememberView() {
   const previous = persistedView();
   writeStorage(PERSISTED_VIEW_KEY, {
@@ -39,21 +23,8 @@ export function rememberView() {
     problemFolderCollapsed: state.problemFolderCollapsed,
   });
 }
-
-/**
- * restoreViewPreference 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problems `problems` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function restoreViewPreference(problems) {
   const view = persistedView();
-  /**
-   * sameRepository 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} view `view` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const sameRepository = (view.repositoryName || null) === (state.activeRepository || null);
   if (view.problemFolderCollapsed && typeof view.problemFolderCollapsed === "object") {
     state.problemFolderCollapsed = Object.fromEntries(
@@ -71,12 +42,6 @@ export function restoreViewPreference(problems) {
   const preferredTab = sameRepository && TAB_CONFIGS[view.tabId] ? view.tabId : "info";
   return { problemId: preferredProblem, tabId: preferredTab };
 }
-
-/**
- * rememberSelectedFile 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function rememberSelectedFile() {
   if (!state.selectedProblem || !state.selectedTab || !state.selectedFile) return;
   state.tabSelections[selectionKey()] = state.selectedFile;

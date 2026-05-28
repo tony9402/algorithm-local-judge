@@ -1,3 +1,7 @@
+/**
+ * 솔루션 dirty 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { hideLastRunPanel } from "./progress.js";
 import {
   clearProblemLastResult,
@@ -14,53 +18,19 @@ import {
 } from "./solution-status.js";
 
 const dirtyCallbacks = {
-  /**
-   * markFullTestDirty 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   markFullTestDirty: () => {},
-  /**
-   * renderSolutionValidationSummary 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderSolutionValidationSummary: () => {},
-  /**
-   * renderTabFiles 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderTabFiles: () => {},
-  /**
-   * solutionFilePaths 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   solutionFilePaths: () => [],
-  /**
-   * updateBuildPanel 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   updateBuildPanel: () => {},
 };
-
-/**
- * configureSolutionDirty 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureSolutionDirty(callbacks = {}) {
   Object.assign(dirtyCallbacks, callbacks);
 }
-
 /**
- * setDirtySolutionPaths 함수를 실행하고 반환 값을 계산합니다.
+ * dirty 솔루션 경로 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} paths 경로 목록입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {Array} paths 같은 작업을 적용할 파일 또는 디렉터리 경로 목록입니다.
  */
 export function setDirtySolutionPaths(paths) {
   state.dirtySolutionPaths = Array.from(
@@ -68,12 +38,10 @@ export function setDirtySolutionPaths(paths) {
   );
   persistProblemLastResult({ dirtySolutionPaths: state.dirtySolutionPaths });
 }
-
 /**
- * removeSolutionChecks 함수를 실행하고 반환 값을 계산합니다.
+ * 솔루션 검사 항목을 현재 상태와 저장소에서 제거합니다.
  *
- * @param {any} paths 경로 목록입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {Array} paths 같은 작업을 적용할 파일 또는 디렉터리 경로 목록입니다.
  */
 export function removeSolutionChecks(paths) {
   if (!state.lastSolutionVerification?.checks?.length) return;
@@ -87,15 +55,6 @@ export function removeSolutionChecks(paths) {
   };
   persistProblemLastResult({ solutionVerification: state.lastSolutionVerification });
 }
-
-/**
- * markSolutionDirty 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @param {any} reason `reason` 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function markSolutionDirty(path, reason = "솔루션 변경으로 재검증이 필요합니다.", options = {}) {
   const dirty = dirtySolutionSet();
   if (options.oldPath) {
@@ -108,13 +67,6 @@ export function markSolutionDirty(path, reason = "솔루션 변경으로 재검�
   dirtyCallbacks.renderSolutionValidationSummary();
   dirtyCallbacks.renderTabFiles();
 }
-
-/**
- * markAllSolutionsDirty 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} reason `reason` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function markAllSolutionsDirty(reason = "데이터 또는 기준 도구 변경으로 모든 솔루션 재검증이 필요합니다.") {
   setDirtySolutionPaths(dirtyCallbacks.solutionFilePaths());
   dirtyCallbacks.markFullTestDirty(reason);
@@ -122,12 +74,6 @@ export function markAllSolutionsDirty(reason = "데이터 또는 기준 도구 �
   dirtyCallbacks.renderTabFiles();
 }
 
-/**
- * fullTestStatusForFile 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function fullTestStatusForFile(path) {
   const result = currentProblemResult();
   if (!result?.fullTest && !result?.dirtyAfterFullTest) return null;
@@ -152,21 +98,11 @@ function fullTestStatusForFile(path) {
     title: `${path} · ${role} · 최근 전체 테스트 실패`,
   };
 }
-
-/**
- * validationStatusForFile 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function validationStatusForFile(path) {
   return solutionValidationStatusForFile(path) || fullTestStatusForFile(path);
 }
-
 /**
- * clearSolutionVerification 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 솔루션 verification 캐시, 선택 상태, 또는 화면 표시를 초기화합니다.
  */
 export function clearSolutionVerification() {
   state.lastSolutionVerification = null;
@@ -180,12 +116,6 @@ export function clearSolutionVerification() {
   dirtyCallbacks.renderSolutionValidationSummary();
   dirtyCallbacks.renderTabFiles();
 }
-
-/**
- * discardPersistedSolutionResult 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function discardPersistedSolutionResult() {
   state.lastSolutionVerification = null;
   state.lastFullTest = null;

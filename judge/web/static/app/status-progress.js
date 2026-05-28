@@ -1,13 +1,15 @@
+/**
+ * 상태 진행 상태 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
-
 /**
- * setGenerationProgress 함수를 실행하고 반환 값을 계산합니다.
+ * 생성 진행 상태 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} current `current` 값입니다.
- * @param {any} total `total` 값입니다.
- * @param {any} label `label` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} current 생성 진행 상태을 계산하거나 검증할 때 필요한 현재 입력입니다.
+ * @param {any} total 생성 진행 상태을 계산하거나 검증할 때 필요한 total 입력입니다.
+ * @param {string} label 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
  */
 function setGenerationProgress(current, total, label = "Data generation") {
   const progress = app.optional("generationProgress");
@@ -25,22 +27,14 @@ function setGenerationProgress(current, total, label = "Data generation") {
   const labelElement = progress.querySelector(".progress-heading span");
   if (labelElement) labelElement.textContent = label;
 }
-
-/**
- * hideGenerationProgress 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function hideGenerationProgress() {
   app.optional("generationProgress")?.classList.add("hidden");
   state.generationProgress = { current: 0, total: 0 };
 }
-
 /**
- * updateProgressFromLog 함수를 실행하고 반환 값을 계산합니다.
+ * 진행 상태 log 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  *
- * @param {any} message 메시지입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} message 사용자에게 표시하거나 커밋/진행 상태에 기록할 메시지입니다.
  */
 function updateProgressFromLog(message) {
   const generatedCase = message.match(/Validating generated case .+ \((\d+)\/(\d+)\)\./);

@@ -1,98 +1,30 @@
+/**
+ * tabs 화면 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { $, optional, setText } from "./dom.js";
 import { TAB_CONFIGS, state } from "./state.js";
 import { VALIDATION_QUEUE_ACTIONS } from "./actions/validation-queue.js";
 
 const tabCallbacks = {
-  /**
-   * openSolutionUpload 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openSolutionUpload: () => {},
-  /**
-   * populateMetadataForm 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   populateMetadataForm: () => {},
-  /**
-   * renderLastRunPanel 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderLastRunPanel: () => {},
-  /**
-   * renderSolutionMetaForm 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderSolutionMetaForm: () => {},
-  /**
-   * renderSolutionValidationSummary 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderSolutionValidationSummary: () => {},
-  /**
-   * renderTabFiles 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderTabFiles: () => {},
-  /**
-   * runTabAction 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   runTabAction: async () => {},
-  /**
-   * showAlert 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   showAlert: () => {},
-  /**
-   * updateBuildPanel 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   updateBuildPanel: () => {},
-  /**
-   * updateGlobalActionState 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   updateGlobalActionState: () => {},
-  /**
-   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} action `action` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   withErrors: async (action) => action(),
-  /**
-   * withInlineErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} action `action` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   withInlineErrors: async (action) => action(),
 };
-
-/**
- * configureTabsView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureTabsView(callbacks = {}) {
   Object.assign(tabCallbacks, callbacks);
 }
-
 /**
- * renderTabButtons 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * tab buttons 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 function renderTabButtons() {
   for (const button of document.querySelectorAll(".tab-button")) {
@@ -102,11 +34,8 @@ function renderTabButtons() {
     if (active) button.scrollIntoView({ block: "nearest", inline: "center" });
   }
 }
-
 /**
- * renderTabActions 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * tab actions 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 function renderTabActions() {
   const actions = $("tabActions");
@@ -144,11 +73,8 @@ function renderTabActions() {
   }
   tabCallbacks.updateGlobalActionState();
 }
-
 /**
- * updateEditorPanelMode 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 편집기 panel mode 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateEditorPanelMode() {
   const infoMode = state.selectedTab === "info";
@@ -162,20 +88,11 @@ export function updateEditorPanelMode() {
   editorPanel?.classList.toggle("solutions-hidden", solutionsMode);
   optional("buildDashboard")?.classList.toggle("hidden", !buildMode);
 }
-
-/**
- * currentPrimaryAction 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function currentPrimaryAction() {
   return TAB_CONFIGS[state.selectedTab]?.actions?.find((action) => action.primary) || null;
 }
-
 /**
- * renderTaskPanel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * task panel 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 export function renderTaskPanel() {
   const config = TAB_CONFIGS[state.selectedTab];

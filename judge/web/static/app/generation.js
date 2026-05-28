@@ -1,9 +1,10 @@
-const app = window.AljApp;
-
 /**
- * generateData 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 생성 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
+const app = window.AljApp;
+/**
+ * generate 데이터 장시간 작업을 큐에 등록하고 UI가 추적할 작업 상태를 구성합니다.
  */
 async function generateData() {
   app.clearDebugLog();

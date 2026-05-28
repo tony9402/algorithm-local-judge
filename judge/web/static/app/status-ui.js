@@ -1,11 +1,13 @@
+/**
+ * 상태 ui 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
-
 /**
- * setBusy 함수를 실행하고 반환 값을 계산합니다.
+ * busy 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} isBusy `isBusy` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {boolean} isBusy busy을 계산하거나 검증할 때 필요한 is busy 입력입니다.
  */
 function setBusy(isBusy) {
   state.isBusy = isBusy;
@@ -18,39 +20,17 @@ function setBusy(isBusy) {
   app.updatePackActionState?.();
 }
 
-/**
- * setBadge 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} label `label` 값입니다.
- * @param {any} className `className` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function setBadge(label, className = "neutral") {
   app.setText("statusBadge", label);
   const badge = app.optional("statusBadge");
   if (badge) badge.className = `badge ${className}`;
 }
 
-/**
- * setStatusCard 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} key `key` 값입니다.
- * @param {any} value 값입니다.
- * @param {any} meta `meta` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function setStatusCard(key, value, meta = "-") {
   app.setText(`${key}StatusValue`, value);
   app.setText(`${key}StatusMeta`, meta);
 }
 
-/**
- * setSummary 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} message 메시지입니다.
- * @param {any} className `className` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function setSummary(message, className = "result-summary") {
   const summary = app.optional("resultSummary");
   if (!summary) {

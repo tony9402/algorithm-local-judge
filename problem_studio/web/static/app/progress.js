@@ -1,13 +1,11 @@
+/**
+ * 진행 상태 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { $, escapeHtml, optional, setText } from "./dom.js";
 import { persistProblemLastResult } from "./results.js";
 import { state } from "./state.js";
 
-/**
- * statusLabel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} status `status` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function statusLabel(status) {
   if (status === "success") return "완료";
   if (status === "running") return "진행 중";
@@ -15,42 +13,20 @@ function statusLabel(status) {
   if (status === "cached") return "캐시 사용";
   return "대기";
 }
-
-/**
- * progressDoneCount 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function progressDoneCount() {
   return state.progress.steps.filter((step) => ["success", "cached"].includes(step.status)).length;
 }
-
-/**
- * explicitProgressPercent 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function explicitProgressPercent() {
   const percent = Number(state.progress.percent);
   if (!Number.isFinite(percent)) return null;
   return Math.max(0, Math.min(100, Math.round(percent)));
 }
 
-/**
- * defaultProgressPercent 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} done `done` 값입니다.
- * @param {any} total `total` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function defaultProgressPercent(done, total) {
   return Math.round((done / total) * 100);
 }
-
 /**
- * renderProgressPanel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 진행 상태 panel 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 export function renderProgressPanel() {
   const panel = optional("progressPanel");
@@ -103,14 +79,6 @@ export function renderProgressPanel() {
     )
     .join("");
 }
-
-/**
- * beginProgress 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} title `title` 값입니다.
- * @param {any} steps `steps` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function beginProgress(title, steps = []) {
   state.progress = {
     active: true,
@@ -124,37 +92,27 @@ export function beginProgress(title, steps = []) {
   setText("loadingMessage", "단계별 진행 상황을 확인하고 있습니다.");
   renderProgressPanel();
 }
-
-/**
- * completeProgress 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function completeProgress() {
   state.progress.active = false;
   renderProgressPanel();
 }
-
 /**
- * setProgressInsight 함수를 실행하고 반환 값을 계산합니다.
+ * 진행 상태 insight 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} title `title` 값입니다.
- * @param {any} body `body` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} title 진행 상태 insight을 계산하거나 검증할 때 필요한 title 입력입니다.
+ * @param {any} body API 요청 본문을 검증한 스키마 객체입니다.
  */
 export function setProgressInsight(title, body) {
   state.progress.insightTitle = title || "현재 작업";
   state.progress.insightBody = body || "단계가 완료되면 결과 요약이 갱신됩니다.";
   renderProgressPanel();
 }
-
 /**
- * setProgressStep 함수를 실행하고 반환 값을 계산합니다.
+ * 진행 상태 step 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} index `index` 값입니다.
- * @param {any} status `status` 값입니다.
- * @param {any} detail `detail` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} index 진행 상태 step을 계산하거나 검증할 때 필요한 index 입력입니다.
+ * @param {Array} status 진행 상태 step을 계산하거나 검증할 때 필요한 상태 입력입니다.
+ * @param {any} detail 진행 상태 step을 계산하거나 검증할 때 필요한 detail 입력입니다.
  */
 export function setProgressStep(index, status, detail = "") {
   if (!state.progress.steps[index]) return;
@@ -167,12 +125,10 @@ export function setProgressStep(index, status, detail = "") {
   setText("loadingMessage", running ? running.label : `${done}/${state.progress.steps.length} 완료`);
   renderProgressPanel();
 }
-
 /**
- * updateRunningProgressDetail 함수를 실행하고 반환 값을 계산합니다.
+ * running 진행 상태 detail 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  *
- * @param {any} detail `detail` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} detail running 진행 상태 detail을 계산하거나 검증할 때 필요한 detail 입력입니다.
  */
 export function updateRunningProgressDetail(detail) {
   const runningIndex = state.progress.steps.findIndex((step) => step.status === "running");
@@ -180,12 +136,10 @@ export function updateRunningProgressDetail(detail) {
   state.progress.steps[runningIndex].detail = detail;
   renderProgressPanel();
 }
-
 /**
- * updateProgressFromJob 함수를 실행하고 반환 값을 계산합니다.
+ * 진행 상태 작업 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  *
- * @param {any} job `job` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} job 진행 상태 작업을 계산하거나 검증할 때 필요한 작업 입력입니다.
  */
 export function updateProgressFromJob(job) {
   if (!state.progress.active || !job) return;
@@ -222,30 +176,14 @@ export function updateProgressFromJob(job) {
   setText("loadingMessage", `${state.progress.percent}% · ${detail || "진행 중"}`);
   renderProgressPanel();
 }
-
-/**
- * hideLastRunPanel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function hideLastRunPanel() {
   optional("lastRunPanel")?.classList.add("hidden");
 }
-
-/**
- * shouldDisplayLastRunPanel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} tabId `tabId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function shouldDisplayLastRunPanel(tabId = state.selectedTab) {
   return tabId !== "build" && tabId !== "solutions";
 }
-
 /**
- * renderLastRunPanel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * last 실행 panel 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 export function renderLastRunPanel() {
   const panel = optional("lastRunPanel");
@@ -258,16 +196,6 @@ export function renderLastRunPanel() {
   setText("lastRunTitle", state.lastRun.title || "실행 결과");
   setText("lastRunSummary", state.lastRun.summary || "");
 }
-
-/**
- * showLastRun 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} title `title` 값입니다.
- * @param {any} summary `summary` 값입니다.
- * @param {any} type `type` 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function showLastRun(title, summary, type = "success", options = {}) {
   state.lastRun = { title, summary, type, updatedAt: Date.now() };
   if (options.persist !== false) {

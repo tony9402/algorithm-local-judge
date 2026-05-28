@@ -1,50 +1,21 @@
+/**
+ * 저장소 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { api } from "../api.js";
 import { $, optional } from "../dom.js";
 import { showResult } from "../feedback.js";
 import { state } from "../state.js";
 
 const repositoryCallbacks = {
-  /**
-   * closeModals 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   closeModals: () => {},
-  /**
-   * confirmDiscardChanges 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   confirmDiscardChanges: () => true,
-  /**
-   * refresh 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   refresh: async () => {},
-  /**
-   * syncPackJobFromStorage 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   syncPackJobFromStorage: () => {},
 };
-
-/**
- * configureRepositoryActions 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureRepositoryActions(callbacks = {}) {
   Object.assign(repositoryCallbacks, callbacks);
 }
-
-/**
- * resetProblemStateForRepositoryChange 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function resetProblemStateForRepositoryChange() {
   state.selectedProblem = null;
   state.selectedFile = null;
@@ -64,11 +35,8 @@ function resetProblemStateForRepositoryChange() {
   }
   state.activePackJob = null;
 }
-
 /**
- * openRepositoryModal 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 저장소 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  */
 export function openRepositoryModal() {
   $("repositoryUrlInput").value = "";
@@ -78,13 +46,6 @@ export function openRepositoryModal() {
   document.getElementById("repositoryModal")?.classList.remove("hidden");
   window.setTimeout(() => optional("repositoryUrlInput")?.focus(), 0);
 }
-
-/**
- * selectRepository 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} repoName `repoName` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function selectRepository(repoName) {
   const next = repoName || "";
   if (!next || next === (state.activeRepository || "")) return;
@@ -102,12 +63,6 @@ export async function selectRepository(repoName) {
   repositoryCallbacks.syncPackJobFromStorage();
   showResult(`저장소 ${next}을 열었습니다.`, "summary success");
 }
-
-/**
- * cloneRepositoryFromModal 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function cloneRepositoryFromModal() {
   const url = $("repositoryUrlInput").value.trim();
   const branch = $("repositoryBranchInput").value.trim();
@@ -129,12 +84,6 @@ export async function cloneRepositoryFromModal() {
   const name = result.repository?.name || result.workspace?.activeRepository || repoName || url;
   showResult(`저장소 ${name}을 연결했습니다.`, "summary success");
 }
-
-/**
- * registerRepositoryFromModal 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function registerRepositoryFromModal() {
   const repoName = $("repositoryNameInput").value.trim();
   if (!repoName) throw new Error("Local 이름을 입력하세요.");
@@ -150,11 +99,8 @@ export async function registerRepositoryFromModal() {
   const name = result.repository?.name || repoName;
   showResult(`저장소 ${name}을 열었습니다.`, "summary success");
 }
-
 /**
- * refreshRepositories 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 저장소 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  */
 export async function refreshRepositories() {
   await repositoryCallbacks.refresh();

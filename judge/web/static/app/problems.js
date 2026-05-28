@@ -1,11 +1,9 @@
+/**
+ * 문제 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { state } = app;
-
-/**
- * storedProblemId 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function storedProblemId() {
   try {
     return localStorage.getItem(app.SELECTED_PROBLEM_KEY);
@@ -14,11 +12,6 @@ function storedProblemId() {
   }
 }
 
-/**
- * urlProblemId 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function urlProblemId() {
   try {
     return new URL(window.location.href).searchParams.get("problem");
@@ -26,13 +19,6 @@ function urlProblemId() {
     return null;
   }
 }
-
-/**
- * rememberProblemInUrl 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemId `problemId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function rememberProblemInUrl(problemId) {
   try {
     const url = new URL(window.location.href);
@@ -43,13 +29,6 @@ function rememberProblemInUrl(problemId) {
     // Older embedded browsers may restrict URL mutation; localStorage still preserves it.
   }
 }
-
-/**
- * rememberProblemId 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problemId `problemId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function rememberProblemId(problemId) {
   try {
     if (problemId) localStorage.setItem(app.SELECTED_PROBLEM_KEY, problemId);
@@ -60,32 +39,14 @@ function rememberProblemId(problemId) {
   rememberProblemInUrl(problemId);
 }
 
-/**
- * problemFolder 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problem `problem` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function problemFolder(problem) {
   return (problem?.folder || "").trim();
 }
 
-/**
- * problemFolderLabel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} folder `folder` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function problemFolderLabel(folder) {
   return folder || "Uncategorized";
 }
 
-/**
- * problemsByFolder 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problems `problems` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function problemsByFolder(problems) {
   const groups = new Map();
   for (const problem of problems) {
@@ -97,11 +58,8 @@ function problemsByFolder(problems) {
     problemFolderLabel(left).localeCompare(problemFolderLabel(right))
   );
 }
-
 /**
- * renderProblemFolderControls 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 문제 폴더 controls 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 function renderProblemFolderControls() {
   const input = app.optional("problemFolderInput");
@@ -116,14 +74,6 @@ function renderProblemFolderControls() {
     ? "선택한 문제의 folder를 변경합니다."
     : "설치된 .aljpack 문제는 folder를 직접 변경할 수 없습니다.";
 }
-
-/**
- * createProblemItem 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problem `problem` 값입니다.
- * @param {any} select `select` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function createProblemItem(problem, select) {
   const item = document.createElement("button");
   item.className = "list-item";
@@ -151,15 +101,6 @@ function createProblemItem(problem, select) {
   item.addEventListener("dragend", () => item.classList.remove("dragging"));
   return item;
 }
-
-/**
- * createProblemFolderGroup 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} folder `folder` 값입니다.
- * @param {any} problems `problems` 값입니다.
- * @param {any} select `select` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function createProblemFolderGroup(folder, problems, select) {
   const group = document.createElement("section");
   group.className = "problem-folder-group";
@@ -188,12 +129,10 @@ function createProblemFolderGroup(folder, problems, select) {
   });
   return group;
 }
-
 /**
- * renderProblems 함수를 실행하고 반환 값을 계산합니다.
+ * 문제 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} problems `problems` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {Array} problems 문제을 계산하거나 검증할 때 필요한 문제 입력입니다.
  */
 function renderProblems(problems) {
   state.problems = problems;
@@ -232,11 +171,8 @@ function renderProblems(problems) {
   rememberProblemId(state.selectedProblem);
   renderProblemSelection();
 }
-
 /**
- * renderProblemSelection 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 문제 selection 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 function renderProblemSelection() {
   const problemId = state.selectedProblem;
@@ -250,12 +186,10 @@ function renderProblemSelection() {
   renderProblemFolderControls();
   app.updateActionState();
 }
-
 /**
- * renderRunProfiles 함수를 실행하고 반환 값을 계산합니다.
+ * 실행 프로필 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} problem `problem` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} problem 실행 프로필을 계산하거나 검증할 때 필요한 문제 입력입니다.
  */
 function renderRunProfiles(problem) {
   const select = app.optional("runProfileSelect");
@@ -272,11 +206,8 @@ function renderRunProfiles(problem) {
   select.value = profiles.includes(current) ? current : profiles[0];
   state.config.judgeProfile = select.value;
 }
-
 /**
- * handleProblemChange 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 문제 change 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  */
 async function handleProblemChange() {
   const problemId = app.$("problemSelect").value;
@@ -290,13 +221,11 @@ async function handleProblemChange() {
   app.resetRunStatus(`Problem changed. ${app.judgeProfile()} cases will be used for Run.`);
   await app.loadSamples();
 }
-
 /**
- * updateProblemFolder 비동기 함수를 실행하고 반환 값을 계산합니다.
+ * 문제 폴더 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  *
- * @param {any} problemId `problemId` 값입니다.
- * @param {any} folder `folder` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} problemId 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+ * @param {any} folder 문제 폴더을 계산하거나 검증할 때 필요한 폴더 입력입니다.
  */
 async function updateProblemFolder(problemId, folder) {
   const result = await app.api(`/api/problems/${encodeURIComponent(problemId)}/folder`, {
@@ -311,11 +240,8 @@ async function updateProblemFolder(problemId, folder) {
   renderProblems(state.problems);
   app.showToast(`${problemId} folder moved to ${problemFolderLabel(result.folder)}.`);
 }
-
 /**
- * updateSelectedProblemFolder 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * selected 문제 폴더 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 async function updateSelectedProblemFolder() {
   if (!state.selectedProblem) return;

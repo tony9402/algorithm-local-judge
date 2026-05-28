@@ -1,39 +1,23 @@
+/**
+ * 작업 공간 화면 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { $, escapeHtml, optional, setText } from "./dom.js";
 import { state } from "./state.js";
 import { rememberView } from "./view-persistence.js";
 
 const workspaceCallbacks = {
-  /**
-   * selectProblem 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   selectProblem: async () => {},
-  /**
-   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} action `action` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   withErrors: async (action) => action(),
 };
-
-/**
- * configureWorkspaceView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureWorkspaceView(callbacks = {}) {
   Object.assign(workspaceCallbacks, callbacks);
 }
-
 /**
- * updateMobileHeader 함수를 실행하고 반환 값을 계산합니다.
+ * mobile header 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  *
- * @param {any} title `title` 값입니다.
- * @param {any} meta `meta` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} title mobile header을 계산하거나 검증할 때 필요한 title 입력입니다.
+ * @param {any} meta mobile header을 계산하거나 검증할 때 필요한 meta 입력입니다.
  */
 export function updateMobileHeader(title = null, meta = null) {
   const problemTitle = title || optional("problemTitle")?.textContent || "문제를 선택하세요";
@@ -45,82 +29,45 @@ export function updateMobileHeader(title = null, meta = null) {
     : "문제 목록 열기";
   optional("sidebarToggle")?.setAttribute("aria-label", `${menuAction}: ${problemTitle}`);
 }
-
 /**
- * setSidebarOpen 함수를 실행하고 반환 값을 계산합니다.
+ * sidebar open 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} open `open` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {boolean} open sidebar open을 계산하거나 검증할 때 필요한 open 입력입니다.
  */
 export function setSidebarOpen(open) {
   document.body.classList.toggle("sidebar-open", open);
   optional("sidebarToggle")?.setAttribute("aria-expanded", open ? "true" : "false");
   updateMobileHeader();
 }
-
 /**
- * toggleSidebar 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * sidebar 표시 상태를 현재 값의 반대로 전환합니다.
  */
 export function toggleSidebar() {
   setSidebarOpen(!document.body.classList.contains("sidebar-open"));
 }
-
 /**
- * closeSidebar 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * sidebar 모달이나 열린 상태를 닫고 관련 임시 상태를 정리합니다.
  */
 export function closeSidebar() {
   setSidebarOpen(false);
 }
-
-/**
- * problemLabel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problem `problem` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function problemLabel(problem) {
   return `${problem.problemId} ${problem.title || ""}`.trim();
 }
-
-/**
- * folderLabel 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} folder `folder` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function folderLabel(folder) {
   return String(folder || "").trim() || "기본";
 }
 
-/**
- * problemFolderKey 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} folder `folder` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function problemFolderKey(folder) {
   return folderLabel(folder);
 }
-
-/**
- * isProblemFolderCollapsed 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} folder `folder` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function isProblemFolderCollapsed(folder) {
   return state.problemFolderCollapsed[problemFolderKey(folder)] === true;
 }
-
 /**
- * toggleProblemFolder 함수를 실행하고 반환 값을 계산합니다.
+ * 문제 폴더 표시 상태를 현재 값의 반대로 전환합니다.
  *
- * @param {any} folder `folder` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} folder 문제 폴더을 계산하거나 검증할 때 필요한 폴더 입력입니다.
  */
 function toggleProblemFolder(folder) {
   const key = problemFolderKey(folder);
@@ -133,12 +80,6 @@ function toggleProblemFolder(folder) {
   renderProblems(state.problems);
 }
 
-/**
- * problemFolderSummaries 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} problems `problems` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function problemFolderSummaries(problems) {
   const counts = {};
   for (const problem of problems || []) {
@@ -158,12 +99,6 @@ function problemFolderSummaries(problems) {
       problemCount: counts[folder],
     }));
 }
-
-/**
- * syncWorkspaceProblemSummaries 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function syncWorkspaceProblemSummaries() {
   if (!state.workspace) return;
   state.workspace = {
@@ -175,12 +110,10 @@ export function syncWorkspaceProblemSummaries() {
   };
   renderWorkspace(state.workspace);
 }
-
 /**
- * renderWorkspace 함수를 실행하고 반환 값을 계산합니다.
+ * 작업 공간 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} data 처리할 데이터입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} data 파일, API 응답, UI 렌더링에 사용할 구조화된 데이터입니다.
  */
 export function renderWorkspace(data) {
   state.workspace = data;
@@ -209,12 +142,10 @@ export function renderWorkspace(data) {
     }
   `;
 }
-
 /**
- * renderRepositorySelector 함수를 실행하고 반환 값을 계산합니다.
+ * 저장소 selector 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} data 처리할 데이터입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} data 파일, API 응답, UI 렌더링에 사용할 구조화된 데이터입니다.
  */
 export function renderRepositorySelector(data = state.workspace || {}) {
   const select = optional("repositorySelect");
@@ -257,12 +188,10 @@ export function renderRepositorySelector(data = state.workspace || {}) {
     <div title="${escapeHtml(remote)}">${escapeHtml(remote)}</div>
   `;
 }
-
 /**
- * renderProblems 함수를 실행하고 반환 값을 계산합니다.
+ * 문제 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} problems `problems` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {Array} problems 문제을 계산하거나 검증할 때 필요한 문제 입력입니다.
  */
 export function renderProblems(problems) {
   state.problems = problems;

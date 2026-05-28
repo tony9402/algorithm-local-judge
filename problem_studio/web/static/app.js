@@ -258,150 +258,38 @@ configureRepositoryActions({
 });
 
 const ACTIONS = {
-  /**
-   * saveMetadata 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   saveMetadata: () => saveMetadata(),
-  /**
-   * openDeleteProblem 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openDeleteProblem: () => openDeleteProblemModal(),
-  /**
-   * compileCases 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   compileCases: () => compileCases(),
-  /**
-   * compileGenerator 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   compileGenerator: () => compileTool("generator", "Generator"),
-  /**
-   * generateSample 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   generateSample: () => generateData("sample"),
-  /**
-   * generateHidden 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   generateHidden: () => generateData("hidden"),
-  /**
-   * compileValidator 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   compileValidator: () => compileTool("validator", "Validator"),
-  /**
-   * validateSample 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   validateSample: () => validateAllData(),
-  /**
-   * compileChecker 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   compileChecker: () => compileTool("checker", "Checker"),
-  /**
-   * compileReference 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   compileReference: () => compileTool("solution", "Reference solution"),
-  /**
-   * compileTools 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   compileTools: () => compileTools(),
-  /**
-   * newSolution 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   newSolution: () => openSolutionCreateModal(),
-  /**
-   * uploadSolutions 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   uploadSolutions: () => openSolutionUpload(),
-  /**
-   * verifySolutions 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   verifySolutions: () => verifySolutions(),
-  /**
-   * stressSolutions 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   stressSolutions: () => openSolutionStressModal(),
-  /**
-   * runAllChecks 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   runAllChecks: () => runAllChecksOnce(),
-  /**
-   * buildPack 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   buildPack: () => buildPack(),
-  /**
-   * buildAllPacks 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   buildAllPacks: () => buildAllPacksOnce(),
 };
 
 if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
 
-/**
- * nextViewSeq 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function nextViewSeq() {
   state.viewSeq += 1;
   return state.viewSeq;
 }
 
-/**
- * isCurrentView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} seq `seq` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function isCurrentView(seq) {
   return seq === state.viewSeq;
 }
 
-/**
- * runTabAction 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} actionId `actionId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 async function runTabAction(actionId) {
-  /**
-   * run 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const run = async () => {
     if (SAVE_BEFORE_ACTIONS.has(actionId)) await saveOpenFileIfDirty();
     return ACTIONS[actionId]();

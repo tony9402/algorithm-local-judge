@@ -1,3 +1,7 @@
+/**
+ * codemirror 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { $ } from "../dom.js";
 import { EDITOR_INDENT, state } from "../state.js";
 import {
@@ -21,106 +25,33 @@ export {
 } from "./modal-codemirror.js";
 
 const codeMirrorCallbacks = {
-  /**
-   * createSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   createSolution: async () => {},
-  /**
-   * handleEditorCompositionEnd 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   handleEditorCompositionEnd: () => {},
-  /**
-   * handleEditorCompositionStart 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   handleEditorCompositionStart: () => {},
-  /**
-   * handleEditorInput 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   handleEditorInput: () => {},
-  /**
-   * renameSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renameSolution: async () => {},
-  /**
-   * saveFile 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   saveFile: async () => {},
-  /**
-   * updateEditorSettingsUi 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   updateEditorSettingsUi: () => {},
-  /**
-   * updateEditorStatus 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   updateEditorStatus: () => {},
-  /**
-   * updateEditorVisuals 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   updateEditorVisuals: () => {},
-  /**
-   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} action `action` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   withErrors: async (action) => action(),
 };
-
-/**
- * configureCodeMirror 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureCodeMirror(callbacks = {}) {
   Object.assign(codeMirrorCallbacks, callbacks);
   configureModalCodeMirror(callbacks);
 }
 
-/**
- * withConfiguredErrors 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} action `action` 값입니다.
- * @param {any} message 메시지입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function withConfiguredErrors(action, message) {
   return codeMirrorCallbacks.withErrors(action, message);
 }
-
-/**
- * getEditorValue 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function getEditorValue() {
   return state.codeMirror ? state.codeMirror.getValue() : $("fileEditor").value;
 }
-
 /**
- * setEditorValue 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 value 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} value 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} value 검증하거나 상태에 반영할 입력 값입니다.
+ * @param {object} options 호출자가 동작 일부를 조정하기 위해 넘기는 선택 옵션 묶음입니다.
  */
 export function setEditorValue(value, options = {}) {
   const nextValue = value || "";
@@ -133,31 +64,16 @@ export function setEditorValue(value, options = {}) {
   state.editorApplyingValue = false;
   codeMirrorCallbacks.updateEditorVisuals();
 }
-
-/**
- * focusEditor 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function focusEditor() {
   if (state.codeMirror) state.codeMirror.focus();
   else $("fileEditor").focus();
 }
-
-/**
- * editorCursorOffset 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function editorCursorOffset() {
   if (!state.codeMirror) return $("fileEditor").selectionStart || 0;
   return state.codeMirror.indexFromPos(state.codeMirror.getCursor());
 }
-
 /**
- * updateCodeMirrorOptions 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * code mirror options 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateCodeMirrorOptions() {
   if (!state.codeMirror) return;
@@ -172,13 +88,6 @@ export function updateCodeMirrorOptions() {
   window.requestAnimationFrame(() => state.codeMirror?.refresh());
   refreshModalEditorOptions();
 }
-
-/**
- * moveCodeMirrorCursorToIndex 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} index `index` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function moveCodeMirrorCursorToIndex(index) {
   if (!state.codeMirror) return;
   const cursor = state.codeMirror.posFromIndex(Math.max(0, Math.min(index, state.codeMirror.getValue().length)));
@@ -186,13 +95,6 @@ export function moveCodeMirrorCursorToIndex(index) {
   state.codeMirror.scrollIntoView(cursor, 48);
   codeMirrorCallbacks.updateEditorStatus();
 }
-
-/**
- * handleCodeMirrorVimFallback 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} event 발생한 이벤트입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function handleCodeMirrorVimFallback(event) {
   if (!state.codeMirror || state.editorMode !== "vim" || state.vimMode !== "normal") return false;
   if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing || event.keyCode === 229) return false;
@@ -200,11 +102,6 @@ export function handleCodeMirrorVimFallback(event) {
   const cursor = state.codeMirror.getCursor();
   const value = state.codeMirror.getValue();
   const offset = state.codeMirror.indexFromPos(cursor);
-  /**
-   * prevent 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   const prevent = () => {
     event.preventDefault();
     event.stopPropagation();
@@ -293,13 +190,11 @@ export function handleCodeMirrorVimFallback(event) {
   }
   return false;
 }
-
 /**
- * handleCodeMirrorBeforeChange 함수를 실행하고 반환 값을 계산합니다.
+ * code mirror before change 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  *
- * @param {any} _instance `_instance` 값입니다.
- * @param {any} change `change` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} _instance code mirror before change을 계산하거나 검증할 때 필요한 instance 입력입니다.
+ * @param {any} change code mirror before change을 계산하거나 검증할 때 필요한 change 입력입니다.
  */
 function handleCodeMirrorBeforeChange(_instance, change) {
   if (state.editorApplyingValue) return;
@@ -309,12 +204,10 @@ function handleCodeMirrorBeforeChange(_instance, change) {
     change.cancel();
   }
 }
-
 /**
- * handleCodeMirrorBeforeInput 함수를 실행하고 반환 값을 계산합니다.
+ * code mirror before 입력 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  *
- * @param {any} event 발생한 이벤트입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} event 브라우저 이벤트 또는 서버 이벤트 스트림에서 받은 이벤트 객체입니다.
  */
 function handleCodeMirrorBeforeInput(event) {
   const wrapperMode = event.target?.closest?.(".CodeMirror")?.dataset?.vimMode;
@@ -323,24 +216,16 @@ function handleCodeMirrorBeforeInput(event) {
     event.preventDefault();
   }
 }
-
 /**
- * handleCodeMirrorChange 함수를 실행하고 반환 값을 계산합니다.
+ * code mirror change 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  *
- * @param {any} instance `instance` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} instance code mirror change을 계산하거나 검증할 때 필요한 instance 입력입니다.
  */
 function handleCodeMirrorChange(instance) {
   if (state.editorApplyingValue) return;
   $("fileEditor").value = instance.getValue();
   codeMirrorCallbacks.handleEditorInput();
 }
-
-/**
- * initializeCodeMirror 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function initializeCodeMirror() {
   if (state.codeMirror || !window.CodeMirror) return;
   const editor = $("fileEditor");
@@ -354,12 +239,6 @@ export function initializeCodeMirror() {
     keyMap: state.editorMode === "vim" ? "vim" : "default",
     showCursorWhenSelecting: true,
     extraKeys: {
-      /**
-       * Tab 함수를 실행하고 반환 값을 계산합니다.
-       *
-       * @param {any} instance `instance` 값입니다.
-       * @returns {any} 처리 결과를 반환합니다.
-       */
       Tab: (instance) => {
         if (instance.somethingSelected()) instance.indentSelection("add");
         else instance.replaceSelection(EDITOR_INDENT, "end");

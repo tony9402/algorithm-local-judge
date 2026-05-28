@@ -1,3 +1,7 @@
+/**
+ * 메타데이터 화면 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { $, escapeHtml, optional, setText } from "./dom.js";
 import {
   METADATA_TIMEOUT_FIELDS,
@@ -7,94 +11,28 @@ import {
 } from "./state.js";
 
 const metadataCallbacks = {
-  /**
-   * folderLabel 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} folder `folder` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   folderLabel: (folder) => String(folder || "").trim() || "기본",
-  /**
-   * hasUnsavedChanges 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   hasUnsavedChanges: () => false,
-  /**
-   * markFullTestDirty 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   markFullTestDirty: () => {},
-  /**
-   * renderProblems 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderProblems: () => {},
-  /**
-   * syncWorkspaceProblemSummaries 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   syncWorkspaceProblemSummaries: () => {},
-  /**
-   * updateMobileHeader 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   updateMobileHeader: () => {},
 };
-
-/**
- * configureMetadataView 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureMetadataView(callbacks = {}) {
   Object.assign(metadataCallbacks, callbacks);
 }
-
-/**
- * positiveIntegerInput 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} id 식별자입니다.
- * @param {any} fallback `fallback` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function positiveIntegerInput(id, fallback) {
   const value = Number.parseInt($(id).value, 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
-
-/**
- * textInputValue 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} id 식별자입니다.
- * @param {any} fallback `fallback` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function textInputValue(id, fallback = "") {
   return $(id).value.trim() || fallback;
 }
 
-/**
- * safeMetadataPath 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} value 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function safeMetadataPath(value) {
   const path = String(value || "").trim();
   return path && !path.startsWith("/") && !path.split("/").includes("..");
 }
-
-/**
- * metadataFormIssues 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function metadataFormIssues() {
   const issues = [];
   const problemId = $("metadataProblemIdInput").value.trim();
@@ -119,11 +57,8 @@ export function metadataFormIssues() {
   }
   return issues;
 }
-
 /**
- * renderMetadataValidation 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 메타데이터 검증 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 export function renderMetadataValidation() {
   const panel = optional("metadataValidationSummary");
@@ -141,21 +76,9 @@ export function renderMetadataValidation() {
         .join("")}</ul>`
     : "<strong>저장 가능한 설정입니다.</strong>";
 }
-
-/**
- * metadataRawEditorDirty 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function metadataRawEditorDirty() {
   return state.selectedFile === "problem.json" && metadataCallbacks.hasUnsavedChanges();
 }
-
-/**
- * currentMetadataDraft 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function currentMetadataDraft() {
   const existing = state.detail?.metadata || {};
   const existingLimits = existing.limits || {};
@@ -194,23 +117,9 @@ export function currentMetadataDraft() {
     },
   };
 }
-
-/**
- * currentProblemIdDraft 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function currentProblemIdDraft() {
   return textInputValue("metadataProblemIdInput", state.selectedProblem || "");
 }
-
-/**
- * applyProblemMetadataToUi 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} metadata `metadata` 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function applyProblemMetadataToUi(metadata, options = {}) {
   if (!state.selectedProblem || !metadata) return;
   if (state.detail) state.detail.metadata = { ...(state.detail.metadata || {}), ...metadata };
@@ -239,11 +148,8 @@ export function applyProblemMetadataToUi(metadata, options = {}) {
     metadataCallbacks.markFullTestDirty("문제 메타데이터가 변경되어 전체 테스트가 다시 필요합니다.");
   }
 }
-
 /**
- * updateMetadataPreview 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 메타데이터 미리보기 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateMetadataPreview() {
   if (state.selectedTab !== "info" || !state.selectedProblem) return;
@@ -262,13 +168,6 @@ export function updateMetadataPreview() {
   );
   renderMetadataValidation();
 }
-
-/**
- * populateMetadataForm 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} metadata `metadata` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function populateMetadataForm(metadata) {
   const limits = metadata?.limits || {};
   const tools = metadata?.tools || {};

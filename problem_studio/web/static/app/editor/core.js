@@ -1,3 +1,7 @@
+/**
+ * core 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { $, optional, setText } from "../dom.js";
 import { EDITOR_INDENT, EDITOR_SETTINGS_KEY, state } from "../state.js";
 import { readStorage, writeStorage } from "../storage.js";
@@ -37,51 +41,13 @@ export { syncEditorScroll, updateEditorStatus, updateEditorVisuals } from "./vis
 export { confirmDiscardChanges, hasUnsavedChanges, updateDirtyState } from "./dirty.js";
 
 const coreCallbacks = {
-  /**
-   * createSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   createSolution: async () => {},
-  /**
-   * currentPrimaryAction 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   currentPrimaryAction: () => null,
-  /**
-   * renameSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renameSolution: async () => {},
-  /**
-   * runTabAction 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   runTabAction: async () => {},
-  /**
-   * saveFile 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   saveFile: async () => {},
-  /**
-   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} action `action` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   withErrors: async (action) => action(),
 };
-
-/**
- * configureEditorCore 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureEditorCore(callbacks = {}) {
   Object.assign(coreCallbacks, callbacks);
   configureEditorHistory({
@@ -115,16 +81,6 @@ export function configureEditorCore(callbacks = {}) {
   });
 }
 
-/**
- * replaceEditorRange 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} editor `editor` 값입니다.
- * @param {any} start `start` 값입니다.
- * @param {any} end `end` 값입니다.
- * @param {any} replacement `replacement` 값입니다.
- * @param {any} cursorPosition `cursorPosition` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function replaceEditorRange(editor, start, end, replacement, cursorPosition = start + replacement.length) {
   pushEditorHistory(editor);
   editor.setRangeText(replacement, start, end, "end");
@@ -132,13 +88,11 @@ function replaceEditorRange(editor, start, end, replacement, cursorPosition = st
   updateEditorVisuals();
   updateDirtyState();
 }
-
 /**
- * setEditorMode 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 mode 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} mode `mode` 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} mode 편집기 mode을 계산하거나 검증할 때 필요한 mode 입력입니다.
+ * @param {object} options 호출자가 동작 일부를 조정하기 위해 넘기는 선택 옵션 묶음입니다.
  */
 export function setEditorMode(mode, options = {}) {
   state.editorMode = mode === "vim" ? "vim" : "default";
@@ -163,11 +117,8 @@ export function setEditorMode(mode, options = {}) {
     focusEditor();
   }
 }
-
 /**
- * updateEditorSettingsUi 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 편집기 settings ui 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 export function updateEditorSettingsUi() {
   const isVim = state.editorMode === "vim";
@@ -195,23 +146,15 @@ export function updateEditorSettingsUi() {
   }
   updateEditorStatus();
 }
-
 /**
- * setEditorSettingsOpen 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 settings open 값을 내부 상태나 DOM 요소에 반영합니다.
  *
- * @param {any} open `open` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {boolean} open 편집기 settings open을 계산하거나 검증할 때 필요한 open 입력입니다.
  */
 export function setEditorSettingsOpen(open) {
   state.editorSettingsOpen = open;
   updateEditorSettingsUi();
 }
-
-/**
- * restoreEditorSettings 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function restoreEditorSettings() {
   const saved = readStorage(EDITOR_SETTINGS_KEY);
   state.editorMode = saved?.mode === "vim" ? "vim" : "default";
@@ -225,12 +168,10 @@ export function restoreEditorSettings() {
   updateCodeMirrorOptions();
   updateEditorSettingsUi();
 }
-
 /**
- * openEditorCommandLine 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 명령 줄 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  *
- * @param {any} mode `mode` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} mode 편집기 명령 줄을 계산하거나 검증할 때 필요한 mode 입력입니다.
  */
 function openEditorCommandLine(mode) {
   state.editorCommandMode = mode;
@@ -243,11 +184,8 @@ function openEditorCommandLine(mode) {
     input.focus();
   }
 }
-
 /**
- * closeEditorCommandLine 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 편집기 명령 줄 모달이나 열린 상태를 닫고 관련 임시 상태를 정리합니다.
  */
 export function closeEditorCommandLine() {
   state.editorCommandMode = "";
@@ -255,12 +193,6 @@ export function closeEditorCommandLine() {
   const input = optional("editorCommandInput");
   if (input) input.value = "";
 }
-
-/**
- * submitEditorCommandLine 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function submitEditorCommandLine() {
   const input = optional("editorCommandInput");
   const editor = optional("fileEditor");
@@ -284,11 +216,8 @@ export function submitEditorCommandLine() {
   }
   updateEditorSettingsUi();
 }
-
 /**
- * handleEditorInput 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 편집기 입력 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  */
 function handleEditorInput() {
   if (state.editorApplyingValue) return;
@@ -303,12 +232,10 @@ function handleEditorInput() {
   updateEditorVisuals();
   updateDirtyState();
 }
-
 /**
- * handleEditorCompositionStart 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 composition start 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  *
- * @param {any} event 발생한 이벤트입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} event 브라우저 이벤트 또는 서버 이벤트 스트림에서 받은 이벤트 객체입니다.
  */
 function handleEditorCompositionStart(event) {
   state.editorComposing = true;
@@ -317,11 +244,8 @@ function handleEditorCompositionStart(event) {
     event.preventDefault();
   }
 }
-
 /**
- * handleEditorCompositionEnd 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 편집기 composition end 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  */
 function handleEditorCompositionEnd() {
   if (state.editorMode === "vim" && state.vimMode !== "insert") {
@@ -330,12 +254,6 @@ function handleEditorCompositionEnd() {
   state.editorComposing = false;
 }
 
-/**
- * indentEditorSelection 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} editor `editor` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function indentEditorSelection(editor) {
   const { value, selectionStart, selectionEnd } = editor;
   pushEditorHistory(editor);
@@ -356,12 +274,6 @@ function indentEditorSelection(editor) {
   editor.setRangeText(EDITOR_INDENT, selectionStart, selectionEnd, "end");
 }
 
-/**
- * outdentEditorSelection 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} editor `editor` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function outdentEditorSelection(editor) {
   const { value, selectionStart, selectionEnd } = editor;
   pushEditorHistory(editor);
@@ -390,12 +302,10 @@ function outdentEditorSelection(editor) {
   editor.selectionStart = Math.max(lineStart, selectionStart - removedBeforeStart);
   editor.selectionEnd = Math.max(editor.selectionStart, selectionEnd - removedBeforeEnd);
 }
-
 /**
- * handleEditorKeydown 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 keydown 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  *
- * @param {any} event 발생한 이벤트입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} event 브라우저 이벤트 또는 서버 이벤트 스트림에서 받은 이벤트 객체입니다.
  */
 export function handleEditorKeydown(event) {
   const shortcut = event.metaKey || event.ctrlKey;
@@ -436,23 +346,18 @@ export function handleEditorKeydown(event) {
   updateEditorVisuals();
   updateDirtyState();
 }
-
 /**
- * handleEditorBeforeInput 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 before 입력 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  *
- * @param {any} event 발생한 이벤트입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} event 브라우저 이벤트 또는 서버 이벤트 스트림에서 받은 이벤트 객체입니다.
  */
 export function handleEditorBeforeInput(event) {
   if (state.editorMode === "vim" && (state.vimMode === "normal" || isVimVisualMode())) {
     event.preventDefault();
   }
 }
-
 /**
- * bindEditorEvents 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 편집기 events 이벤트를 DOM 요소와 핸들러에 연결합니다.
  */
 export function bindEditorEvents() {
   $("fileEditor").addEventListener("input", handleEditorInput);

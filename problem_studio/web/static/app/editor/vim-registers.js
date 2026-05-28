@@ -1,3 +1,7 @@
+/**
+ * vim registers 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { state } from "../state.js";
 import {
   lineEndAt,
@@ -11,14 +15,12 @@ import {
 } from "./selection.js";
 import { replaceEditorRange } from "./vim-context.js";
 import { setVimMode } from "./vim-mode.js";
-
 /**
- * deleteVimLine 함수를 실행하고 반환 값을 계산합니다.
+ * vim 줄 파일이나 상태 항목을 안전성 검사를 거쳐 제거합니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @param {any} count `count` 값입니다.
- * @param {any} enterInsert `enterInsert` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor vim 줄을 계산하거나 검증할 때 필요한 편집기 입력입니다.
+ * @param {any} count vim 줄을 계산하거나 검증할 때 필요한 count 입력입니다.
+ * @param {any} enterInsert vim 줄을 계산하거나 검증할 때 필요한 enter insert 입력입니다.
  */
 export function deleteVimLine(editor, count = 1, enterInsert = false) {
   const { value, selectionStart } = editor;
@@ -29,13 +31,11 @@ export function deleteVimLine(editor, count = 1, enterInsert = false) {
   state.vimMessage = `${count} line${count > 1 ? "s" : ""} deleted`;
   if (enterInsert) setVimMode("insert", editor, { recordHistory: false });
 }
-
 /**
- * copyVimLine 함수를 실행하고 반환 값을 계산합니다.
+ * vim 줄 파일을 정책이 허용하는 대상 경로로 복사합니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @param {any} count `count` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor vim 줄을 계산하거나 검증할 때 필요한 편집기 입력입니다.
+ * @param {any} count vim 줄을 계산하거나 검증할 때 필요한 count 입력입니다.
  */
 export function copyVimLine(editor, count = 1) {
   const { value, selectionStart } = editor;
@@ -44,15 +44,6 @@ export function copyVimLine(editor, count = 1) {
   state.vimRegisterType = "line";
   state.vimMessage = `${count} line${count > 1 ? "s" : ""} yanked`;
 }
-
-/**
- * pasteVimRegister 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} editor `editor` 값입니다.
- * @param {any} before `before` 값입니다.
- * @param {any} count `count` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function pasteVimRegister(editor, before = false, count = 1) {
   if (!state.vimRegister) return;
   const { value, selectionStart } = editor;
@@ -72,15 +63,13 @@ export function pasteVimRegister(editor, before = false, count = 1) {
   replaceEditorRange(editor, insertAt, insertAt, repeated, insertAt + repeated.length - 1);
   state.vimMessage = "pasted";
 }
-
 /**
- * deleteVimRange 함수를 실행하고 반환 값을 계산합니다.
+ * vim range 파일이나 상태 항목을 안전성 검사를 거쳐 제거합니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @param {any} start `start` 값입니다.
- * @param {any} end `end` 값입니다.
- * @param {any} enterInsert `enterInsert` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor vim range을 계산하거나 검증할 때 필요한 편집기 입력입니다.
+ * @param {any} start vim range을 계산하거나 검증할 때 필요한 start 입력입니다.
+ * @param {any} end vim range을 계산하거나 검증할 때 필요한 end 입력입니다.
+ * @param {any} enterInsert vim range을 계산하거나 검증할 때 필요한 enter insert 입력입니다.
  */
 export function deleteVimRange(editor, start, end, enterInsert = false) {
   const rangeStart = Math.max(0, Math.min(start, end));
@@ -92,14 +81,12 @@ export function deleteVimRange(editor, start, end, enterInsert = false) {
   state.vimMessage = enterInsert ? "changed" : "deleted";
   if (enterInsert) setVimMode("insert", editor, { recordHistory: false });
 }
-
 /**
- * copyVimRange 함수를 실행하고 반환 값을 계산합니다.
+ * vim range 파일을 정책이 허용하는 대상 경로로 복사합니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @param {any} start `start` 값입니다.
- * @param {any} end `end` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor vim range을 계산하거나 검증할 때 필요한 편집기 입력입니다.
+ * @param {any} start vim range을 계산하거나 검증할 때 필요한 start 입력입니다.
+ * @param {any} end vim range을 계산하거나 검증할 때 필요한 end 입력입니다.
  */
 export function copyVimRange(editor, start, end) {
   const rangeStart = Math.max(0, Math.min(start, end));
@@ -108,12 +95,10 @@ export function copyVimRange(editor, start, end) {
   state.vimRegisterType = "char";
   state.vimMessage = "yanked";
 }
-
 /**
- * copyVimVisualSelection 함수를 실행하고 반환 값을 계산합니다.
+ * vim visual selection 파일을 정책이 허용하는 대상 경로로 복사합니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor vim visual selection을 계산하거나 검증할 때 필요한 편집기 입력입니다.
  */
 export function copyVimVisualSelection(editor) {
   const { start, end } = visualSelectionRange(editor);
@@ -124,13 +109,11 @@ export function copyVimVisualSelection(editor) {
   clearVimVisualState();
   moveEditorCursor(editor, start);
 }
-
 /**
- * deleteVimVisualSelection 함수를 실행하고 반환 값을 계산합니다.
+ * vim visual selection 파일이나 상태 항목을 안전성 검사를 거쳐 제거합니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @param {any} enterInsert `enterInsert` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor vim visual selection을 계산하거나 검증할 때 필요한 편집기 입력입니다.
+ * @param {any} enterInsert vim visual selection을 계산하거나 검증할 때 필요한 enter insert 입력입니다.
  */
 export function deleteVimVisualSelection(editor, enterInsert = false) {
   const { start, end } = visualSelectionRange(editor);
@@ -142,23 +125,14 @@ export function deleteVimVisualSelection(editor, enterInsert = false) {
   state.vimMessage = enterInsert ? "visual changed" : "visual deleted";
   if (enterInsert) setVimMode("insert", editor, { recordHistory: false });
 }
-
-/**
- * changeToLineEnd 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} editor `editor` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function changeToLineEnd(editor) {
   const end = lineEndAt(editor.value, editor.selectionStart);
   deleteVimRange(editor, editor.selectionStart, end, true);
 }
-
 /**
- * deleteToLineEnd 함수를 실행하고 반환 값을 계산합니다.
+ * 줄 end 파일이나 상태 항목을 안전성 검사를 거쳐 제거합니다.
  *
- * @param {any} editor `editor` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} editor 줄 end을 계산하거나 검증할 때 필요한 편집기 입력입니다.
  */
 export function deleteToLineEnd(editor) {
   const end = lineEndAt(editor.value, editor.selectionStart);

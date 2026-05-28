@@ -1,11 +1,13 @@
+/**
+ * 캐시 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 const app = window.AljApp;
 const { escapeHtml, state } = app;
-
 /**
- * renderCache 함수를 실행하고 반환 값을 계산합니다.
+ * 캐시 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} cache `cache` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} cache 캐시을 계산하거나 검증할 때 필요한 캐시 입력입니다.
  */
 function renderCache(cache) {
   state.cache = cache;
@@ -18,12 +20,10 @@ function renderCache(cache) {
   `;
   renderCacheModalSummary(cache);
 }
-
 /**
- * renderCacheModalSummary 함수를 실행하고 반환 값을 계산합니다.
+ * 캐시 모달 summary 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  *
- * @param {any} cache `cache` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} cache 캐시 모달 summary을 계산하거나 검증할 때 필요한 캐시 입력입니다.
  */
 function renderCacheModalSummary(cache) {
   const summary = app.optional("cacheModalSummary");
@@ -52,14 +52,6 @@ function renderCacheModalSummary(cache) {
     </div>
   `;
 }
-
-/**
- * cacheClear 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} dryRun `dryRun` 값입니다.
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 async function cacheClear(dryRun, options) {
   if (!dryRun && !confirmCacheClear(options)) {
     app.$("cacheOutput").textContent = "Cleanup canceled.";
@@ -84,24 +76,11 @@ async function cacheClear(dryRun, options) {
   await app.refresh();
 }
 
-/**
- * confirmCacheClear 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function confirmCacheClear(options) {
   const target = options.all_entries ? "all cache entries" : "run artifacts";
   return window.confirm(`Delete ${target}? This cannot be undone.`);
 }
 
-/**
- * formatCacheClearResult 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} result `result` 값입니다.
- * @param {any} heading `heading` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function formatCacheClearResult(result, heading) {
   const targets = result.targets || [];
   if (!targets.length) return `${heading}, ${result.totalSizeLabel}\nNo matching cache targets.`;

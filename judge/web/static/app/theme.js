@@ -1,22 +1,13 @@
-const app = window.AljApp;
-
 /**
- * preferredTheme 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * theme 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
  */
+
+const app = window.AljApp;
 function preferredTheme() {
   const saved = localStorage.getItem("alj-theme");
   if (saved === "light" || saved === "dark") return saved;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
-
-/**
- * applyTheme 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} theme `theme` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem("alj-theme", theme);
@@ -27,11 +18,6 @@ function applyTheme(theme) {
   }
 }
 
-/**
- * toggleTheme 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function toggleTheme() {
   applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
 }

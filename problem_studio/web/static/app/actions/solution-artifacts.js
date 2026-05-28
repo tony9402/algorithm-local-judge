@@ -1,3 +1,7 @@
+/**
+ * 솔루션 산출물 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { api, normalizeErrorDetail } from "../api.js";
 import { $, escapeHtml, setText } from "../dom.js";
 import { showAlert } from "../feedback.js";
@@ -18,57 +22,20 @@ import {
 } from "../solution-status.js";
 
 const artifactCallbacks = {
-  /**
-   * openModal 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   openModal: () => {},
-  /**
-   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} action `action` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   withErrors: async (action) => action(),
 };
-
-/**
- * configureSolutionArtifacts 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureSolutionArtifacts(callbacks = {}) {
   Object.assign(artifactCallbacks, callbacks);
 }
 
-/**
- * isFailedSolutionCase 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} status `status` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function isFailedSolutionCase(status) {
   return status !== "ok" && status !== "accepted";
 }
 
-/**
- * escapeAttribute 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} value 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function escapeAttribute(value) {
   return escapeHtml(value).replaceAll("'", "&#39;");
 }
-
-/**
- * renderSolutionCaseRows 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} check `check` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function renderSolutionCaseRows(check) {
   const cases = solutionCheckCases(check);
   if (!cases.length) return "";
@@ -109,24 +76,11 @@ function renderSolutionCaseRows(check) {
     </div>
   `;
 }
-
-/**
- * solutionArtifactText 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function solutionArtifactText() {
   const artifact = state.solutionArtifactPreview;
   if (!artifact) return "";
   return artifact[state.selectedSolutionArtifact] || "";
 }
-
-/**
- * renderDiffArtifact 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} text `text` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function renderDiffArtifact(text) {
   return text
     .split("\n")
@@ -141,12 +95,6 @@ function renderDiffArtifact(text) {
     })
     .join("\n");
 }
-
-/**
- * wireSolutionArtifactPreview 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 function wireSolutionArtifactPreview() {
   for (const button of document.querySelectorAll("[data-solution-artifact-tab]")) {
     button.addEventListener("click", () => {
@@ -159,11 +107,8 @@ function wireSolutionArtifactPreview() {
     void copySolutionArtifactPreview();
   });
 }
-
 /**
- * renderSolutionArtifactPreview 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 솔루션 산출물 미리보기 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
 function renderSolutionArtifactPreview() {
   const panel = document.getElementById("solutionArtifactPreview");
@@ -206,11 +151,8 @@ function renderSolutionArtifactPreview() {
   `;
   wireSolutionArtifactPreview();
 }
-
 /**
- * copySolutionArtifactPreview 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
+ * 솔루션 산출물 미리보기 파일을 정책이 허용하는 대상 경로로 복사합니다.
  */
 async function copySolutionArtifactPreview() {
   const text = solutionArtifactText();
@@ -231,13 +173,11 @@ async function copySolutionArtifactPreview() {
   }
   showAlert("Artifact copied.", "success", { title: "Copied", timeout: 2500 });
 }
-
 /**
- * loadSolutionArtifactPreview 비동기 함수를 실행하고 반환 값을 계산합니다.
+ * 솔루션 산출물 미리보기을 파일이나 캐시에서 읽고 필요한 기본값을 적용합니다.
  *
- * @param {any} check `check` 값입니다.
- * @param {any} caseId `caseId` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} check Git 명령 실패를 예외로 바꿀지 결정하는 플래그입니다.
+ * @param {string} caseId 입력, 출력, 오답 산출물을 구분하는 케이스 ID입니다.
  */
 async function loadSolutionArtifactPreview(check, caseId) {
   if (!state.selectedProblem || !check.runId) return;
@@ -252,13 +192,6 @@ async function loadSolutionArtifactPreview(check, caseId) {
   state.selectedSolutionArtifact = "input";
   renderSolutionArtifactPreview();
 }
-
-/**
- * renderSolutionCasesBody 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} check `check` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 function renderSolutionCasesBody(check) {
   const metrics = solutionCheckMetrics(check);
   const message = normalizeErrorDetail(check?.message);
@@ -280,12 +213,10 @@ function renderSolutionCasesBody(check) {
     <div id="solutionArtifactPreview" class="solution-artifact-preview hidden"></div>
   `;
 }
-
 /**
- * openSolutionCasesModal 함수를 실행하고 반환 값을 계산합니다.
+ * 솔루션 케이스 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} path 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
  */
 export function openSolutionCasesModal(path) {
   const check = solutionCheckForPath(path);

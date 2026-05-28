@@ -1,3 +1,7 @@
+/**
+ * 파일 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 import { api } from "../api.js";
 import { $, setText } from "../dom.js";
 import {
@@ -16,121 +20,34 @@ import {
 } from "../view-persistence.js";
 
 const fileCallbacks = {
-  /**
-   * confirmDiscardChanges 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   confirmDiscardChanges: () => true,
-  /**
-   * hasUnsavedChanges 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   hasUnsavedChanges: () => false,
-  /**
-   * isCurrentView 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @param {any} seq `seq` 값입니다.
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   isCurrentView: (seq) => seq === state.viewSeq,
-  /**
-   * isReferenceSolutionPath 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   isReferenceSolutionPath: () => false,
-  /**
-   * markAllSolutionsDirty 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   markAllSolutionsDirty: () => {},
-  /**
-   * markFullTestDirty 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   markFullTestDirty: () => {},
-  /**
-   * markSolutionDirty 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   markSolutionDirty: () => {},
-  /**
-   * nextViewSeq 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   nextViewSeq: () => {
     state.viewSeq += 1;
     return state.viewSeq;
   },
-  /**
-   * renderSolutionMetaForm 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderSolutionMetaForm: () => {},
-  /**
-   * renderSolutionValidationSummary 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderSolutionValidationSummary: () => {},
-  /**
-   * renderTabFiles 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   renderTabFiles: () => {},
-  /**
-   * setDirtySolutionPaths 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   setDirtySolutionPaths: () => {},
-  /**
-   * showResult 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   showResult: () => {},
-  /**
-   * solutionFilePaths 함수를 실행하고 반환 값을 계산합니다.
-   *
-   * @returns {any} 처리 결과를 반환합니다.
-   */
   solutionFilePaths: () => [],
 };
-
-/**
- * configureFileActions 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} callbacks `callbacks` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function configureFileActions(callbacks = {}) {
   Object.assign(fileCallbacks, callbacks);
 }
-
-/**
- * apiFilePath 함수를 실행하고 반환 값을 계산합니다.
- *
- * @param {any} path 경로 문자열입니다.
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function apiFilePath(path) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
-
 /**
- * clearEditor 함수를 실행하고 반환 값을 계산합니다.
+ * 편집기 캐시, 선택 상태, 또는 화면 표시를 초기화합니다.
  *
- * @param {any} message 메시지입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} message 사용자에게 표시하거나 커밋/진행 상태에 기록할 메시지입니다.
  */
 export function clearEditor(message = "작업 대상을 선택하세요.") {
   state.selectedFile = null;
@@ -145,12 +62,10 @@ export function clearEditor(message = "작업 대상을 선택하세요.") {
   fileCallbacks.renderSolutionMetaForm();
   fileCallbacks.renderSolutionValidationSummary();
 }
-
 /**
- * refreshProblemFiles 비동기 함수를 실행하고 반환 값을 계산합니다.
+ * 문제 파일 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  *
- * @param {any} seq `seq` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {any} seq 문제 파일을 계산하거나 검증할 때 필요한 seq 입력입니다.
  */
 export async function refreshProblemFiles(seq = state.viewSeq) {
   if (!state.selectedProblem) return;
@@ -159,15 +74,13 @@ export async function refreshProblemFiles(seq = state.viewSeq) {
   state.files = data.files || [];
   fileCallbacks.renderTabFiles();
 }
-
 /**
- * openFile 비동기 함수를 실행하고 반환 값을 계산합니다.
+ * 파일 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  *
- * @param {any} path 경로 문자열입니다.
- * @param {any} refreshFiles `refreshFiles` 값입니다.
- * @param {any} seq `seq` 값입니다.
- * @param {any} skipConfirm `skipConfirm` 값입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {string} path 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
+ * @param {Array} refreshFiles 파일을 계산하거나 검증할 때 필요한 refresh 파일 입력입니다.
+ * @param {any} seq 파일을 계산하거나 검증할 때 필요한 seq 입력입니다.
+ * @param {any} skipConfirm 파일을 계산하거나 검증할 때 필요한 skip confirm 입력입니다.
  */
 export async function openFile(path, refreshFiles = true, seq = null, skipConfirm = false) {
   const currentSeq = seq ?? fileCallbacks.nextViewSeq();
@@ -197,12 +110,10 @@ export async function openFile(path, refreshFiles = true, seq = null, skipConfir
   fileCallbacks.renderSolutionMetaForm();
   fileCallbacks.renderSolutionValidationSummary();
 }
-
 /**
- * saveFile 비동기 함수를 실행하고 반환 값을 계산합니다.
+ * 파일 데이터를 다음 요청에서도 사용할 수 있도록 안전한 위치에 저장합니다.
  *
- * @param {any} options 옵션 모음입니다.
- * @returns {any} 처리 결과를 반환합니다.
+ * @param {object} options 호출자가 동작 일부를 조정하기 위해 넘기는 선택 옵션 묶음입니다.
  */
 export async function saveFile(options = {}) {
   if (!state.selectedProblem || !state.selectedFile) throw new Error("Open a file first.");
@@ -241,12 +152,6 @@ export async function saveFile(options = {}) {
     fileCallbacks.showResult(`${state.selectedFile} 저장 완료`, "summary success");
   }
 }
-
-/**
- * saveOpenFileIfDirty 비동기 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export async function saveOpenFileIfDirty() {
   if (!fileCallbacks.hasUnsavedChanges?.()) return false;
   await saveFile({ silent: true });

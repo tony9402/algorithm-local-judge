@@ -1,3 +1,7 @@
+/**
+ * state 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ */
+
 export const state = {
   workspace: null,
   repositories: [],
@@ -212,12 +216,6 @@ export const TAB_INSTANCE_ID =
   window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 export const runAllChannel =
   "BroadcastChannel" in window ? new BroadcastChannel("problem-studio-run-all") : null;
-
-/**
- * activeRepositoryKey 함수를 실행하고 반환 값을 계산합니다.
- *
- * @returns {any} 처리 결과를 반환합니다.
- */
 export function activeRepositoryKey() {
   return state.activeRepository || "legacy";
 }
