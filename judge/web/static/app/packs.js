@@ -1,6 +1,12 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * installLabel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} result `result` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function installLabel(result) {
   const target = result.assetName || result.label || result.installedPath || "installed problems";
   if (result.installType === "source") {
@@ -10,6 +16,12 @@ function installLabel(result) {
   return `Installed pack: ${target}${security}`;
 }
 
+/**
+ * officialPackErrorMessage 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} error `error` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function officialPackErrorMessage(error) {
   const detail = String(error?.message || "unknown error");
   const lower = detail.toLowerCase();
@@ -34,6 +46,12 @@ function officialPackErrorMessage(error) {
   return `Official pack install failed: ${detail}`;
 }
 
+/**
+ * renderPacks 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} packs `packs` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderPacks(packs) {
   const list = app.$("packList");
   list.innerHTML = "";
@@ -46,7 +64,19 @@ function renderPacks(packs) {
   for (const pack of packs) {
     const item = document.createElement("div");
     item.className = "list-item";
+    /**
+     * platforms 함수를 실행하고 반환 값을 계산합니다.
+     *
+     * @param {any} pack `pack` 값입니다.
+     * @returns {any} 처리 결과를 반환합니다.
+     */
     const platforms = (pack.supportedPlatforms || []).join(", ");
+    /**
+     * problems 함수를 실행하고 반환 값을 계산합니다.
+     *
+     * @param {any} pack `pack` 값입니다.
+     * @returns {any} 처리 결과를 반환합니다.
+     */
     const problems = (pack.problems || []).join(", ");
     const packLabel = `${app.escapeHtml(pack.packId)} ${app.escapeHtml(pack.version || "")}`;
     item.innerHTML = `<strong>${packLabel}</strong><span>${app.escapeHtml(platforms)} · ${app.escapeHtml(problems)}</span>`;
@@ -54,6 +84,11 @@ function renderPacks(packs) {
   }
 }
 
+/**
+ * uploadPack 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function uploadPack() {
   const file = app.$("packFileInput").files[0];
   if (!file) throw new Error("Problem pack file is required.");
@@ -71,6 +106,11 @@ async function uploadPack() {
   await app.refresh();
 }
 
+/**
+ * downloadOfficialPack 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function downloadOfficialPack() {
   const repository = app.$("officialRepoInput").value.trim();
   const assetName = app.$("packAssetInput").value.trim();
@@ -99,6 +139,11 @@ async function downloadOfficialPack() {
   await app.refresh();
 }
 
+/**
+ * updatePackActionState 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function updatePackActionState() {
   const fileInput = app.optional("packFileInput");
   app.setDisabled("uploadPackButton", state.isBusy || !fileInput?.files?.length);

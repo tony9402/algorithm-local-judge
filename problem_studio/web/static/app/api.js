@@ -1,3 +1,9 @@
+/**
+ * normalizeErrorDetail 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} detail `detail` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function normalizeErrorDetail(detail) {
   if (!detail) return "";
   if (typeof detail === "string") return detail;
@@ -16,6 +22,13 @@ export function normalizeErrorDetail(detail) {
   return String(detail);
 }
 
+/**
+ * api 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function api(path, options = {}) {
   const isFormData = options.body instanceof FormData;
   const headers = isFormData

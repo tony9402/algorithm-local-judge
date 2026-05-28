@@ -14,6 +14,11 @@ const RUN_ALL_JOB_KINDS = new Set(["full-check", "workspace-pack-build"]);
 const ACTIVE_JOB_STATUSES = new Set(["queued", "running", "cancelling"]);
 const runAllLeaseTimers = new Map();
 
+/**
+ * currentRunAllLock 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function currentRunAllLock() {
   const lock = readStorage(RUN_ALL_LOCK_KEY);
   if (!lock?.token || !lock?.expiresAt) return null;
@@ -24,24 +29,53 @@ export function currentRunAllLock() {
   return lock;
 }
 
+/**
+ * lockHeartbeatAt 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} lock `lock` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function lockHeartbeatAt(lock) {
   return Number(lock?.heartbeatAt || lock?.startedAt || 0);
 }
 
+/**
+ * hasActiveRunAllJob 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} jobs `jobs` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function hasActiveRunAllJob(jobs = []) {
   return jobs.some((job) => RUN_ALL_JOB_KINDS.has(job.kind) && ACTIVE_JOB_STATUSES.has(job.status));
 }
 
+/**
+ * announceRunAllLock 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function announceRunAllLock() {
   runAllChannel?.postMessage({ type: "run-all-lock-changed" });
 }
 
+/**
+ * stopRunAllLeaseTimer 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} token `token` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function stopRunAllLeaseTimer(token) {
   const timer = runAllLeaseTimers.get(token);
   if (timer) window.clearInterval(timer);
   runAllLeaseTimers.delete(token);
 }
 
+/**
+ * startRunAllLeaseHeartbeat 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} lock `lock` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function startRunAllLeaseHeartbeat(lock) {
   stopRunAllLeaseTimer(lock.token);
   const timer = window.setInterval(() => {
@@ -59,6 +93,12 @@ function startRunAllLeaseHeartbeat(lock) {
   runAllLeaseTimers.set(lock.token, timer);
 }
 
+/**
+ * acquireRunAllLease 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problemId `problemId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function acquireRunAllLease(problemId = state.selectedProblem) {
   const existing = currentRunAllLock();
   if (existing && existing.owner !== TAB_INSTANCE_ID) return null;
@@ -79,6 +119,12 @@ export function acquireRunAllLease(problemId = state.selectedProblem) {
   return lock;
 }
 
+/**
+ * releaseRunAllLease 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} lock `lock` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function releaseRunAllLease(lock) {
   if (lock?.token) stopRunAllLeaseTimer(lock.token);
   const stored = currentRunAllLock();
@@ -88,6 +134,12 @@ export function releaseRunAllLease(lock) {
   }
 }
 
+/**
+ * reconcileRunAllLockWithJobs 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} jobs `jobs` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function reconcileRunAllLockWithJobs(jobs = []) {
   const lock = currentRunAllLock();
   if (!lock || lock.owner === TAB_INSTANCE_ID || hasActiveRunAllJob(jobs)) return false;
@@ -98,6 +150,12 @@ export function reconcileRunAllLockWithJobs(jobs = []) {
   return true;
 }
 
+/**
+ * withProblemTaskLock 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} action `action` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function withProblemTaskLock(action) {
   if (!navigator.locks?.request) return action();
   return navigator.locks.request(PROBLEM_TASK_LOCK_NAME, { ifAvailable: true }, async (lock) => {

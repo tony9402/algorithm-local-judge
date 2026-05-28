@@ -11,6 +11,14 @@ import { PACK_JOB_KEY, PACK_OUTPUT_DIR, state } from "../state.js";
 import { readStorage, removeStorage, writeStorage } from "../storage.js";
 import { packJobSummary, updateGlobalActionState } from "./build-status.js";
 
+/**
+ * persistPackJob 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @param {any} problemId `problemId` 값입니다.
+ * @param {any} details `details` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function persistPackJob(job, problemId, details = {}) {
   const previous = state.activePackJob || {};
   state.activePackJob = {
@@ -32,6 +40,11 @@ export function persistPackJob(job, problemId, details = {}) {
   updateBuildPanel();
 }
 
+/**
+ * clearPackJob 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function clearPackJob() {
   state.activePackJob = null;
   removeStorage(PACK_JOB_KEY);
@@ -43,6 +56,13 @@ export function clearPackJob() {
   updateBuildPanel();
 }
 
+/**
+ * markPackJobStale 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @param {any} problemId `problemId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function markPackJobStale(job, problemId) {
   state.stalePackJob = {
     ...job,
@@ -61,6 +81,11 @@ function markPackJobStale(job, problemId) {
   updateBuildPanel();
 }
 
+/**
+ * dismissStalePackJob 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function dismissStalePackJob() {
   const job = state.stalePackJob;
   state.stalePackJob = null;
@@ -77,6 +102,14 @@ export async function dismissStalePackJob() {
   }
 }
 
+/**
+ * schedulePackJobPoll 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problemId `problemId` 값입니다.
+ * @param {any} jobId `jobId` 값입니다.
+ * @param {any} delay `delay` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function schedulePackJobPoll(problemId, jobId, delay = 1500) {
   if (state.packPollTimer) window.clearTimeout(state.packPollTimer);
   state.packPollTimer = window.setTimeout(() => {
@@ -84,6 +117,13 @@ export function schedulePackJobPoll(problemId, jobId, delay = 1500) {
   }, delay);
 }
 
+/**
+ * pollPackJob 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problemId `problemId` 값입니다.
+ * @param {any} jobId `jobId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function pollPackJob(problemId, jobId) {
   try {
     const job = await api(
@@ -157,6 +197,11 @@ async function pollPackJob(problemId, jobId) {
   }
 }
 
+/**
+ * syncPackJobFromStorage 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function syncPackJobFromStorage() {
   const job = readStorage(PACK_JOB_KEY);
   if (!job?.jobId || !job?.problemId) {
@@ -183,6 +228,11 @@ export function syncPackJobFromStorage() {
   if (!alreadyPolling) schedulePackJobPoll(job.problemId, job.jobId, 250);
 }
 
+/**
+ * cancelActivePackJob 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function cancelActivePackJob() {
   const job = state.activePackJob;
   if (!job?.jobId || !job?.problemId) return;

@@ -45,6 +45,12 @@ export {
 } from "./vim-mode.js";
 export { findVimSearch } from "./vim-operations.js";
 
+/**
+ * handleVimKeydown 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} event 발생한 이벤트입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function handleVimKeydown(event) {
   if (state.editorMode !== "vim") return false;
   const editor = event.currentTarget;
@@ -79,6 +85,11 @@ export function handleVimKeydown(event) {
   if (event.metaKey || event.ctrlKey || event.altKey) return false;
 
   const { value, selectionStart } = editor;
+  /**
+   * prevent 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   const prevent = () => {
     event.preventDefault();
     event.stopPropagation();
@@ -114,6 +125,11 @@ export function handleVimKeydown(event) {
     return true;
   }
 
+  /**
+   * count 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   const count = () => vimCountValue(1);
 
   if (key === "i") {

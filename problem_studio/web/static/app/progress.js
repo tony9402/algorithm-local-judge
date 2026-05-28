@@ -2,6 +2,12 @@ import { $, escapeHtml, optional, setText } from "./dom.js";
 import { persistProblemLastResult } from "./results.js";
 import { state } from "./state.js";
 
+/**
+ * statusLabel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} status `status` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function statusLabel(status) {
   if (status === "success") return "완료";
   if (status === "running") return "진행 중";
@@ -10,20 +16,42 @@ function statusLabel(status) {
   return "대기";
 }
 
+/**
+ * progressDoneCount 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function progressDoneCount() {
   return state.progress.steps.filter((step) => ["success", "cached"].includes(step.status)).length;
 }
 
+/**
+ * explicitProgressPercent 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function explicitProgressPercent() {
   const percent = Number(state.progress.percent);
   if (!Number.isFinite(percent)) return null;
   return Math.max(0, Math.min(100, Math.round(percent)));
 }
 
+/**
+ * defaultProgressPercent 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} done `done` 값입니다.
+ * @param {any} total `total` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function defaultProgressPercent(done, total) {
   return Math.round((done / total) * 100);
 }
 
+/**
+ * renderProgressPanel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function renderProgressPanel() {
   const panel = optional("progressPanel");
   if (!panel) return;
@@ -76,6 +104,13 @@ export function renderProgressPanel() {
     .join("");
 }
 
+/**
+ * beginProgress 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} title `title` 값입니다.
+ * @param {any} steps `steps` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function beginProgress(title, steps = []) {
   state.progress = {
     active: true,
@@ -90,17 +125,37 @@ export function beginProgress(title, steps = []) {
   renderProgressPanel();
 }
 
+/**
+ * completeProgress 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function completeProgress() {
   state.progress.active = false;
   renderProgressPanel();
 }
 
+/**
+ * setProgressInsight 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} title `title` 값입니다.
+ * @param {any} body `body` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function setProgressInsight(title, body) {
   state.progress.insightTitle = title || "현재 작업";
   state.progress.insightBody = body || "단계가 완료되면 결과 요약이 갱신됩니다.";
   renderProgressPanel();
 }
 
+/**
+ * setProgressStep 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} index `index` 값입니다.
+ * @param {any} status `status` 값입니다.
+ * @param {any} detail `detail` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function setProgressStep(index, status, detail = "") {
   if (!state.progress.steps[index]) return;
   state.progress.steps[index].status = status;
@@ -113,6 +168,12 @@ export function setProgressStep(index, status, detail = "") {
   renderProgressPanel();
 }
 
+/**
+ * updateRunningProgressDetail 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} detail `detail` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateRunningProgressDetail(detail) {
   const runningIndex = state.progress.steps.findIndex((step) => step.status === "running");
   if (runningIndex < 0) return;
@@ -120,6 +181,12 @@ export function updateRunningProgressDetail(detail) {
   renderProgressPanel();
 }
 
+/**
+ * updateProgressFromJob 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateProgressFromJob(job) {
   if (!state.progress.active || !job) return;
   const progress = job.progress || {};
@@ -156,14 +223,30 @@ export function updateProgressFromJob(job) {
   renderProgressPanel();
 }
 
+/**
+ * hideLastRunPanel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function hideLastRunPanel() {
   optional("lastRunPanel")?.classList.add("hidden");
 }
 
+/**
+ * shouldDisplayLastRunPanel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} tabId `tabId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function shouldDisplayLastRunPanel(tabId = state.selectedTab) {
   return tabId !== "build" && tabId !== "solutions";
 }
 
+/**
+ * renderLastRunPanel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function renderLastRunPanel() {
   const panel = optional("lastRunPanel");
   if (!panel) return;
@@ -176,6 +259,15 @@ export function renderLastRunPanel() {
   setText("lastRunSummary", state.lastRun.summary || "");
 }
 
+/**
+ * showLastRun 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} title `title` 값입니다.
+ * @param {any} summary `summary` 값입니다.
+ * @param {any} type `type` 값입니다.
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function showLastRun(title, summary, type = "success", options = {}) {
   state.lastRun = { title, summary, type, updatedAt: Date.now() };
   if (options.persist !== false) {

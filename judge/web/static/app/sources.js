@@ -1,11 +1,23 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * formatSavedAt 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} savedAt `savedAt` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function formatSavedAt(savedAt) {
   if (!savedAt) return "saved source";
   return new Date(savedAt * 1000).toLocaleString();
 }
 
+/**
+ * sourceMatchesHistoryFilters 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} source `source` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function sourceMatchesHistoryFilters(source) {
   const query = String(state.sourceHistoryFilter || "").trim().toLowerCase();
   const statusFilter = state.sourceHistoryStatusFilter || "all";
@@ -23,6 +35,12 @@ function sourceMatchesHistoryFilters(source) {
     .some((value) => String(value).toLowerCase().includes(query));
 }
 
+/**
+ * renderSourceHistory 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} data 처리할 데이터입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderSourceHistory(data) {
   const list = app.optional("sourceHistoryList");
   if (!list) return;
@@ -96,11 +114,22 @@ function renderSourceHistory(data) {
   }
 }
 
+/**
+ * refreshSourceHistory 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function refreshSourceHistory() {
   const data = await app.api("/api/sources");
   renderSourceHistory(data);
 }
 
+/**
+ * loadCachedSource 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} sourceId `sourceId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function loadCachedSource(sourceId) {
   const source = await app.api(`/api/sources/${encodeURIComponent(sourceId)}`);
   if (source.problemId && state.problems.some((problem) => problem.problemId === source.problemId)) {
@@ -123,12 +152,24 @@ async function loadCachedSource(sourceId) {
   app.showToast(`Cached source loaded: ${source.filename || sourceId}`);
 }
 
+/**
+ * deleteCachedSource 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} sourceId `sourceId` 값입니다.
+ * @param {any} filename `filename` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function deleteCachedSource(sourceId, filename) {
   await app.api(`/api/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
   app.showToast(`Cached source deleted: ${filename}`);
   await app.refreshSecondaryData();
 }
 
+/**
+ * updateSourceHistoryFilter 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function updateSourceHistoryFilter() {
   state.sourceHistoryFilter = app.optional("sourceHistoryFilterInput")?.value || "";
   state.sourceHistoryStatusFilter = app.optional("sourceHistoryStatusFilter")?.value || "all";

@@ -1,10 +1,24 @@
 import { escapeHtml, optional } from "./dom.js";
 import { state } from "./state.js";
 
+/**
+ * renderGitStatus 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} status `status` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function renderGitStatus(status) {
   state.gitStatus = status;
   const panel = optional("gitStatus");
   if (!panel) return;
+  /**
+   * setDisabled 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} button `button` 값입니다.
+   * @param {any} disabled `disabled` 값입니다.
+   * @param {any} reason `reason` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   const setDisabled = (button, disabled, reason = "") => {
     if (!button) return;
     button.disabled = disabled;
@@ -107,6 +121,11 @@ export function renderGitStatus(status) {
         : ""
     }
   `;
+  /**
+   * applyButtonPolicy 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   const applyButtonPolicy = () => {
     const fetchButton = optional("gitFetchButton");
     const pullButton = optional("gitPullButton");

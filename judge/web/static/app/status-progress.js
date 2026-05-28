@@ -1,6 +1,14 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * setGenerationProgress 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} current `current` 값입니다.
+ * @param {any} total `total` 값입니다.
+ * @param {any} label `label` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function setGenerationProgress(current, total, label = "Data generation") {
   const progress = app.optional("generationProgress");
   if (!progress) return;
@@ -18,11 +26,22 @@ function setGenerationProgress(current, total, label = "Data generation") {
   if (labelElement) labelElement.textContent = label;
 }
 
+/**
+ * hideGenerationProgress 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function hideGenerationProgress() {
   app.optional("generationProgress")?.classList.add("hidden");
   state.generationProgress = { current: 0, total: 0 };
 }
 
+/**
+ * updateProgressFromLog 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function updateProgressFromLog(message) {
   const generatedCase = message.match(/Validating generated case .+ \((\d+)\/(\d+)\)\./);
   if (message.includes("Compiling cases.yml")) {

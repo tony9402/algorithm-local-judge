@@ -37,19 +37,82 @@ import { enqueueQueuedJob, runQueuedJob } from "../jobs-view.js";
 import { showLastRun } from "../progress.js";
 
 const solutionCallbacks = {
+  /**
+   * closeModals 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   closeModals: () => {},
+  /**
+   * markFullTestDirty 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   markFullTestDirty: () => {},
+  /**
+   * markSolutionDirty 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   markSolutionDirty: () => {},
+  /**
+   * openModal 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   openModal: () => {},
+  /**
+   * persistProblemLastResult 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   persistProblemLastResult: () => {},
+  /**
+   * removeSolutionChecks 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   removeSolutionChecks: () => {},
+  /**
+   * renderTaskPanel 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   renderTaskPanel: () => {},
+  /**
+   * setDirtySolutionPaths 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   setDirtySolutionPaths: () => {},
+  /**
+   * streamRequest 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   streamRequest: async () => ({}),
+  /**
+   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} action `action` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   withErrors: async (action) => action(),
+  /**
+   * withInlineErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} action `action` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   withInlineErrors: async (action) => action(),
 };
 
+/**
+ * configureSolutionActions 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} callbacks `callbacks` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function configureSolutionActions(callbacks = {}) {
   Object.assign(solutionCallbacks, callbacks);
   configureSolutionArtifacts({
@@ -61,12 +124,24 @@ export function configureSolutionActions(callbacks = {}) {
 export { openSolutionCasesModal };
 export { renderSolutionMetaForm, updateSolutionPreview, updateSolutionRenamePreview };
 
+/**
+ * solutionFilePaths 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function solutionFilePaths() {
   return state.files
     .filter((file) => file.path.startsWith("solutions/"))
     .map((file) => normalizedSolutionPath(file.path));
 }
 
+/**
+ * mergeSolutionVerification 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} previous `previous` 값입니다.
+ * @param {any} partial `partial` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function mergeSolutionVerification(previous, partial) {
   const currentPaths = solutionFilePaths();
   const currentPathSet = new Set(currentPaths);
@@ -98,6 +173,12 @@ function mergeSolutionVerification(previous, partial) {
   };
 }
 
+/**
+ * pathsNeedingSolutionVerification 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function pathsNeedingSolutionVerification(options = {}) {
   const allPaths = solutionFilePaths();
   if (options.paths?.length) return options.paths.map(normalizedSolutionPath);
@@ -111,6 +192,12 @@ function pathsNeedingSolutionVerification(options = {}) {
   return allPaths.filter((path) => dirty.has(path) || !checked.has(path));
 }
 
+/**
+ * clearSolutionDirty 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} paths 경로 목록입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function clearSolutionDirty(paths) {
   const completed = new Set((paths || []).map(normalizedSolutionPath));
   if (!completed.size) return;
@@ -119,6 +206,11 @@ function clearSolutionDirty(paths) {
   );
 }
 
+/**
+ * openSolutionCreateModal 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function openSolutionCreateModal() {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   initializeSourceModalEditors();
@@ -131,6 +223,12 @@ export function openSolutionCreateModal() {
   refreshModalEditor("create");
 }
 
+/**
+ * openSolutionEditModal 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function openSolutionEditModal(path) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   initializeSourceModalEditors();
@@ -154,6 +252,11 @@ export async function openSolutionEditModal(path) {
   refreshModalEditor("edit");
 }
 
+/**
+ * openSolutionUpload 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function openSolutionUpload() {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   const input = $("solutionUploadInput");
@@ -162,6 +265,12 @@ export function openSolutionUpload() {
   input.click();
 }
 
+/**
+ * uploadSolutions 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} files 파일 목록입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function uploadSolutions(files) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   if (!files.length) return;
@@ -183,6 +292,11 @@ export async function uploadSolutions(files) {
   showResult(`${uploaded.length} solution file(s) uploaded.`, "summary success");
 }
 
+/**
+ * createSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function createSolution() {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   if (!updateSolutionPreview()) {
@@ -215,6 +329,11 @@ export async function createSolution() {
   showResult("새 솔루션 파일을 만들었습니다.", "summary success");
 }
 
+/**
+ * renameSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function renameSolution() {
   const oldPath = state.editingSolutionPath || state.selectedFile;
   if (!state.selectedProblem || !oldPath?.startsWith("solutions/")) {
@@ -250,6 +369,12 @@ export async function renameSolution() {
   showResult("솔루션을 저장했습니다.", "summary success");
 }
 
+/**
+ * verifySolutions 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function verifySolutions(options = {}) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   const allPaths = solutionFilePaths();
@@ -309,19 +434,40 @@ export async function verifySolutions(options = {}) {
   return result;
 }
 
+/**
+ * verifySingleSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function verifySingleSolution(path) {
   return verifySolutions({ paths: [path], clear: false });
 }
 
+/**
+ * selectedStressDuration 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function selectedStressDuration() {
   const selected = document.querySelector("input[name='solutionStressDuration']:checked");
   return Number(selected?.value || 60);
 }
 
+/**
+ * stressSolutionCheckboxes 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function stressSolutionCheckboxes() {
   return Array.from(document.querySelectorAll("[data-stress-solution-path]"));
 }
 
+/**
+ * updateStressSelectionSummary 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function updateStressSelectionSummary() {
   const checkboxes = stressSolutionCheckboxes();
   const selected = checkboxes.filter((input) => input.checked);
@@ -334,11 +480,22 @@ function updateStressSelectionSummary() {
   }
 }
 
+/**
+ * selectedSolutionPathForStress 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function selectedSolutionPathForStress() {
   const path = normalizedSolutionPath(state.selectedFile);
   return path?.startsWith("solutions/") ? path : "";
 }
 
+/**
+ * applyStressSolutionScope 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} scope `scope` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function applyStressSolutionScope(scope = $("solutionStressScope").value) {
   const checkboxes = stressSolutionCheckboxes();
   const selectedPath = selectedSolutionPathForStress();
@@ -352,10 +509,20 @@ function applyStressSolutionScope(scope = $("solutionStressScope").value) {
   updateStressSelectionSummary();
 }
 
+/**
+ * updateSolutionStressScope 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateSolutionStressScope() {
   applyStressSolutionScope();
 }
 
+/**
+ * renderStressSolutionSelection 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderStressSolutionSelection() {
   const container = optional("solutionStressSelection");
   if (!container) return;
@@ -388,6 +555,11 @@ function renderStressSolutionSelection() {
   }
 }
 
+/**
+ * selectedStressSolutions 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function selectedStressSolutions() {
   const selected = stressSolutionCheckboxes()
     .filter((input) => input.checked)
@@ -398,10 +570,20 @@ function selectedStressSolutions() {
   return selected;
 }
 
+/**
+ * stressProfileValue 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function stressProfileValue() {
   return $("solutionStressProfile").value.trim() || state.detail?.metadata?.defaultProfile || "hidden";
 }
 
+/**
+ * stressMaxCasesValue 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function stressMaxCasesValue() {
   const value = $("solutionStressMaxCases").value.trim();
   if (!value) return null;
@@ -409,6 +591,11 @@ function stressMaxCasesValue() {
   return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : null;
 }
 
+/**
+ * openSolutionStressModal 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function openSolutionStressModal() {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   $("solutionStressProfile").value = state.lastSolutionStress?.profile
@@ -425,6 +612,12 @@ export function openSolutionStressModal() {
   solutionCallbacks.openModal("solutionStressModal");
 }
 
+/**
+ * runSolutionStress 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function runSolutionStress(options = {}) {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   const profile = options.profile || stressProfileValue();
@@ -439,6 +632,12 @@ export async function runSolutionStress(options = {}) {
         ? $("solutionStressStopOnMismatch").checked
         : options.stopOnFirstMismatch,
   };
+  /**
+   * finishStressRun 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} result `result` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   const finishStressRun = (result) => {
     state.lastSolutionStress = result;
     renderSolutionValidationSummary();
@@ -467,6 +666,12 @@ export async function runSolutionStress(options = {}) {
     {
       label: "Stress 테스트",
       onResult: finishStressRun,
+      /**
+       * onFailure 함수를 실행하고 반환 값을 계산합니다.
+       *
+       * @param {any} error `error` 값입니다.
+       * @returns {any} 처리 결과를 반환합니다.
+       */
       onFailure: (error) => {
         showAlert(error.message, "error", {
           title: "Stress 테스트 실패",
@@ -483,6 +688,13 @@ export async function runSolutionStress(options = {}) {
   return job;
 }
 
+/**
+ * stressMismatchByKey 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} caseId `caseId` 값입니다.
+ * @param {any} solutionKey `solutionKey` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function stressMismatchByKey(caseId, solutionKey) {
   const result = state.lastSolutionStress;
   return (result?.mismatches || []).find(
@@ -490,12 +702,23 @@ function stressMismatchByKey(caseId, solutionKey) {
   );
 }
 
+/**
+ * stressArtifactText 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function stressArtifactText() {
   const artifact = state.stressMismatchPreview;
   if (!artifact) return "";
   return artifact[state.selectedStressArtifact] || "";
 }
 
+/**
+ * renderStressDiff 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} text `text` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderStressDiff(text) {
   return text
     .split("\n")
@@ -511,12 +734,25 @@ function renderStressDiff(text) {
     .join("\n");
 }
 
+/**
+ * defaultStressCaseName 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} artifact `artifact` 값입니다.
+ * @param {any} mode `mode` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function defaultStressCaseName(artifact, mode) {
   const metadata = artifact?.metadata || {};
   const source = String(metadata.generatorCaseName || metadata.caseName || metadata.caseId || "stress");
   return `${source}-${metadata.caseId || artifact?.caseId || "case"}-${mode}`.replace(/[^A-Za-z0-9_.-]+/g, "-");
 }
 
+/**
+ * stressReviewBody 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} artifact `artifact` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function stressReviewBody(artifact) {
   const metadata = artifact?.metadata || {};
   const selected = state.selectedStressArtifact || "input";
@@ -581,6 +817,11 @@ function stressReviewBody(artifact) {
   `;
 }
 
+/**
+ * renderStressReview 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderStressReview() {
   const artifact = state.stressMismatchPreview;
   if (!artifact) return;
@@ -628,6 +869,11 @@ function renderStressReview() {
   });
 }
 
+/**
+ * copyStressArtifact 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function copyStressArtifact() {
   const text = stressArtifactText();
   if (!text) return;
@@ -648,6 +894,14 @@ async function copyStressArtifact() {
   showAlert("Artifact copied.", "success", { title: "Copied", timeout: 2500 });
 }
 
+/**
+ * openStressMismatchModal 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} caseId `caseId` 값입니다.
+ * @param {any} solutionKey `solutionKey` 값입니다.
+ * @param {any} mode `mode` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function openStressMismatchModal(caseId, solutionKey, mode = null) {
   if (!state.selectedProblem || !state.lastSolutionStress?.stressRunId) {
     throw new Error("Stress 결과가 없습니다.");
@@ -667,6 +921,11 @@ export async function openStressMismatchModal(caseId, solutionKey, mode = null) 
   solutionCallbacks.openModal("solutionStressReviewModal");
 }
 
+/**
+ * appendStressMismatch 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function appendStressMismatch() {
   const artifact = state.stressMismatchPreview;
   if (!state.selectedProblem || !artifact) throw new Error("추가할 Stress mismatch가 없습니다.");

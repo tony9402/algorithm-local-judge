@@ -13,6 +13,12 @@ const waiters = new Map();
 const ACTIVE = new Set(["queued", "running", "cancelling"]);
 const DONE = new Set(["succeeded", "cancelled", "stale"]);
 
+/**
+ * statusLabel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} status `status` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function statusLabel(status) {
   return {
     queued: "대기 중",
@@ -25,6 +31,11 @@ function statusLabel(status) {
   }[status] || status;
 }
 
+/**
+ * jobCounts 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function jobCounts() {
   return {
     active: jobs.filter((job) => ACTIVE.has(job.status)).length,
@@ -35,12 +46,23 @@ function jobCounts() {
   };
 }
 
+/**
+ * visibleJobs 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function visibleJobs() {
   if (filter === "active") return jobs.filter((job) => ACTIVE.has(job.status));
   if (filter === "failed") return jobs.filter((job) => job.status === "failed");
   return jobs.filter((job) => DONE.has(job.status));
 }
 
+/**
+ * formatTarget 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function formatTarget(job) {
   const target = job.target || {};
   return [
@@ -52,6 +74,12 @@ function formatTarget(job) {
   ].filter(Boolean).join(" · ");
 }
 
+/**
+ * progressPercent 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function progressPercent(job) {
   const progress = job.progress || {};
   const current = Number(progress.current);
@@ -60,6 +88,13 @@ function progressPercent(job) {
   return Math.max(0, Math.min(100, Math.round((current / total) * 100)));
 }
 
+/**
+ * visualProgressPercent 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @param {any} percent `percent` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function visualProgressPercent(job, percent) {
   if (percent !== null) return percent;
   if (job.status === "queued") return 14;
@@ -67,12 +102,27 @@ function visualProgressPercent(job, percent) {
   return 0;
 }
 
+/**
+ * progressTrackClass 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @param {any} percent `percent` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function progressTrackClass(job, percent) {
   const classes = ["job-progress-track"];
   if (percent === null && ["running", "cancelling"].includes(job.status)) classes.push("indeterminate");
   return classes.join(" ");
 }
 
+/**
+ * progressAriaAttrs 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @param {any} percent `percent` 값입니다.
+ * @param {any} active `active` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function progressAriaAttrs(job, percent, active) {
   if (percent !== null) {
     return `role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}" aria-label="${escapeHtml(statusLabel(job.status))}"`;
@@ -83,11 +133,23 @@ function progressAriaAttrs(job, percent, active) {
   return `aria-hidden="true"`;
 }
 
+/**
+ * formatTime 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} value 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function formatTime(value) {
   if (!value) return "";
   return new Date(value).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 }
 
+/**
+ * formatSeconds 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} value 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function formatSeconds(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "";
@@ -95,6 +157,13 @@ function formatSeconds(value) {
   return `${Math.round(numeric)}s`;
 }
 
+/**
+ * progressDetails 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @param {any} percent `percent` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function progressDetails(job, percent) {
   const progress = job.progress || {};
   const details = [];
@@ -107,6 +176,11 @@ function progressDetails(job, percent) {
   return details.filter(Boolean).join(" · ");
 }
 
+/**
+ * renderSummary 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderSummary() {
   const button = optional("jobCenterButton");
   const meta = optional("jobCenterMeta");
@@ -132,6 +206,11 @@ function renderSummary() {
   }
 }
 
+/**
+ * renderJobs 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderJobs() {
   renderSummary();
   const list = optional("jobCenterList");
@@ -150,6 +229,12 @@ function renderJobs() {
   list.innerHTML = escapeHtml("") + items.map(renderJobRow).join("");
 }
 
+/**
+ * renderJobRow 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderJobRow(job) {
   const percent = progressPercent(job);
   const active = ["queued", "running", "cancelling"].includes(job.status);
@@ -196,6 +281,11 @@ function renderJobRow(job) {
   `;
 }
 
+/**
+ * refreshJobs 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function refreshJobs() {
   try {
     const payload = await api("/api/jobs");
@@ -208,11 +298,22 @@ async function refreshJobs() {
   }
 }
 
+/**
+ * schedulePoll 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} delay `delay` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function schedulePoll(delay = 900) {
   if (pollTimer) window.clearTimeout(pollTimer);
   pollTimer = window.setTimeout(refreshJobs, delay);
 }
 
+/**
+ * resolveWaiters 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function resolveWaiters() {
   for (const [jobId, waiter] of waiters.entries()) {
     const job = jobs.find((item) => item.jobId === jobId);
@@ -229,6 +330,14 @@ function resolveWaiters() {
   }
 }
 
+/**
+ * runQueuedJob 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @param {any} body `body` 값입니다.
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function runQueuedJob(path, body, options = {}) {
   const job = await api(path, {
     method: "POST",
@@ -241,6 +350,12 @@ export async function runQueuedJob(path, body, options = {}) {
   await refreshJobs();
   return new Promise((resolve, reject) => {
     waiters.set(job.jobId, {
+      /**
+       * resolve 함수를 실행하고 반환 값을 계산합니다.
+       *
+       * @param {any} finished `finished` 값입니다.
+       * @returns {any} 처리 결과를 반환합니다.
+       */
       resolve: (finished) => {
         const result = finished.result || {};
         options.onResult?.(result, finished);
@@ -255,6 +370,14 @@ export async function runQueuedJob(path, body, options = {}) {
   });
 }
 
+/**
+ * enqueueQueuedJob 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @param {any} body `body` 값입니다.
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function enqueueQueuedJob(path, body, options = {}) {
   const job = await api(path, {
     method: "POST",
@@ -267,11 +390,23 @@ export async function enqueueQueuedJob(path, body, options = {}) {
   await refreshJobs();
   if (options.onResult || options.onFailure || options.onProgress) {
     waiters.set(job.jobId, {
+      /**
+       * resolve 함수를 실행하고 반환 값을 계산합니다.
+       *
+       * @param {any} finished `finished` 값입니다.
+       * @returns {any} 처리 결과를 반환합니다.
+       */
       resolve: (finished) => {
         const result = finished.result || {};
         options.onResult?.(result, finished);
         if (finished.lastLog) updateRunningProgressDetail(finished.lastLog);
       },
+      /**
+       * reject 함수를 실행하고 반환 값을 계산합니다.
+       *
+       * @param {any} error `error` 값입니다.
+       * @returns {any} 처리 결과를 반환합니다.
+       */
       reject: (error) => {
         if (options.onFailure) {
           options.onFailure(error, job);
@@ -290,6 +425,12 @@ export async function enqueueQueuedJob(path, body, options = {}) {
   return job;
 }
 
+/**
+ * cancelJob 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} jobId `jobId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function cancelJob(jobId) {
   const job = jobs.find((item) => item.jobId === jobId);
   await api(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" });
@@ -300,16 +441,33 @@ async function cancelJob(jobId) {
   await refreshJobs();
 }
 
+/**
+ * dismissJob 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} jobId `jobId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function dismissJob(jobId) {
   await api(`/api/jobs/${encodeURIComponent(jobId)}`, { method: "DELETE" });
   await refreshJobs();
 }
 
+/**
+ * clearCompleted 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function clearCompleted() {
   await api("/api/jobs/completed", { method: "DELETE" });
   await refreshJobs();
 }
 
+/**
+ * openDrawer 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} open `open` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function openDrawer(open) {
   const drawer = optional("jobCenterDrawer");
   const button = optional("jobCenterButton");
@@ -318,6 +476,11 @@ function openDrawer(open) {
   button.setAttribute("aria-expanded", String(open));
 }
 
+/**
+ * bindJobCenter 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function bindJobCenter() {
   optional("jobCenterButton")?.addEventListener("click", () => openDrawer(true));
   optional("jobCenterCloseButton")?.addEventListener("click", () => openDrawer(false));

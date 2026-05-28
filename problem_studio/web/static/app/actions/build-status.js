@@ -2,6 +2,12 @@ import { escapeHtml, optional } from "../dom.js";
 import { TAB_INSTANCE_ID, state } from "../state.js";
 import { currentRunAllLock } from "./build-locks.js";
 
+/**
+ * formatTime 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} value 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function formatTime(value) {
   if (!value) return "";
   return new Date(value).toLocaleTimeString("ko-KR", {
@@ -10,6 +16,12 @@ export function formatTime(value) {
   });
 }
 
+/**
+ * packJobSummary 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} job `job` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function packJobSummary(job) {
   if (!job) return "";
   return [
@@ -21,6 +33,11 @@ export function packJobSummary(job) {
     .join(" · ");
 }
 
+/**
+ * updateRunAllButton 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function updateRunAllButton() {
   const button = optional("runAllButton");
   if (!button) return;
@@ -48,6 +65,11 @@ function updateRunAllButton() {
       : "";
 }
 
+/**
+ * updatePackButton 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function updatePackButton() {
   const button = optional("packButton");
   if (!button) return;
@@ -74,21 +96,41 @@ function updatePackButton() {
         : "";
 }
 
+/**
+ * bulkProblemIds 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function bulkProblemIds() {
   return (state.problems || []).map((problem) => problem.problemId).filter(Boolean);
 }
 
+/**
+ * selectedBulkProblemIdsFromModal 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function selectedBulkProblemIdsFromModal() {
   return Array.from(document.querySelectorAll("[data-bulk-problem]:checked"))
     .map((input) => input.value)
     .filter(Boolean);
 }
 
+/**
+ * bulkMaxWorkersFromModal 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function bulkMaxWorkersFromModal() {
   const value = Number.parseInt(optional("bulkMaxWorkersInput")?.value || "", 10);
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+/**
+ * updateBulkStartButton 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateBulkStartButton() {
   const button = optional("workspaceBuildStartButton");
   if (!button) return;
@@ -107,10 +149,20 @@ export function updateBulkStartButton() {
     : "문제를 선택하세요";
 }
 
+/**
+ * bulkBuildButtons 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function bulkBuildButtons() {
   return [optional("workspaceBuildAllButton"), optional("buildAllPacksButton")].filter(Boolean);
 }
 
+/**
+ * updateBuildAllPacksButton 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function updateBuildAllPacksButton() {
   const buttons = bulkBuildButtons();
   if (!buttons.length) return;
@@ -146,6 +198,11 @@ function updateBuildAllPacksButton() {
   }
 }
 
+/**
+ * updateGlobalStatus 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function updateGlobalStatus() {
   const status = optional("globalTaskStatus");
   if (!status) return;
@@ -189,6 +246,11 @@ function updateGlobalStatus() {
   status.classList.toggle("hidden", !messages.length);
 }
 
+/**
+ * updateGlobalActionState 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateGlobalActionState() {
   updateRunAllButton();
   updatePackButton();

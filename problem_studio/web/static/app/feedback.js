@@ -1,6 +1,12 @@
 import { normalizeErrorDetail } from "./api.js";
 import { optional } from "./dom.js";
 
+/**
+ * alertTypeFromClass 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} className `className` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function alertTypeFromClass(className = "") {
   if (className.includes("error")) return "error";
   if (className.includes("success")) return "success";
@@ -8,6 +14,12 @@ function alertTypeFromClass(className = "") {
   return "info";
 }
 
+/**
+ * alertTitle 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} type `type` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function alertTitle(type) {
   if (type === "success") return "완료";
   if (type === "warning") return "주의";
@@ -15,6 +27,14 @@ function alertTitle(type) {
   return "알림";
 }
 
+/**
+ * showAlert 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @param {any} type `type` 값입니다.
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function showAlert(message, type = "info", options = {}) {
   const stack = optional("alertStack");
   if (!stack) {
@@ -55,22 +75,52 @@ export function showAlert(message, type = "info", options = {}) {
   }
 }
 
+/**
+ * showResult 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @param {any} className `className` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function showResult(message, className = "") {
   const type = alertTypeFromClass(className);
   showAlert(message, type, { title: alertTitle(type) });
 }
 
+/**
+ * appendOutput 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function appendOutput(message) {
   void message;
 }
 
+/**
+ * clearOutput 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function clearOutput() {
   // Kept for command flows that previously reset command output state.
 }
 
+/**
+ * errorKindForDetail 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} detail `detail` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function errorKindForDetail(detail) {
   const normalized = normalizeErrorDetail(detail);
   const text = normalized.toLowerCase();
+  /**
+   * includesAny 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} tokens `tokens` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   const includesAny = (...tokens) => tokens.some((token) => text.includes(token));
   if (includesAny("timed out", "timeout")) {
     return {
@@ -144,6 +194,13 @@ function errorKindForDetail(detail) {
   };
 }
 
+/**
+ * formatOperationFailure 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} detail `detail` 값입니다.
+ * @param {any} rows `rows` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function formatOperationFailure(detail, rows = []) {
   const normalized = normalizeErrorDetail(detail) || "알 수 없는 문제가 발생했습니다.";
   const kind = errorKindForDetail(normalized);

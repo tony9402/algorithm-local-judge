@@ -48,10 +48,21 @@ export {
 } from "./pack-jobs.js";
 export { buildAllPacksOnce, cancelActiveBulkJob, openWorkspaceBuildModal } from "./build-bulk.js";
 
+/**
+ * configureBuildActions 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} callbacks `callbacks` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function configureBuildActions(callbacks = {}) {
   configureBulkBuildActions(callbacks);
 }
 
+/**
+ * runAllChecks 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function runAllChecks() {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   clearOutput();
@@ -161,6 +172,11 @@ async function runAllChecks() {
   }
 }
 
+/**
+ * runAllChecksOnce 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function runAllChecksOnce() {
   if (state.activePackJob) throw new Error("팩 빌드 진행 중에는 전체 테스트를 시작할 수 없습니다.");
   return withProblemTaskLock(async () => {
@@ -177,6 +193,11 @@ export async function runAllChecksOnce() {
   });
 }
 
+/**
+ * startPackBuild 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function startPackBuild() {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
   await saveOpenFileIfDirty();
@@ -203,10 +224,20 @@ async function startPackBuild() {
   schedulePackJobPoll(problemId, job.jobId, 500);
 }
 
+/**
+ * startPackBuildOnce 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function startPackBuildOnce() {
   return withProblemTaskLock(startPackBuild);
 }
 
+/**
+ * buildPack 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function buildPack() {
   $("packIdInput").value = $("packIdInput").value.trim() || "basic";
   $("packVerifyProfileInput").value = $("packVerifyProfileInput").value.trim() || "hidden";

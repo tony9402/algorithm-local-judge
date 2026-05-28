@@ -10,6 +10,11 @@ import { editorLineColumn } from "./position.js";
 import { isVimVisualMode, vimModeClassName } from "./selection.js";
 import { editorModeBadgeText } from "./vim.js";
 
+/**
+ * updateEditorVisuals 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateEditorVisuals() {
   if (state.codeMirror) {
     updateCodeMirrorOptions();
@@ -27,6 +32,11 @@ export function updateEditorVisuals() {
   updateEditorStatus();
 }
 
+/**
+ * syncEditorScroll 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function syncEditorScroll() {
   if (state.codeMirror) return;
   const editor = $("fileEditor");
@@ -35,6 +45,12 @@ export function syncEditorScroll() {
   $("editorLineNumbers").scrollTop = editor.scrollTop;
 }
 
+/**
+ * ensureEditorCursorVisible 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function ensureEditorCursorVisible(editor) {
   if (state.codeMirror) {
     state.codeMirror.scrollIntoView(state.codeMirror.getCursor(), 48);
@@ -65,6 +81,12 @@ export function ensureEditorCursorVisible(editor) {
   syncEditorScroll();
 }
 
+/**
+ * languageLabelForPath 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function languageLabelForPath(path) {
   const language = languageForPath(path);
   return {
@@ -77,6 +99,11 @@ function languageLabelForPath(path) {
   }[language] || "Text";
 }
 
+/**
+ * commandStatusText 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function commandStatusText() {
   if (state.editorMode !== "vim") return "";
   const count = state.vimCount ? state.vimCount : "";
@@ -86,6 +113,11 @@ function commandStatusText() {
   return [prefix, visual, state.vimMessage].filter(Boolean).join(" · ");
 }
 
+/**
+ * updateEditorStatus 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateEditorStatus() {
   const editor = optional("fileEditor");
   if (!editor) return;

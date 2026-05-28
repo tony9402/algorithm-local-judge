@@ -9,28 +9,71 @@ import {
 import { state } from "../state.js";
 
 const selectionCallbacks = {
+  /**
+   * ensureEditorCursorVisible 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   ensureEditorCursorVisible: () => {},
+  /**
+   * updateEditorSettingsUi 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   updateEditorSettingsUi: () => {},
+  /**
+   * updateEditorStatus 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   updateEditorStatus: () => {},
 };
 
+/**
+ * configureEditorSelection 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} callbacks `callbacks` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function configureEditorSelection(callbacks = {}) {
   Object.assign(selectionCallbacks, callbacks);
 }
 
+/**
+ * isVimVisualMode 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} mode `mode` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function isVimVisualMode(mode = state.vimMode) {
   return mode === "visual" || mode === "visual-line" || mode === "visual-block";
 }
 
+/**
+ * vimModeClassName 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function vimModeClassName() {
   return isVimVisualMode() ? "visual" : state.vimMode;
 }
 
+/**
+ * clearVimVisualState 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function clearVimVisualState() {
   state.vimVisualAnchor = null;
   state.vimVisualCursor = null;
 }
 
+/**
+ * visualSelectionRange 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function visualSelectionRange(editor) {
   const anchor = state.vimVisualAnchor ?? editor.selectionStart;
   const cursor = state.vimVisualCursor ?? editor.selectionStart;
@@ -46,6 +89,12 @@ export function visualSelectionRange(editor) {
   return { start, end };
 }
 
+/**
+ * updateVisualSelection 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateVisualSelection(editor) {
   const { start, end } = visualSelectionRange(editor);
   editor.selectionStart = start;
@@ -54,6 +103,13 @@ export function updateVisualSelection(editor) {
   selectionCallbacks.updateEditorStatus();
 }
 
+/**
+ * enterVimVisualMode 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} mode `mode` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function enterVimVisualMode(editor, mode = "visual") {
   state.vimMode = mode === "visual-line" ? "visual-line" : "visual";
   state.vimPending = "";
@@ -66,6 +122,12 @@ export function enterVimVisualMode(editor, mode = "visual") {
   selectionCallbacks.updateEditorSettingsUi();
 }
 
+/**
+ * exitVimVisualMode 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function exitVimVisualMode(editor) {
   const cursor = state.vimVisualCursor ?? editor.selectionStart;
   state.vimMode = "normal";
@@ -74,6 +136,15 @@ export function exitVimVisualMode(editor) {
   selectionCallbacks.updateEditorSettingsUi();
 }
 
+/**
+ * moveEditorCursor 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} position `position` 값입니다.
+ * @param {any} preferredColumn `preferredColumn` 값입니다.
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function moveEditorCursor(editor, position, preferredColumn = null, options = {}) {
   const shouldClamp =
     options.normal !== false
@@ -95,10 +166,23 @@ export function moveEditorCursor(editor, position, preferredColumn = null, optio
   selectionCallbacks.updateEditorStatus();
 }
 
+/**
+ * activeEditorCursor 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function activeEditorCursor(editor) {
   return isVimVisualMode() ? state.vimVisualCursor ?? editor.selectionStart : editor.selectionStart;
 }
 
+/**
+ * moveEditorVertical 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} direction `direction` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function moveEditorVertical(editor, direction) {
   const value = editor.value;
   const cursor = activeEditorCursor(editor);
@@ -120,6 +204,13 @@ export function moveEditorVertical(editor, direction) {
   moveEditorCursor(editor, Math.min(targetLineStart + preferredColumn, targetLineEnd), preferredColumn);
 }
 
+/**
+ * moveEditorHorizontal 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} amount `amount` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function moveEditorHorizontal(editor, amount) {
   const value = editor.value;
   const selectionStart = activeEditorCursor(editor);

@@ -37,14 +37,51 @@ export { syncEditorScroll, updateEditorStatus, updateEditorVisuals } from "./vis
 export { confirmDiscardChanges, hasUnsavedChanges, updateDirtyState } from "./dirty.js";
 
 const coreCallbacks = {
+  /**
+   * createSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   createSolution: async () => {},
+  /**
+   * currentPrimaryAction 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   currentPrimaryAction: () => null,
+  /**
+   * renameSolution 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   renameSolution: async () => {},
+  /**
+   * runTabAction 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   runTabAction: async () => {},
+  /**
+   * saveFile 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   saveFile: async () => {},
+  /**
+   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} action `action` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   withErrors: async (action) => action(),
 };
 
+/**
+ * configureEditorCore 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} callbacks `callbacks` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function configureEditorCore(callbacks = {}) {
   Object.assign(coreCallbacks, callbacks);
   configureEditorHistory({
@@ -78,6 +115,16 @@ export function configureEditorCore(callbacks = {}) {
   });
 }
 
+/**
+ * replaceEditorRange 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} start `start` 값입니다.
+ * @param {any} end `end` 값입니다.
+ * @param {any} replacement `replacement` 값입니다.
+ * @param {any} cursorPosition `cursorPosition` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function replaceEditorRange(editor, start, end, replacement, cursorPosition = start + replacement.length) {
   pushEditorHistory(editor);
   editor.setRangeText(replacement, start, end, "end");
@@ -86,6 +133,13 @@ function replaceEditorRange(editor, start, end, replacement, cursorPosition = st
   updateDirtyState();
 }
 
+/**
+ * setEditorMode 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} mode `mode` 값입니다.
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function setEditorMode(mode, options = {}) {
   state.editorMode = mode === "vim" ? "vim" : "default";
   state.vimMode = state.editorMode === "vim" ? "normal" : "insert";
@@ -110,6 +164,11 @@ export function setEditorMode(mode, options = {}) {
   }
 }
 
+/**
+ * updateEditorSettingsUi 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateEditorSettingsUi() {
   const isVim = state.editorMode === "vim";
   for (const button of document.querySelectorAll("[data-editor-mode]")) {
@@ -137,11 +196,22 @@ export function updateEditorSettingsUi() {
   updateEditorStatus();
 }
 
+/**
+ * setEditorSettingsOpen 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} open `open` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function setEditorSettingsOpen(open) {
   state.editorSettingsOpen = open;
   updateEditorSettingsUi();
 }
 
+/**
+ * restoreEditorSettings 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function restoreEditorSettings() {
   const saved = readStorage(EDITOR_SETTINGS_KEY);
   state.editorMode = saved?.mode === "vim" ? "vim" : "default";
@@ -156,6 +226,12 @@ export function restoreEditorSettings() {
   updateEditorSettingsUi();
 }
 
+/**
+ * openEditorCommandLine 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} mode `mode` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function openEditorCommandLine(mode) {
   state.editorCommandMode = mode;
   const panel = optional("editorCommandLine");
@@ -168,6 +244,11 @@ function openEditorCommandLine(mode) {
   }
 }
 
+/**
+ * closeEditorCommandLine 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function closeEditorCommandLine() {
   state.editorCommandMode = "";
   optional("editorCommandLine")?.classList.add("hidden");
@@ -175,6 +256,11 @@ export function closeEditorCommandLine() {
   if (input) input.value = "";
 }
 
+/**
+ * submitEditorCommandLine 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function submitEditorCommandLine() {
   const input = optional("editorCommandInput");
   const editor = optional("fileEditor");
@@ -199,6 +285,11 @@ export function submitEditorCommandLine() {
   updateEditorSettingsUi();
 }
 
+/**
+ * handleEditorInput 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function handleEditorInput() {
   if (state.editorApplyingValue) return;
   if (
@@ -213,6 +304,12 @@ function handleEditorInput() {
   updateDirtyState();
 }
 
+/**
+ * handleEditorCompositionStart 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} event 발생한 이벤트입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function handleEditorCompositionStart(event) {
   state.editorComposing = true;
   state.editorSnapshotBeforeIme = getEditorValue();
@@ -221,6 +318,11 @@ function handleEditorCompositionStart(event) {
   }
 }
 
+/**
+ * handleEditorCompositionEnd 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function handleEditorCompositionEnd() {
   if (state.editorMode === "vim" && state.vimMode !== "insert") {
     setEditorValue(state.editorSnapshotBeforeIme);
@@ -228,6 +330,12 @@ function handleEditorCompositionEnd() {
   state.editorComposing = false;
 }
 
+/**
+ * indentEditorSelection 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function indentEditorSelection(editor) {
   const { value, selectionStart, selectionEnd } = editor;
   pushEditorHistory(editor);
@@ -248,6 +356,12 @@ function indentEditorSelection(editor) {
   editor.setRangeText(EDITOR_INDENT, selectionStart, selectionEnd, "end");
 }
 
+/**
+ * outdentEditorSelection 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function outdentEditorSelection(editor) {
   const { value, selectionStart, selectionEnd } = editor;
   pushEditorHistory(editor);
@@ -277,6 +391,12 @@ function outdentEditorSelection(editor) {
   editor.selectionEnd = Math.max(editor.selectionStart, selectionEnd - removedBeforeEnd);
 }
 
+/**
+ * handleEditorKeydown 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} event 발생한 이벤트입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function handleEditorKeydown(event) {
   const shortcut = event.metaKey || event.ctrlKey;
   if (shortcut && event.key.toLowerCase() === "s") {
@@ -317,12 +437,23 @@ export function handleEditorKeydown(event) {
   updateDirtyState();
 }
 
+/**
+ * handleEditorBeforeInput 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} event 발생한 이벤트입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function handleEditorBeforeInput(event) {
   if (state.editorMode === "vim" && (state.vimMode === "normal" || isVimVisualMode())) {
     event.preventDefault();
   }
 }
 
+/**
+ * bindEditorEvents 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function bindEditorEvents() {
   $("fileEditor").addEventListener("input", handleEditorInput);
   $("fileEditor").addEventListener("beforeinput", handleEditorBeforeInput);

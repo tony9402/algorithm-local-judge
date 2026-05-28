@@ -1,3 +1,9 @@
+/**
+ * streamProgressDetail 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function streamProgressDetail(message) {
   const raw = String(message || "");
   const bare = raw.replace(/^[^:]+:\s*/, "");
@@ -58,6 +64,12 @@ export function streamProgressDetail(message) {
   return raw || "작업을 진행 중입니다.";
 }
 
+/**
+ * parseSseBlock 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} block `block` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function parseSseBlock(block) {
   const lines = block.split("\n");
   let event = "message";

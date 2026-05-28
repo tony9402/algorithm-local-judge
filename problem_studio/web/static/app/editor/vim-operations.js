@@ -40,6 +40,13 @@ import { setVimMode } from "./vim-mode.js";
 
 export { changeToLineEnd, deleteToLineEnd, pasteVimRegister } from "./vim-registers.js";
 
+/**
+ * moveToNextWord 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} count `count` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function moveToNextWord(editor, count = 1) {
   let position = activeEditorCursor(editor);
   for (let index = 0; index < count; index += 1) {
@@ -50,6 +57,13 @@ export function moveToNextWord(editor, count = 1) {
   moveEditorCursor(editor, position);
 }
 
+/**
+ * moveToWordEnd 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} count `count` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function moveToWordEnd(editor, count = 1) {
   let position = activeEditorCursor(editor);
   for (let index = 0; index < count; index += 1) {
@@ -60,6 +74,13 @@ export function moveToWordEnd(editor, count = 1) {
   moveEditorCursor(editor, position);
 }
 
+/**
+ * moveToPreviousWord 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} count `count` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function moveToPreviousWord(editor, count = 1) {
   let position = activeEditorCursor(editor);
   for (let index = 0; index < count; index += 1) {
@@ -70,12 +91,26 @@ export function moveToPreviousWord(editor, count = 1) {
   moveEditorCursor(editor, position);
 }
 
+/**
+ * moveToLine 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} lineNumber `lineNumber` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function moveToLine(editor, lineNumber) {
   const targetLine = Math.max(1, Math.min(lineNumber, totalLineCount(editor.value)));
   const start = lineStartByNumber(editor.value, targetLine);
   moveEditorCursor(editor, firstTextColumn(editor.value, start, lineEndAt(editor.value, start)));
 }
 
+/**
+ * insertVimLine 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} above `above` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function insertVimLine(editor, above) {
   const { value, selectionStart } = editor;
   const { start, end } = currentLineBounds(value, selectionStart);
@@ -90,6 +125,12 @@ export function insertVimLine(editor, above) {
   setVimMode("insert", editor, { recordHistory: false });
 }
 
+/**
+ * deleteVimChar 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function deleteVimChar(editor) {
   const { value, selectionStart } = editor;
   if (selectionStart >= value.length || value[selectionStart] === "\n") return;
@@ -98,6 +139,13 @@ export function deleteVimChar(editor) {
   replaceEditorRange(editor, selectionStart, selectionStart + 1, "", selectionStart);
 }
 
+/**
+ * replaceVimChar 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} value 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function replaceVimChar(editor, value) {
   if (!value || value.length !== 1) return;
   const { selectionStart } = editor;
@@ -106,6 +154,13 @@ export function replaceVimChar(editor, value) {
   state.vimMessage = `replaced with ${value}`;
 }
 
+/**
+ * joinVimLines 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} count `count` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function joinVimLines(editor, count = 1) {
   let position = editor.selectionStart;
   for (let index = 0; index < count; index += 1) {
@@ -117,6 +172,14 @@ export function joinVimLines(editor, count = 1) {
   state.vimMessage = "joined";
 }
 
+/**
+ * findVimSearch 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} direction `direction` 값입니다.
+ * @param {any} fromCurrent `fromCurrent` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function findVimSearch(editor, direction = state.vimSearchDirection, fromCurrent = false) {
   const query = state.vimSearchQuery;
   if (!query) return;
@@ -141,6 +204,15 @@ export function findVimSearch(editor, direction = state.vimSearchDirection, from
   vimCallbacks.updateEditorSettingsUi();
 }
 
+/**
+ * motionTarget 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} key `key` 값입니다.
+ * @param {any} count `count` 값입니다.
+ * @param {any} explicitLine `explicitLine` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function motionTarget(editor, key, count = 1, explicitLine = null) {
   const { value, selectionStart } = editor;
   if (key === "w") {
@@ -181,12 +253,24 @@ function motionTarget(editor, key, count = 1, explicitLine = null) {
   return null;
 }
 
+/**
+ * vimCountValue 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} defaultValue `defaultValue` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function vimCountValue(defaultValue = 1) {
   const count = state.vimCount ? Number(state.vimCount) : defaultValue;
   state.vimCount = "";
   return Number.isFinite(count) && count > 0 ? count : defaultValue;
 }
 
+/**
+ * clearVimPending 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function clearVimPending(message = "") {
   state.vimPending = "";
   state.vimCount = "";
@@ -195,6 +279,13 @@ export function clearVimPending(message = "") {
   vimCallbacks.updateEditorSettingsUi();
 }
 
+/**
+ * applyVimOperator 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} key `key` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function applyVimOperator(editor, key) {
   const operator = state.vimPending;
   const explicitMotionCount = state.vimCount ? Number(state.vimCount) : null;
@@ -218,6 +309,13 @@ export function applyVimOperator(editor, key) {
   return true;
 }
 
+/**
+ * handleVimVisualKey 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} editor `editor` 값입니다.
+ * @param {any} key `key` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function handleVimVisualKey(editor, key) {
   if (state.vimPending === "g") {
     if (key === "g") {
@@ -228,6 +326,11 @@ export function handleVimVisualKey(editor, key) {
     clearVimPending();
     return true;
   }
+  /**
+   * count 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   const count = () => vimCountValue(1);
   const { value } = editor;
   if (key === "v" && state.vimMode === "visual") {

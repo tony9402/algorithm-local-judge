@@ -8,6 +8,12 @@ import {
   state,
 } from "./state.js";
 
+/**
+ * bindAppEvents 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} actions `actions` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function bindAppEvents(actions) {
   actions.bindEditorEvents();
   optional("editorCommandInput")?.addEventListener("keydown", (event) => {

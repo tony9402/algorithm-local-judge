@@ -1,6 +1,11 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * clearSourceInputs 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function clearSourceInputs() {
   const fileInput = app.optional("sourceFileInput");
   const filenameInput = app.optional("filenameInput");
@@ -13,6 +18,12 @@ function clearSourceInputs() {
   app.syncEditorScroll();
 }
 
+/**
+ * setMode 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} mode `mode` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function setMode(mode) {
   state.sourceMode = mode;
   app.$("uploadModeButton").classList.toggle("active", mode === "upload");
@@ -24,6 +35,11 @@ function setMode(mode) {
   app.updateLanguageBadge();
 }
 
+/**
+ * bindDropZone 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function bindDropZone() {
   const zone = app.$("uploadSourcePanel");
   const input = app.$("sourceFileInput");

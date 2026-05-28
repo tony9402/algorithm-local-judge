@@ -1,6 +1,12 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * resetRunStatus 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function resetRunStatus(message = "Ready.") {
   app.setBadge("Idle", "neutral");
   app.setText("resultMeta", "No run yet.");
@@ -12,6 +18,11 @@ function resetRunStatus(message = "Ready.") {
   app.setSummary(message, "result-summary muted");
 }
 
+/**
+ * renderDebugLog 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderDebugLog() {
   const output = app.optional("resultOutput");
   if (!output) return;
@@ -21,11 +32,21 @@ function renderDebugLog() {
   output.classList.toggle("hidden", !shouldShow);
 }
 
+/**
+ * clearDebugLog 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function clearDebugLog() {
   state.debugLogs = [];
   renderDebugLog();
 }
 
+/**
+ * configureDebugUi 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function configureDebugUi() {
   const toggle = app.optional("debugToggle");
   const input = app.optional("debugModeInput");
@@ -35,6 +56,12 @@ function configureDebugUi() {
   renderDebugLog();
 }
 
+/**
+ * appendRunLog 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function appendRunLog(message) {
   state.debugLogs.push(message);
   renderDebugLog();
@@ -43,6 +70,12 @@ function appendRunLog(message) {
   if (output) output.scrollTop = output.scrollHeight;
 }
 
+/**
+ * showError 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function showError(message) {
   const packModal = app.optional("packModal");
   const cacheModal = app.optional("cacheModal");
@@ -66,6 +99,12 @@ function showError(message) {
   renderDebugLog();
 }
 
+/**
+ * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} action `action` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function withErrors(action) {
   app.setBusy(true);
   try {
@@ -77,6 +116,12 @@ async function withErrors(action) {
   }
 }
 
+/**
+ * withJobErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} action `action` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function withJobErrors(action) {
   try {
     await action();

@@ -18,22 +18,57 @@ import {
 } from "../solution-status.js";
 
 const artifactCallbacks = {
+  /**
+   * openModal 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   openModal: () => {},
+  /**
+   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} action `action` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   withErrors: async (action) => action(),
 };
 
+/**
+ * configureSolutionArtifacts 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} callbacks `callbacks` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function configureSolutionArtifacts(callbacks = {}) {
   Object.assign(artifactCallbacks, callbacks);
 }
 
+/**
+ * isFailedSolutionCase 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} status `status` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function isFailedSolutionCase(status) {
   return status !== "ok" && status !== "accepted";
 }
 
+/**
+ * escapeAttribute 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} value 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function escapeAttribute(value) {
   return escapeHtml(value).replaceAll("'", "&#39;");
 }
 
+/**
+ * renderSolutionCaseRows 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} check `check` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderSolutionCaseRows(check) {
   const cases = solutionCheckCases(check);
   if (!cases.length) return "";
@@ -75,12 +110,23 @@ function renderSolutionCaseRows(check) {
   `;
 }
 
+/**
+ * solutionArtifactText 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function solutionArtifactText() {
   const artifact = state.solutionArtifactPreview;
   if (!artifact) return "";
   return artifact[state.selectedSolutionArtifact] || "";
 }
 
+/**
+ * renderDiffArtifact 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} text `text` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderDiffArtifact(text) {
   return text
     .split("\n")
@@ -96,6 +142,11 @@ function renderDiffArtifact(text) {
     .join("\n");
 }
 
+/**
+ * wireSolutionArtifactPreview 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function wireSolutionArtifactPreview() {
   for (const button of document.querySelectorAll("[data-solution-artifact-tab]")) {
     button.addEventListener("click", () => {
@@ -109,6 +160,11 @@ function wireSolutionArtifactPreview() {
   });
 }
 
+/**
+ * renderSolutionArtifactPreview 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderSolutionArtifactPreview() {
   const panel = document.getElementById("solutionArtifactPreview");
   if (!panel) return;
@@ -151,6 +207,11 @@ function renderSolutionArtifactPreview() {
   wireSolutionArtifactPreview();
 }
 
+/**
+ * copySolutionArtifactPreview 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function copySolutionArtifactPreview() {
   const text = solutionArtifactText();
   if (!text) return;
@@ -171,6 +232,13 @@ async function copySolutionArtifactPreview() {
   showAlert("Artifact copied.", "success", { title: "Copied", timeout: 2500 });
 }
 
+/**
+ * loadSolutionArtifactPreview 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} check `check` 값입니다.
+ * @param {any} caseId `caseId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function loadSolutionArtifactPreview(check, caseId) {
   if (!state.selectedProblem || !check.runId) return;
   const artifact = await api(
@@ -185,6 +253,12 @@ async function loadSolutionArtifactPreview(check, caseId) {
   renderSolutionArtifactPreview();
 }
 
+/**
+ * renderSolutionCasesBody 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} check `check` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderSolutionCasesBody(check) {
   const metrics = solutionCheckMetrics(check);
   const message = normalizeErrorDetail(check?.message);
@@ -207,6 +281,12 @@ function renderSolutionCasesBody(check) {
   `;
 }
 
+/**
+ * openSolutionCasesModal 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function openSolutionCasesModal(path) {
   const check = solutionCheckForPath(path);
   if (!check) {

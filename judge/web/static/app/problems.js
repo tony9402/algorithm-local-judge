@@ -1,6 +1,11 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * storedProblemId 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function storedProblemId() {
   try {
     return localStorage.getItem(app.SELECTED_PROBLEM_KEY);
@@ -9,6 +14,11 @@ function storedProblemId() {
   }
 }
 
+/**
+ * urlProblemId 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function urlProblemId() {
   try {
     return new URL(window.location.href).searchParams.get("problem");
@@ -17,6 +27,12 @@ function urlProblemId() {
   }
 }
 
+/**
+ * rememberProblemInUrl 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problemId `problemId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function rememberProblemInUrl(problemId) {
   try {
     const url = new URL(window.location.href);
@@ -28,6 +44,12 @@ function rememberProblemInUrl(problemId) {
   }
 }
 
+/**
+ * rememberProblemId 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problemId `problemId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function rememberProblemId(problemId) {
   try {
     if (problemId) localStorage.setItem(app.SELECTED_PROBLEM_KEY, problemId);
@@ -38,14 +60,32 @@ function rememberProblemId(problemId) {
   rememberProblemInUrl(problemId);
 }
 
+/**
+ * problemFolder 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problem `problem` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function problemFolder(problem) {
   return (problem?.folder || "").trim();
 }
 
+/**
+ * problemFolderLabel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} folder `folder` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function problemFolderLabel(folder) {
   return folder || "Uncategorized";
 }
 
+/**
+ * problemsByFolder 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problems `problems` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function problemsByFolder(problems) {
   const groups = new Map();
   for (const problem of problems) {
@@ -58,6 +98,11 @@ function problemsByFolder(problems) {
   );
 }
 
+/**
+ * renderProblemFolderControls 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderProblemFolderControls() {
   const input = app.optional("problemFolderInput");
   const button = app.optional("problemFolderSaveButton");
@@ -72,6 +117,13 @@ function renderProblemFolderControls() {
     : "설치된 .aljpack 문제는 folder를 직접 변경할 수 없습니다.";
 }
 
+/**
+ * createProblemItem 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problem `problem` 값입니다.
+ * @param {any} select `select` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function createProblemItem(problem, select) {
   const item = document.createElement("button");
   item.className = "list-item";
@@ -100,6 +152,14 @@ function createProblemItem(problem, select) {
   return item;
 }
 
+/**
+ * createProblemFolderGroup 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} folder `folder` 값입니다.
+ * @param {any} problems `problems` 값입니다.
+ * @param {any} select `select` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function createProblemFolderGroup(folder, problems, select) {
   const group = document.createElement("section");
   group.className = "problem-folder-group";
@@ -129,6 +189,12 @@ function createProblemFolderGroup(folder, problems, select) {
   return group;
 }
 
+/**
+ * renderProblems 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problems `problems` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderProblems(problems) {
   state.problems = problems;
   document.body.classList.toggle("has-problems", problems.length > 0);
@@ -167,6 +233,11 @@ function renderProblems(problems) {
   renderProblemSelection();
 }
 
+/**
+ * renderProblemSelection 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderProblemSelection() {
   const problemId = state.selectedProblem;
   const problem = state.problems.find((item) => item.problemId === problemId);
@@ -180,6 +251,12 @@ function renderProblemSelection() {
   app.updateActionState();
 }
 
+/**
+ * renderRunProfiles 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problem `problem` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderRunProfiles(problem) {
   const select = app.optional("runProfileSelect");
   if (!select) return;
@@ -196,6 +273,11 @@ function renderRunProfiles(problem) {
   state.config.judgeProfile = select.value;
 }
 
+/**
+ * handleProblemChange 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function handleProblemChange() {
   const problemId = app.$("problemSelect").value;
   state.selectedProblem = problemId;
@@ -209,6 +291,13 @@ async function handleProblemChange() {
   await app.loadSamples();
 }
 
+/**
+ * updateProblemFolder 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problemId `problemId` 값입니다.
+ * @param {any} folder `folder` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function updateProblemFolder(problemId, folder) {
   const result = await app.api(`/api/problems/${encodeURIComponent(problemId)}/folder`, {
     method: "PATCH",
@@ -223,6 +312,11 @@ async function updateProblemFolder(problemId, folder) {
   app.showToast(`${problemId} folder moved to ${problemFolderLabel(result.folder)}.`);
 }
 
+/**
+ * updateSelectedProblemFolder 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function updateSelectedProblemFolder() {
   if (!state.selectedProblem) return;
   await updateProblemFolder(state.selectedProblem, app.$("problemFolderInput").value);

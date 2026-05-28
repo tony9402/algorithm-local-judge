@@ -3,14 +3,38 @@ import { state } from "./state.js";
 import { rememberView } from "./view-persistence.js";
 
 const workspaceCallbacks = {
+  /**
+   * selectProblem 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   selectProblem: async () => {},
+  /**
+   * withErrors 비동기 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} action `action` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   withErrors: async (action) => action(),
 };
 
+/**
+ * configureWorkspaceView 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} callbacks `callbacks` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function configureWorkspaceView(callbacks = {}) {
   Object.assign(workspaceCallbacks, callbacks);
 }
 
+/**
+ * updateMobileHeader 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} title `title` 값입니다.
+ * @param {any} meta `meta` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateMobileHeader(title = null, meta = null) {
   const problemTitle = title || optional("problemTitle")?.textContent || "문제를 선택하세요";
   const problemMeta = meta || (state.selectedProblem ? "문제 목록" : "문제 목록 열기");
@@ -22,36 +46,82 @@ export function updateMobileHeader(title = null, meta = null) {
   optional("sidebarToggle")?.setAttribute("aria-label", `${menuAction}: ${problemTitle}`);
 }
 
+/**
+ * setSidebarOpen 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} open `open` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function setSidebarOpen(open) {
   document.body.classList.toggle("sidebar-open", open);
   optional("sidebarToggle")?.setAttribute("aria-expanded", open ? "true" : "false");
   updateMobileHeader();
 }
 
+/**
+ * toggleSidebar 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function toggleSidebar() {
   setSidebarOpen(!document.body.classList.contains("sidebar-open"));
 }
 
+/**
+ * closeSidebar 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function closeSidebar() {
   setSidebarOpen(false);
 }
 
+/**
+ * problemLabel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problem `problem` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function problemLabel(problem) {
   return `${problem.problemId} ${problem.title || ""}`.trim();
 }
 
+/**
+ * folderLabel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} folder `folder` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function folderLabel(folder) {
   return String(folder || "").trim() || "기본";
 }
 
+/**
+ * problemFolderKey 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} folder `folder` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function problemFolderKey(folder) {
   return folderLabel(folder);
 }
 
+/**
+ * isProblemFolderCollapsed 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} folder `folder` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function isProblemFolderCollapsed(folder) {
   return state.problemFolderCollapsed[problemFolderKey(folder)] === true;
 }
 
+/**
+ * toggleProblemFolder 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} folder `folder` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function toggleProblemFolder(folder) {
   const key = problemFolderKey(folder);
   if (state.problemFolderCollapsed[key]) {
@@ -63,6 +133,12 @@ function toggleProblemFolder(folder) {
   renderProblems(state.problems);
 }
 
+/**
+ * problemFolderSummaries 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problems `problems` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function problemFolderSummaries(problems) {
   const counts = {};
   for (const problem of problems || []) {
@@ -83,6 +159,11 @@ function problemFolderSummaries(problems) {
     }));
 }
 
+/**
+ * syncWorkspaceProblemSummaries 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function syncWorkspaceProblemSummaries() {
   if (!state.workspace) return;
   state.workspace = {
@@ -95,6 +176,12 @@ export function syncWorkspaceProblemSummaries() {
   renderWorkspace(state.workspace);
 }
 
+/**
+ * renderWorkspace 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} data 처리할 데이터입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function renderWorkspace(data) {
   state.workspace = data;
   state.repositories = data.repositories || [];
@@ -123,6 +210,12 @@ export function renderWorkspace(data) {
   `;
 }
 
+/**
+ * renderRepositorySelector 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} data 처리할 데이터입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function renderRepositorySelector(data = state.workspace || {}) {
   const select = optional("repositorySelect");
   const status = optional("repositoryStatus");
@@ -165,6 +258,12 @@ export function renderRepositorySelector(data = state.workspace || {}) {
   `;
 }
 
+/**
+ * renderProblems 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problems `problems` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function renderProblems(problems) {
   state.problems = problems;
   const list = $("problemList");

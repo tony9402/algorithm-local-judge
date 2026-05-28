@@ -1,6 +1,11 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * refresh 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function refresh() {
   app.setText("subtitle", "Connecting to local server");
   const [config, problems] = await Promise.all([app.api("/api/config"), app.api("/api/problems")]);
@@ -18,6 +23,11 @@ async function refresh() {
   await secondaryPromise;
 }
 
+/**
+ * refreshSecondaryData 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function refreshSecondaryData() {
   try {
     const [packs, cache, sources] = await Promise.all([

@@ -10,6 +10,13 @@ import {
 } from "./selection.js";
 import { vimCallbacks } from "./vim-context.js";
 
+/**
+ * setVimMode 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} mode `mode` 값입니다.
+ * @param {any} editor `editor` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function setVimMode(mode, editor = optional("fileEditor"), options = {}) {
   if (state.editorMode !== "vim") return;
   state.vimMode = mode === "insert" || isVimVisualMode(mode) ? mode : "normal";
@@ -35,6 +42,11 @@ export function setVimMode(mode, editor = optional("fileEditor"), options = {}) 
   vimCallbacks.updateEditorSettingsUi();
 }
 
+/**
+ * editorModeBadgeText 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function editorModeBadgeText() {
   if (state.editorMode !== "vim") return "기본";
   if (state.vimMode === "visual") return "VISUAL";
@@ -42,6 +54,11 @@ export function editorModeBadgeText() {
   return state.vimMode === "insert" ? "INSERT" : "NORMAL";
 }
 
+/**
+ * resetVimTransientState 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function resetVimTransientState() {
   state.vimPending = "";
   state.vimCount = "";

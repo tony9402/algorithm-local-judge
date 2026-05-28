@@ -213,6 +213,11 @@ export const TAB_INSTANCE_ID =
 export const runAllChannel =
   "BroadcastChannel" in window ? new BroadcastChannel("problem-studio-run-all") : null;
 
+/**
+ * activeRepositoryKey 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function activeRepositoryKey() {
   return state.activeRepository || "legacy";
 }

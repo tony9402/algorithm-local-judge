@@ -1,5 +1,10 @@
 const app = window.AljApp;
 
+/**
+ * generateData 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function generateData() {
   app.clearDebugLog();
   app.setBadge("Generating", "neutral");

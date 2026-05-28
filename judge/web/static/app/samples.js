@@ -1,6 +1,12 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * clearSampleCache 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problemId `problemId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function clearSampleCache(problemId = null) {
   if (problemId) {
     delete state.sampleCache[problemId];
@@ -9,6 +15,12 @@ function clearSampleCache(problemId = null) {
   state.sampleCache = {};
 }
 
+/**
+ * renderSamples 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} data 처리할 데이터입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderSamples(data) {
   const container = app.optional("sampleCases");
   if (!container) return;
@@ -62,6 +74,12 @@ function renderSamples(data) {
   }
 }
 
+/**
+ * renderSampleLoading 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} problemId `problemId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderSampleLoading(problemId) {
   const container = app.optional("sampleCases");
   if (!container) return;
@@ -90,6 +108,12 @@ function renderSampleLoading(problemId) {
   container.appendChild(loading);
 }
 
+/**
+ * loadSamples 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} options `options` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function loadSamples({ force = false } = {}) {
   if (!state.selectedProblem) {
     renderSamples(null);

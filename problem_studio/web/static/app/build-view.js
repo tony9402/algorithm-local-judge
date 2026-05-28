@@ -4,14 +4,38 @@ import { PACK_OUTPUT_DIR, state } from "./state.js";
 import { updateEditorPanelMode } from "./tabs-view.js";
 
 const buildCallbacks = {
+  /**
+   * formatTime 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   formatTime: () => "",
+  /**
+   * packJobSummary 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   packJobSummary: () => "",
 };
 
+/**
+ * configureBuildView 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} callbacks `callbacks` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function configureBuildView(callbacks = {}) {
   Object.assign(buildCallbacks, callbacks);
 }
 
+/**
+ * updateDownloadLink 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} link `link` 값입니다.
+ * @param {any} pack `pack` 값입니다.
+ * @param {any} fallbackLabel `fallbackLabel` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateDownloadLink(link, pack, fallbackLabel = "다운로드") {
   if (!link) return;
   link.classList.toggle("hidden", !pack?.downloadUrl);
@@ -21,6 +45,11 @@ export function updateDownloadLink(link, pack, fallbackLabel = "다운로드") {
   }
 }
 
+/**
+ * updateBuildDashboard 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateBuildDashboard() {
   const dashboard = optional("buildDashboard");
   if (!dashboard || state.selectedTab !== "build") return;
@@ -75,6 +104,11 @@ export function updateBuildDashboard() {
   updateDownloadLink(optional("buildDashboardDownloadLink"), pack, "팩 파일");
 }
 
+/**
+ * updateBuildPanel 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function updateBuildPanel() {
   const panel = optional("buildPanel");
   if (!panel) return;

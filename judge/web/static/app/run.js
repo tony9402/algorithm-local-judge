@@ -1,6 +1,11 @@
 const app = window.AljApp;
 const { state } = app;
 
+/**
+ * runFormData 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function runFormData() {
   const formData = new FormData();
   formData.append("problem_id", app.$("problemSelect").value);
@@ -17,6 +22,12 @@ function runFormData() {
   return formData;
 }
 
+/**
+ * streamRun 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} formData `formData` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function streamRun(formData) {
   return app.runQueuedJob("/api/run/jobs", {
     method: "POST",
@@ -24,11 +35,23 @@ async function streamRun(formData) {
   });
 }
 
+/**
+ * resultCaseCount 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} result `result` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function resultCaseCount(result) {
   if (Number.isFinite(result.caseCount)) return result.caseCount;
   return result.cases?.length || 0;
 }
 
+/**
+ * restoreRunResult 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} result `result` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function restoreRunResult(result) {
   state.artifacts = null;
   app.$("wrongPanel").classList.add("hidden");
@@ -51,6 +74,11 @@ async function restoreRunResult(result) {
   }
 }
 
+/**
+ * runSubmission 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function runSubmission() {
   state.artifacts = null;
   app.$("wrongPanel").classList.add("hidden");
@@ -85,6 +113,12 @@ async function runSubmission() {
   await app.refreshSecondaryData();
 }
 
+/**
+ * statusClassName 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} status `status` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function statusClassName(status) {
   if (status === "accepted") return "accepted";
   if (status === "wrong_answer") return "wrong";
@@ -95,6 +129,12 @@ function statusClassName(status) {
   return "neutral";
 }
 
+/**
+ * runSummary 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} result `result` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function runSummary(result) {
   const metrics = runMetricsText(result);
   if (result.status === "accepted") {
@@ -104,6 +144,12 @@ function runSummary(result) {
   return `${result.status.replaceAll("_", " ")}${failed}. ${metrics}`;
 }
 
+/**
+ * runMetricsText 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} result `result` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function runMetricsText(result) {
   const metrics = result.metrics || {};
   const time = metrics.maxTimeLabel || "unavailable";
@@ -111,6 +157,13 @@ function runMetricsText(result) {
   return `max time ${time} · max memory ${memory}`;
 }
 
+/**
+ * loadWrongCase 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} runId `runId` 값입니다.
+ * @param {any} caseId `caseId` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function loadWrongCase(runId, caseId) {
   const artifacts = await app.api(`/api/runs/${runId}/wrong/${caseId}`);
   state.artifacts = artifacts;
@@ -121,6 +174,12 @@ async function loadWrongCase(runId, caseId) {
   renderArtifact();
 }
 
+/**
+ * escapeHtml 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} value 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -129,17 +188,33 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
+/**
+ * currentArtifactText 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function currentArtifactText() {
   if (!state.artifacts) return "";
   return state.artifacts[state.selectedArtifact] || "";
 }
 
+/**
+ * artifactFilename 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function artifactFilename() {
   const meta = app.optional("wrongMeta")?.textContent || "wrong-case";
   const safeMeta = meta.replace(/[^\w.-]+/g, "-").replace(/^-|-$/g, "") || "wrong-case";
   return `${safeMeta}-${state.selectedArtifact}.txt`;
 }
 
+/**
+ * diffLineClass 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} line `line` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function diffLineClass(line) {
   if (line.startsWith("@@")) return "diff-hunk";
   if (line.startsWith("+++") || line.startsWith("---")) return "diff-file";
@@ -148,6 +223,12 @@ function diffLineClass(line) {
   return "";
 }
 
+/**
+ * renderDiffArtifact 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} text `text` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderDiffArtifact(text) {
   return text
     .split("\n")
@@ -159,6 +240,11 @@ function renderDiffArtifact(text) {
     .join("\n");
 }
 
+/**
+ * renderArtifact 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function renderArtifact() {
   if (!state.artifacts) return;
   const key = state.selectedArtifact;
@@ -203,6 +289,11 @@ function renderArtifact() {
   }
 }
 
+/**
+ * copyArtifact 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 async function copyArtifact() {
   const text = currentArtifactText();
   if (!text) return;
@@ -223,6 +314,11 @@ async function copyArtifact() {
   app.showToast(`Copied ${state.selectedArtifact} artifact.`);
 }
 
+/**
+ * downloadArtifact 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function downloadArtifact() {
   const text = currentArtifactText();
   if (!text) return;
@@ -237,11 +333,21 @@ function downloadArtifact() {
   app.showToast(`Download prepared: ${link.download}`);
 }
 
+/**
+ * toggleArtifactWrap 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function toggleArtifactWrap() {
   state.artifactWrap = !state.artifactWrap;
   renderArtifact();
 }
 
+/**
+ * toggleArtifactExpanded 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 function toggleArtifactExpanded() {
   state.artifactExpanded = !state.artifactExpanded;
   renderArtifact();

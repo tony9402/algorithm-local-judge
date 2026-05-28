@@ -16,33 +16,122 @@ import {
 } from "../view-persistence.js";
 
 const fileCallbacks = {
+  /**
+   * confirmDiscardChanges 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   confirmDiscardChanges: () => true,
+  /**
+   * hasUnsavedChanges 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   hasUnsavedChanges: () => false,
+  /**
+   * isCurrentView 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @param {any} seq `seq` 값입니다.
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   isCurrentView: (seq) => seq === state.viewSeq,
+  /**
+   * isReferenceSolutionPath 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   isReferenceSolutionPath: () => false,
+  /**
+   * markAllSolutionsDirty 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   markAllSolutionsDirty: () => {},
+  /**
+   * markFullTestDirty 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   markFullTestDirty: () => {},
+  /**
+   * markSolutionDirty 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   markSolutionDirty: () => {},
+  /**
+   * nextViewSeq 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   nextViewSeq: () => {
     state.viewSeq += 1;
     return state.viewSeq;
   },
+  /**
+   * renderSolutionMetaForm 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   renderSolutionMetaForm: () => {},
+  /**
+   * renderSolutionValidationSummary 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   renderSolutionValidationSummary: () => {},
+  /**
+   * renderTabFiles 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   renderTabFiles: () => {},
+  /**
+   * setDirtySolutionPaths 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   setDirtySolutionPaths: () => {},
+  /**
+   * showResult 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   showResult: () => {},
+  /**
+   * solutionFilePaths 함수를 실행하고 반환 값을 계산합니다.
+   *
+   * @returns {any} 처리 결과를 반환합니다.
+   */
   solutionFilePaths: () => [],
 };
 
+/**
+ * configureFileActions 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} callbacks `callbacks` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function configureFileActions(callbacks = {}) {
   Object.assign(fileCallbacks, callbacks);
 }
 
+/**
+ * apiFilePath 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function apiFilePath(path) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
 
+/**
+ * clearEditor 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} message 메시지입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export function clearEditor(message = "작업 대상을 선택하세요.") {
   state.selectedFile = null;
   setEditorValue("", { clearHistory: true });
@@ -57,6 +146,12 @@ export function clearEditor(message = "작업 대상을 선택하세요.") {
   fileCallbacks.renderSolutionValidationSummary();
 }
 
+/**
+ * refreshProblemFiles 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} seq `seq` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function refreshProblemFiles(seq = state.viewSeq) {
   if (!state.selectedProblem) return;
   const data = await api(`/api/problems/${encodeURIComponent(state.selectedProblem)}/files`);
@@ -65,6 +160,15 @@ export async function refreshProblemFiles(seq = state.viewSeq) {
   fileCallbacks.renderTabFiles();
 }
 
+/**
+ * openFile 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} path 경로 문자열입니다.
+ * @param {any} refreshFiles `refreshFiles` 값입니다.
+ * @param {any} seq `seq` 값입니다.
+ * @param {any} skipConfirm `skipConfirm` 값입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function openFile(path, refreshFiles = true, seq = null, skipConfirm = false) {
   const currentSeq = seq ?? fileCallbacks.nextViewSeq();
   if (!state.selectedProblem) return;
@@ -94,6 +198,12 @@ export async function openFile(path, refreshFiles = true, seq = null, skipConfir
   fileCallbacks.renderSolutionValidationSummary();
 }
 
+/**
+ * saveFile 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @param {any} options 옵션 모음입니다.
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function saveFile(options = {}) {
   if (!state.selectedProblem || !state.selectedFile) throw new Error("Open a file first.");
   const savedSolutionFile = state.selectedFile.startsWith("solutions/");
@@ -132,6 +242,11 @@ export async function saveFile(options = {}) {
   }
 }
 
+/**
+ * saveOpenFileIfDirty 비동기 함수를 실행하고 반환 값을 계산합니다.
+ *
+ * @returns {any} 처리 결과를 반환합니다.
+ */
 export async function saveOpenFileIfDirty() {
   if (!fileCallbacks.hasUnsavedChanges?.()) return false;
   await saveFile({ silent: true });
