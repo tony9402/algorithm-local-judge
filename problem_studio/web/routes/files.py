@@ -9,6 +9,7 @@ from problem_studio.core.editor import (
 )
 from problem_studio.web.routes.common import route_result, workspace_from_request
 from problem_studio.web.schemas import FileWriteRequest
+from problem_studio.web.security_policy import ensure_local_write_allowed
 
 router = APIRouter(prefix="/api/problems/{problem_id}/files", tags=["files"])
 
@@ -34,8 +35,11 @@ def api_problem_file_write(
     request: Request, problem_id: str, file_path: str, body: FileWriteRequest
 ) -> dict:
     """Write one problem file."""
-    return route_result(
-        lambda: write_problem_file(
+
+    def operation() -> dict:
+        ensure_local_write_allowed(request, "file write")
+        return write_problem_file(
             workspace_from_request(request), problem_id, file_path, body.content
         )
-    )
+
+    return route_result(operation)

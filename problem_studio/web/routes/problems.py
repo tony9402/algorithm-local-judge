@@ -9,15 +9,20 @@ from problem_studio.core.workspace import (
     delete_problem,
     list_problem_metadata,
     rename_problem,
-    workspace_status,
 )
-from problem_studio.web.routes.common import route_result, workspace_from_request
+from problem_studio.web.routes.common import (
+    add_workspace_warning,
+    route_result,
+    workspace_from_request,
+    workspace_status_from_request,
+)
 from problem_studio.web.schemas import (
     MetadataPatchRequest,
     ProblemCreateRequest,
     ProblemDeleteRequest,
     ProblemRenameRequest,
 )
+from problem_studio.web.security_policy import ensure_local_write_allowed
 
 router = APIRouter(prefix="/api/problems", tags=["problems"])
 
@@ -33,6 +38,7 @@ def api_problem_create(request: Request, body: ProblemCreateRequest) -> dict:
     """Create a new problem from templates."""
 
     def operation() -> dict:
+        ensure_local_write_allowed(request, "problem creation")
         workspace = workspace_from_request(request)
         result = create_problem(
             workspace,
@@ -43,7 +49,7 @@ def api_problem_create(request: Request, body: ProblemCreateRequest) -> dict:
             body.default_profile,
             body.limits,
         )
-        result["workspace"] = workspace_status(workspace)
+        result["workspace"] = workspace_status_from_request(request)
         return result
 
     return route_result(operation)
@@ -73,25 +79,38 @@ def api_problem_metadata_patch(
 ) -> dict:
     """Patch problem.json metadata."""
     return route_result(
-        lambda: update_problem_metadata(workspace_from_request(request), problem_id, body.metadata)
+        lambda: (
+            ensure_local_write_allowed(request, "problem metadata update")
+            or update_problem_metadata(workspace_from_request(request), problem_id, body.metadata)
+        )
     )
 
 
 @router.patch("/{problem_id}/id")
 def api_problem_rename(request: Request, problem_id: str, body: ProblemRenameRequest) -> dict:
     """Change a problem id and rename its directory."""
-    return route_result(
-        lambda: rename_problem(workspace_from_request(request), problem_id, body.problem_id)
-    )
+
+    def operation() -> dict:
+        ensure_local_write_allowed(request, "problem rename")
+        result = rename_problem(workspace_from_request(request), problem_id, body.problem_id)
+        result["workspace"] = add_workspace_warning(request, result["workspace"])
+        return result
+
+    return route_result(operation)
 
 
 @router.delete("/{problem_id}")
 def api_problem_delete(request: Request, problem_id: str, body: ProblemDeleteRequest) -> dict:
     """Delete a problem after exact confirmation."""
-    return route_result(
-        lambda: delete_problem(
+
+    def operation() -> dict:
+        ensure_local_write_allowed(request, "problem delete")
+        result = delete_problem(
             workspace_from_request(request),
             problem_id,
             body.confirm_phrase,
         )
-    )
+        result["workspace"] = add_workspace_warning(request, result["workspace"])
+        return result
+
+    return route_result(operation)

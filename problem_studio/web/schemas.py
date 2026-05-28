@@ -11,6 +11,41 @@ class WorkspaceOpenRequest(BaseModel):
     path: str = Field(min_length=1)
 
 
+class GitCloneRequest(BaseModel):
+    """Request body for cloning a Git workspace."""
+
+    url: str = Field(min_length=1)
+    path: str = Field(min_length=1)
+    branch: str | None = None
+
+
+class GitCommitRequest(BaseModel):
+    """Request body for creating a Git commit from allowed workspace files."""
+
+    message: str = Field(min_length=1)
+    files: list[str] | None = None
+
+
+class RepositorySelectRequest(BaseModel):
+    """Request body for selecting a nested problem repository."""
+
+    repo_name: str = Field(min_length=1)
+
+
+class RepositoryCloneRequest(BaseModel):
+    """Request body for cloning a nested problem repository."""
+
+    url: str = Field(min_length=1)
+    branch: str | None = None
+    repo_name: str | None = None
+
+
+class RepositoryRegisterRequest(BaseModel):
+    """Request body for opening an existing nested problem repository."""
+
+    repo_name: str = Field(min_length=1)
+
+
 class ProblemCreateRequest(BaseModel):
     """Request body for creating a new problem."""
 
@@ -76,6 +111,24 @@ class SolutionVerifyRequest(BaseModel):
 
     profile: str = "hidden"
     solutions: list[str] | None = None
+
+
+class SolutionStressRequest(BaseModel):
+    """Request body for randomized expected-solution stress testing."""
+
+    profile: str = "hidden"
+    duration_seconds: int = Field(default=60, ge=1)
+    max_cases: int | None = Field(default=None, ge=1)
+    solutions: list[str] | None = None
+    stop_on_first_mismatch: bool = True
+
+
+class StressAppendRequest(BaseModel):
+    """Request body for adding a stress mismatch to cases.yml."""
+
+    profile: str = "hidden"
+    mode: str = Field(default="fixed", pattern="^(fixed|generator)$")
+    name: str | None = None
 
 
 class SolutionCreateRequest(BaseModel):

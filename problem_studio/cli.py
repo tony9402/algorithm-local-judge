@@ -16,6 +16,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     web_parser = subparsers.add_parser("web", allow_abbrev=False)
     web_parser.add_argument("--workspace", default=".")
+    web_parser.add_argument("--clone")
+    web_parser.add_argument("--branch")
+    web_parser.add_argument("--repo")
+    web_parser.add_argument("--repo-name")
     web_parser.add_argument("--host", default="127.0.0.1")
     web_parser.add_argument("--port", type=int, default=8775)
     web_open = web_parser.add_mutually_exclusive_group()

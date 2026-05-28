@@ -7,7 +7,8 @@ from typing import Any
 
 from judge.core.errors import JudgeError
 from judge.core.paths import ensure_inside, rel, repo_root, validate_safe_id
-from judge.core.problem import discover_problem_ids, load_problem
+from judge.core.problem import load_problem
+from judge.core.problem_discovery import problem_sort_key
 from judge.utils.fs import write_json
 
 DELETE_CONFIRM_PHRASE = "확인했습니다"
@@ -33,6 +34,17 @@ def problem_dir(workspace: Path, problem_id: str) -> Path:
     validate_safe_id("problem id", problem_id)
     path = problems_dir(workspace) / problem_id
     return ensure_inside(path, problems_dir(workspace))
+
+
+def discover_workspace_problem_ids(workspace: Path) -> list[str]:
+    """Discover problem ids directly owned by one Problem Studio workspace."""
+    root = problems_dir(workspace)
+    if not root.exists():
+        return []
+    return sorted(
+        {path.parent.name for path in root.glob("*/problem.json")},
+        key=problem_sort_key,
+    )
 
 
 def discover_source_root(workspace: Path) -> Path:
@@ -83,7 +95,7 @@ def link_testlib(workspace: Path) -> dict[str, Any]:
 def list_problem_metadata(workspace: Path) -> list[dict[str, Any]]:
     """Return discovered problem metadata for the studio UI."""
     problems = []
-    for problem_id in discover_problem_ids(workspace):
+    for problem_id in discover_workspace_problem_ids(workspace):
         _, metadata_path, metadata = load_problem(problem_id, workspace)
         problems.append(
             {
@@ -183,7 +195,7 @@ def rename_problem(
 
 def workspace_status(workspace: Path) -> dict[str, Any]:
     """Return a structured summary of the current problem authoring workspace."""
-    problem_ids = discover_problem_ids(workspace)
+    problem_ids = discover_workspace_problem_ids(workspace)
     problems = list_problem_metadata(workspace)
     return {
         "workspace": str(workspace),

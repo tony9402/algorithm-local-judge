@@ -68,8 +68,7 @@ def validate_all_data(
 
     for profile_index, profile in enumerate(profiles, start=1):
         progress(
-            f"Generating and validating profile {profile.name} "
-            f"({profile_index}/{len(profiles)})."
+            f"Generating and validating profile {profile.name} ({profile_index}/{len(profiles)})."
         )
 
         completed_before_profile = completed_cases

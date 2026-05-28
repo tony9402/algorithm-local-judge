@@ -55,8 +55,11 @@ def build_problem_pack(
     output_dir: Path,
     platform_id: str | None = None,
     verify_profile: str = "hidden",
+    cancel_token: Any | None = None,
 ) -> dict[str, Any]:
     """Verify solutions and build one source-free problem pack."""
+    if cancel_token:
+        cancel_token.check()
     resolved_output_dir = output_dir if output_dir.is_absolute() else workspace / output_dir
     result = build_pack(
         problem_dir(workspace, problem_id),
@@ -66,6 +69,8 @@ def build_problem_pack(
         verify_profile,
         warmup_profile=SOLUTION_WARMUP_PROFILE,
     )
+    if cancel_token:
+        cancel_token.check()
     return {
         "archivePath": str(result.archive_path),
         "archiveLabel": rel(result.archive_path, workspace),

@@ -6,6 +6,7 @@ from typing import Any
 from judge.core.compiler import SUPPORTED_USER_SUFFIXES
 from judge.core.errors import JudgeError
 from judge.core.paths import ensure_inside, rel
+from judge.core.problem_constants import REQUIRED_TOOL_FIELDS
 from judge.utils.fs import read_json, write_json
 from problem_studio.core.workspace import problem_dir
 
@@ -17,21 +18,17 @@ SOLUTION_LANGUAGE_EXTENSIONS = {
     "java": ".java",
 }
 SOLUTION_TEMPLATES = {
-    "cpp": (
-        "#include <bits/stdc++.h>\n"
-        "using namespace std;\n\n"
-        "int main() {\n"
-        "    return 0;\n"
-        "}\n"
-    ),
+    "cpp": ("#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    return 0;\n}\n"),
     "python": (
-        "import sys\n\n\n"
-        "def main():\n"
-        "    pass\n\n\n"
-        'if __name__ == "__main__":\n'
-        "    main()\n"
+        'import sys\n\n\ndef main():\n    pass\n\n\nif __name__ == "__main__":\n    main()\n'
     ),
     "java": "class Main {\n    public static void main(String[] args) {\n    }\n}\n",
+}
+METADATA_TIMEOUT_FIELDS = {
+    "compileTimeoutMs",
+    "generationTimeoutMs",
+    "solutionTimeoutMs",
+    "userTimeoutMs",
 }
 
 
@@ -180,6 +177,41 @@ def rename_solution_file(
     }
 
 
+def validate_metadata_relative_path(label: str, value: Any) -> None:
+    """Validate a problem metadata tool path before persisting it."""
+    if not isinstance(value, str):
+        raise JudgeError(f"{label} path must be a string")
+    normalized = value.replace("\\", "/").strip()
+    if not normalized or normalized == ".":
+        raise JudgeError(f"{label} path must be a non-empty relative path")
+    path = Path(normalized)
+    if path.is_absolute() or ".." in path.parts:
+        raise JudgeError(f"unsafe {label} path in metadata: {value}")
+
+
+def validate_problem_metadata_patch(metadata: dict[str, Any]) -> None:
+    """Validate editable metadata fields before writing problem.json."""
+    tools = metadata.get("tools")
+    if tools is not None:
+        if not isinstance(tools, dict):
+            raise JudgeError("metadata tools must be an object")
+        missing = [name for name in REQUIRED_TOOL_FIELDS if name not in tools]
+        if missing:
+            raise JudgeError(f"missing tool path(s): {', '.join(missing)}")
+        for name in REQUIRED_TOOL_FIELDS:
+            validate_metadata_relative_path(name, tools[name])
+
+    limits = metadata.get("limits")
+    if limits is not None:
+        if not isinstance(limits, dict):
+            raise JudgeError("metadata limits must be an object")
+        for name, value in limits.items():
+            if name in METADATA_TIMEOUT_FIELDS and (
+                not isinstance(value, int) or isinstance(value, bool) or value < 1
+            ):
+                raise JudgeError(f"{name} must be a positive integer")
+
+
 def update_problem_metadata(
     workspace: Path, problem_id: str, metadata_patch: dict[str, Any]
 ) -> dict[str, Any]:
@@ -188,5 +220,6 @@ def update_problem_metadata(
     metadata = read_json(path)
     metadata.update(metadata_patch)
     metadata["problemId"] = problem_id
+    validate_problem_metadata_patch(metadata)
     write_json(path, metadata)
     return metadata
