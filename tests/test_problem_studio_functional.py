@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import time
 import unittest
@@ -11,6 +12,8 @@ from fastapi.testclient import TestClient
 
 from judge.core.errors import JudgeError
 from problem_studio.core.bulk import build_all_problem_packs
+from problem_studio.core.git import commit_changes, dirty_paths, redact_remote_url
+from problem_studio.core.templates import create_problem
 from problem_studio.web.app import create_app
 
 
@@ -47,6 +50,43 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                 return status
             time.sleep(0.01)
         self.fail("background job did not finish")
+
+    def poll_generic_job(self, client: TestClient, job_id: str) -> dict:
+        status = {}
+        for _ in range(50):
+            response = client.get(f"/api/jobs/{job_id}")
+            self.assertEqual(response.status_code, 200, response.text)
+            status = response.json()
+            if status["status"] not in {"queued", "running", "cancelling"}:
+                return status
+            time.sleep(0.01)
+        self.fail("background job did not finish")
+
+    def git(self, cwd: Path, *args: str) -> str:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    def make_bare_remote(self, root: Path) -> Path:
+        remote = root / "remote.git"
+        seed = root / "seed"
+        self.git(root, "init", "--bare", str(remote))
+        self.git(root, "clone", str(remote), str(seed))
+        self.git(seed, "checkout", "-b", "main")
+        self.git(seed, "config", "user.email", "studio@example.com")
+        self.git(seed, "config", "user.name", "Problem Studio")
+        (seed / "problems").mkdir()
+        (seed / "problems" / ".gitkeep").write_text("", encoding="utf-8")
+        self.git(seed, "add", "problems/.gitkeep")
+        self.git(seed, "commit", "-m", "initial")
+        self.git(seed, "push", "-u", "origin", "main")
+        self.git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
+        return remote
 
     def test_problem_authoring_metadata_and_file_safety_contract(self) -> None:
         directory, client, workspace = self.make_client()
@@ -87,6 +127,49 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         rejected = client.get("/api/problems/alpha/files/%2E%2E/escaped.txt")
         self.assertEqual(rejected.status_code, 400, rejected.text)
         self.assertIn("invalid problem file path", rejected.json()["detail"])
+
+    def test_problem_metadata_patch_rejects_unsafe_backend_values(self) -> None:
+        directory, client, workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+
+        created = client.post(
+            "/api/problems",
+            json={"problem_id": "alpha", "title": "Original", "folder": "Basics"},
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        metadata_path = workspace / "problems" / "alpha" / "problem.json"
+        before = json.loads(metadata_path.read_text(encoding="utf-8"))
+
+        unsafe_tools = {
+            **before["tools"],
+            "generator": "../outside.cpp",
+        }
+        rejected_path = client.patch(
+            "/api/problems/alpha/metadata",
+            json={"metadata": {"tools": unsafe_tools}},
+        )
+        self.assertEqual(rejected_path.status_code, 400, rejected_path.text)
+        self.assertIn("unsafe generator path", rejected_path.json()["detail"])
+
+        rejected_absolute = client.patch(
+            "/api/problems/alpha/metadata",
+            json={"metadata": {"tools": {**before["tools"], "checker": "/tmp/checker.cpp"}}},
+        )
+        self.assertEqual(rejected_absolute.status_code, 400, rejected_absolute.text)
+        self.assertIn("unsafe checker path", rejected_absolute.json()["detail"])
+
+        rejected_timeout = client.patch(
+            "/api/problems/alpha/metadata",
+            json={"metadata": {"limits": {"userTimeoutMs": 0}}},
+        )
+        self.assertEqual(rejected_timeout.status_code, 400, rejected_timeout.text)
+        self.assertIn(
+            "userTimeoutMs must be a positive integer",
+            rejected_timeout.json()["detail"],
+        )
+
+        after = json.loads(metadata_path.read_text(encoding="utf-8"))
+        self.assertEqual(after, before)
 
     def test_problem_id_can_be_renamed_without_losing_files(self) -> None:
         directory, client, workspace = self.make_client()
@@ -133,6 +216,29 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         unsafe = client.patch("/api/problems/alpha/id", json={"problem_id": "../escaped"})
         self.assertEqual(unsafe.status_code, 400, unsafe.text)
         self.assertIn("invalid problem id", unsafe.json()["detail"])
+
+    def test_static_index_fragments_are_expanded(self) -> None:
+        directory, client, _workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+
+        response = client.get("/")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers.get("cache-control"), "no-store")
+        self.assertNotIn("<!-- include:", response.text)
+        for selector in [
+            "studioSidebar",
+            "globalTaskStatus",
+            "metadataForm",
+            "fileEditor",
+            "loadingOverlay",
+            "newProblemModal",
+            "solutionCreateModal",
+            "solutionCasesModal",
+            "workspaceBuildModal",
+            "/static/app.js?v=",
+        ]:
+            self.assertIn(selector, response.text)
 
     def test_generate_stream_reports_compile_error_event(self) -> None:
         directory, client, _workspace = self.make_client()
@@ -187,6 +293,104 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertEqual(invalid_create.status_code, 400, invalid_create.text)
         self.assertIn("unknown expected result token", invalid_create.json()["detail"])
 
+    def test_solution_wrong_artifact_preview_contract(self) -> None:
+        directory, client, _workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        client.post("/api/problems", json={"problem_id": "alpha", "title": "Artifacts"})
+
+        with (
+            patch(
+                "problem_studio.web.routes.solutions.wrong_artifacts",
+                return_value={"input": "1\n", "expected": "2\n", "actual": "3\n"},
+            ) as mocked_artifacts,
+            patch(
+                "problem_studio.web.routes.solutions.wrong_diff_text",
+                return_value="-2\n+3\n",
+            ) as mocked_diff,
+        ):
+            response = client.get("/api/problems/alpha/solutions/runs/run-1/wrong/001")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["problemId"], "alpha")
+        self.assertEqual(payload["input"], "1\n")
+        self.assertEqual(payload["diff"], "-2\n+3\n")
+        self.assertFalse(payload["truncation"]["actual"]["truncated"])
+        self.assertEqual(mocked_artifacts.call_args.args[0:2], ("run-1", "001"))
+        self.assertEqual(mocked_diff.call_args.args[0:2], ("run-1", "001"))
+
+    def test_solution_stress_api_contracts(self) -> None:
+        directory, client, _workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        client.post("/api/problems", json={"problem_id": "alpha", "title": "Stress"})
+
+        fake_result = {
+            "problemId": "alpha",
+            "profile": "hidden",
+            "stressRunId": "stress-route",
+            "passed": True,
+            "iterations": 1,
+            "durationSeconds": 300,
+            "mismatchCount": 0,
+            "mismatches": [],
+            "checkedSolutions": [],
+        }
+        with patch(
+            "problem_studio.web.routes.solutions.stress_test_solutions",
+            return_value=fake_result,
+        ) as mocked_stress:
+            started = client.post(
+                "/api/problems/alpha/solutions/stress/jobs",
+                json={"profile": "hidden", "duration_seconds": 999, "max_cases": 1},
+            )
+            self.assertEqual(started.status_code, 200, started.text)
+            self.assertEqual(started.json()["kind"], "solution-stress")
+            self.assertEqual(started.json()["target"]["durationSeconds"], 300)
+            finished = self.poll_generic_job(client, started.json()["jobId"])
+
+        self.assertEqual(finished["status"], "succeeded")
+        self.assertEqual(finished["result"]["stressRunId"], "stress-route")
+        self.assertEqual(mocked_stress.call_args.kwargs["duration_seconds"], 999)
+
+        with patch(
+            "problem_studio.web.routes.solutions.stress_mismatch_preview",
+            return_value={
+                "stressRunId": "stress-route",
+                "caseId": "000001",
+                "solutionKey": "solution-key",
+                "input": "1\n",
+                "expected": "1\n",
+                "actual": "0\n",
+                "diff": "-1\n+0\n",
+                "truncation": {},
+            },
+        ) as mocked_preview:
+            preview = client.get(
+                "/api/problems/alpha/solutions/stress/runs/stress-route/mismatches/000001/solution-key"
+            )
+        self.assertEqual(preview.status_code, 200, preview.text)
+        self.assertEqual(preview.json()["problemId"], "alpha")
+        self.assertEqual(mocked_preview.call_args.args[1:4], ("stress-route", "000001", "solution-key"))
+
+        with patch(
+            "problem_studio.web.routes.solutions.append_stress_case",
+            return_value={
+                "problemId": "alpha",
+                "profile": "hidden",
+                "caseName": "stress-added",
+                "mode": "generator",
+                "path": "problems/alpha/generator/cases.yml",
+                "compile": {"valid": True},
+            },
+        ) as mocked_append:
+            appended = client.post(
+                "/api/problems/alpha/solutions/stress/runs/stress-route/mismatches/000001/solution-key/append",
+                json={"profile": "hidden", "mode": "generator", "name": "stress-added"},
+            )
+        self.assertEqual(appended.status_code, 200, appended.text)
+        self.assertEqual(appended.json()["caseName"], "stress-added")
+        self.assertEqual(mocked_append.call_args.kwargs["mode"], "generator")
+
     def test_background_pack_job_failure_and_download_safety(self) -> None:
         directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
@@ -227,9 +431,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         succeeded = self.poll_job(client, "alpha", started.json()["jobId"])
         self.assertEqual(succeeded["status"], "succeeded")
 
-        download = client.get(
-            f"/api/problems/alpha/packs/jobs/{started.json()['jobId']}/download"
-        )
+        download = client.get(f"/api/problems/alpha/packs/jobs/{started.json()['jobId']}/download")
         self.assertEqual(download.status_code, 400, download.text)
         self.assertIn("outside the output directory", download.json()["detail"])
 
@@ -317,6 +519,319 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             mocked_pack.call_args.kwargs["solution_checks"],
             [{"problemId": "01", "passed": True}, {"problemId": "02", "passed": True}],
         )
+
+    def test_git_clone_commit_and_push_feature_branch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
+            root = Path(tmp)
+            remote = self.make_bare_remote(root)
+            initial_workspace = root / "initial"
+            clone_workspace = root / "clone"
+            client = TestClient(create_app(initial_workspace))
+
+            cloned = client.post(
+                "/api/workspace/git/clone",
+                json={
+                    "url": str(remote),
+                    "path": str(clone_workspace),
+                },
+            )
+            self.assertEqual(cloned.status_code, 200, cloned.text)
+            self.git(clone_workspace, "config", "user.email", "studio@example.com")
+            self.git(clone_workspace, "config", "user.name", "Problem Studio")
+            self.git(clone_workspace, "checkout", "-b", "feature/studio")
+
+            created = client.post(
+                "/api/problems",
+                json={"problem_id": "alpha", "title": "Git Alpha"},
+            )
+            self.assertEqual(created.status_code, 200, created.text)
+
+            status = client.get("/api/workspace/git/status")
+            self.assertEqual(status.status_code, 200, status.text)
+            self.assertTrue(status.json()["isRepository"])
+            self.assertTrue(status.json()["dirty"])
+
+            committed = client.post(
+                "/api/workspace/git/commit",
+                json={"message": "Add alpha problem"},
+            )
+            self.assertEqual(committed.status_code, 200, committed.text)
+            self.assertFalse(committed.json()["dirty"])
+            self.assertTrue(committed.json()["writeEnabled"])
+
+            pushed = client.post("/api/workspace/git/push")
+            self.assertEqual(pushed.status_code, 200, pushed.text)
+            self.assertFalse(pushed.json()["protectedBranch"])
+            self.assertTrue(pushed.json()["writeEnabled"])
+            refs = self.git(remote, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+            self.assertIn("feature/studio", refs.splitlines())
+
+    def test_git_dirty_path_preserves_leading_status_space_for_commit(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
+            workspace = Path(tmp)
+            problem_file = workspace / "problems" / "02" / "validator" / "validator.cpp"
+            problem_file.parent.mkdir(parents=True)
+            problem_file.write_text("// initial\n", encoding="utf-8")
+            self.git(workspace, "init")
+            self.git(workspace, "config", "user.email", "studio@example.com")
+            self.git(workspace, "config", "user.name", "Problem Studio")
+            self.git(workspace, "add", "problems/02/validator/validator.cpp")
+            self.git(workspace, "commit", "-m", "initial")
+
+            problem_file.write_text("// changed\n", encoding="utf-8")
+
+            self.assertEqual(
+                dirty_paths(workspace),
+                ["problems/02/validator/validator.cpp"],
+            )
+            committed = commit_changes(workspace, "Update validator")
+            self.assertFalse(committed["dirty"])
+
+    def test_git_push_allows_main_branch_and_redacts_remote(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
+            root = Path(tmp)
+            remote = self.make_bare_remote(root)
+            workspace = root / "clone"
+            self.git(root, "clone", str(remote), str(workspace))
+            client = TestClient(create_app(workspace))
+
+            pushed = client.post("/api/workspace/git/push")
+
+            self.assertEqual(pushed.status_code, 200, pushed.text)
+            self.assertFalse(pushed.json()["protectedBranch"])
+            self.assertEqual(
+                redact_remote_url("https://token:secret@github.com/owner/repo.git"),
+                "https://github.com/owner/repo.git",
+            )
+
+    def test_git_write_actions_can_be_disabled_by_server_policy(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
+            root = Path(tmp)
+            remote = self.make_bare_remote(root)
+            workspace = root / "clone"
+            self.git(root, "clone", str(remote), str(workspace))
+            client = TestClient(
+                create_app(workspace, git_write_enabled=False, workspace_write_enabled=True)
+            )
+
+            status = client.get("/api/workspace/git/status")
+            self.assertEqual(status.status_code, 200, status.text)
+            self.assertFalse(status.json()["writeEnabled"])
+
+            fetched = client.post("/api/workspace/git/fetch")
+            self.assertEqual(fetched.status_code, 400, fetched.text)
+            self.assertIn("network/write actions are disabled", fetched.json()["detail"])
+
+            committed = client.post(
+                "/api/workspace/git/commit",
+                json={"message": "blocked"},
+            )
+            self.assertEqual(committed.status_code, 400, committed.text)
+            self.assertIn("network/write actions are disabled", committed.json()["detail"])
+
+    def test_git_status_blocks_tool_repository_remote(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-git-") as tmp:
+            root = Path(tmp)
+            remote = self.make_bare_remote(root)
+            workspace = root / "clone"
+            self.git(root, "clone", str(remote), str(workspace))
+            self.git(
+                workspace,
+                "remote",
+                "set-url",
+                "origin",
+                "https://github.com/tony9402/algorithm-local-judge.git",
+            )
+            self.git(workspace, "checkout", "-b", "feature/wrong-remote")
+            client = TestClient(create_app(workspace))
+
+            created = client.post(
+                "/api/problems",
+                json={"problem_id": "wrongrepo", "title": "Wrong Repo"},
+            )
+            self.assertEqual(created.status_code, 200, created.text)
+
+            status = client.get("/api/workspace/git/status")
+            self.assertEqual(status.status_code, 200, status.text)
+            payload = status.json()
+            self.assertEqual(payload["expectedProblemRepository"], "tony9402/algorithm-package")
+            self.assertEqual(payload["detectedRepository"], "tony9402/algorithm-local-judge")
+            self.assertFalse(payload["problemRepositoryRemote"])
+            self.assertTrue(payload["toolRepositoryRemote"])
+            self.assertIn("문제 파일은", payload["repositoryWarning"]["message"])
+
+            committed = client.post(
+                "/api/workspace/git/commit",
+                json={"message": "should be blocked"},
+            )
+            self.assertEqual(committed.status_code, 400, committed.text)
+            self.assertIn("Git 동기화 작업을 막았습니다", committed.json()["detail"])
+
+    def test_repository_clone_uses_workspace_problems_repo_name(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
+            root = Path(tmp)
+            remote = self.make_bare_remote(root)
+            workspace = root / "studio"
+            client = TestClient(create_app(workspace))
+
+            cloned = client.post(
+                "/api/repositories/clone",
+                json={
+                    "url": str(remote),
+                    "repo_name": "algorithm-package",
+                },
+            )
+
+            self.assertEqual(cloned.status_code, 200, cloned.text)
+            target = workspace / "problems" / "algorithm-package"
+            self.assertTrue((target / ".git").exists())
+            payload = cloned.json()
+            self.assertEqual(payload["workspace"]["workspace"], str(target.resolve()))
+            self.assertEqual(payload["workspace"]["workspaceRoot"], str(workspace.resolve()))
+            self.assertEqual(payload["workspace"]["activeRepository"], "algorithm-package")
+            self.assertTrue(payload["workspace"]["repositoryMode"])
+            self.assertEqual(payload["repository"]["name"], "algorithm-package")
+            self.assertTrue(payload["git"]["isRepository"])
+            self.assertEqual(payload["git"]["repositoryName"], "algorithm-package")
+
+    def test_repository_select_scopes_problem_list(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
+            workspace = Path(tmp) / "studio"
+            repo_a = workspace / "problems" / "repo-a"
+            repo_b = workspace / "problems" / "repo-b"
+            create_problem(repo_a, "01", "Repo A")
+            create_problem(repo_b, "01", "Repo B")
+            self.git(repo_a, "init")
+            self.git(repo_b, "init")
+            client = TestClient(create_app(workspace))
+
+            selected_a = client.post("/api/repositories/select", json={"repo_name": "repo-a"})
+            self.assertEqual(selected_a.status_code, 200, selected_a.text)
+            self.assertEqual(selected_a.json()["workspace"]["activeRepository"], "repo-a")
+            self.assertEqual(selected_a.json()["workspace"]["problems"][0]["title"], "Repo A")
+
+            selected_b = client.post("/api/repositories/select", json={"repo_name": "repo-b"})
+            self.assertEqual(selected_b.status_code, 200, selected_b.text)
+            self.assertEqual(selected_b.json()["workspace"]["activeRepository"], "repo-b")
+            self.assertEqual(selected_b.json()["workspace"]["problems"][0]["title"], "Repo B")
+
+    def test_repository_register_opens_existing_nested_repository(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
+            workspace = Path(tmp) / "studio"
+            repo = workspace / "problems" / "existing.repo"
+            create_problem(repo, "alpha", "Existing Repo")
+            self.git(repo, "init")
+            client = TestClient(create_app(workspace))
+
+            listed = client.get("/api/repositories")
+            self.assertEqual(listed.status_code, 200, listed.text)
+            self.assertEqual([item["name"] for item in listed.json()["repositories"]], ["existing.repo"])
+
+            registered = client.post(
+                "/api/repositories/register",
+                json={"repo_name": "existing.repo"},
+            )
+
+            self.assertEqual(registered.status_code, 200, registered.text)
+            payload = registered.json()
+            self.assertEqual(payload["workspace"]["activeRepository"], "existing.repo")
+            self.assertEqual(payload["repository"]["problemCount"], 1)
+            self.assertEqual(payload["workspace"]["problems"][0]["title"], "Existing Repo")
+
+    def test_repository_scoped_jobs_do_not_mix_same_problem_id(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
+            workspace = Path(tmp) / "studio"
+            repo_a = workspace / "problems" / "repo-a"
+            repo_b = workspace / "problems" / "repo-b"
+            create_problem(repo_a, "01", "Repo A")
+            create_problem(repo_b, "01", "Repo B")
+            self.git(repo_a, "init")
+            self.git(repo_b, "init")
+            client = TestClient(create_app(workspace))
+
+            selected_a = client.post("/api/repositories/select", json={"repo_name": "repo-a"})
+            self.assertEqual(selected_a.status_code, 200, selected_a.text)
+            job_a = client.post("/api/problems/01/cases/jobs", json={"profile": None})
+            self.assertEqual(job_a.status_code, 200, job_a.text)
+            job_a_id = job_a.json()["jobId"]
+            self.assertEqual(job_a.json()["target"]["repositoryName"], "repo-a")
+
+            selected_b = client.post("/api/repositories/select", json={"repo_name": "repo-b"})
+            self.assertEqual(selected_b.status_code, 200, selected_b.text)
+            job_b = client.post("/api/problems/01/cases/jobs", json={"profile": None})
+            self.assertEqual(job_b.status_code, 200, job_b.text)
+            job_b_id = job_b.json()["jobId"]
+            self.assertEqual(job_b.json()["target"]["repositoryName"], "repo-b")
+            self.assertNotEqual(job_a.json()["lane"], job_b.json()["lane"])
+
+            repo_b_jobs = client.get("/api/jobs")
+            self.assertEqual(repo_b_jobs.status_code, 200, repo_b_jobs.text)
+            self.assertEqual([job["jobId"] for job in repo_b_jobs.json()["jobs"]], [job_b_id])
+            repo_a_job_from_b = client.get(f"/api/jobs/{job_a_id}")
+            self.assertEqual(repo_a_job_from_b.status_code, 404, repo_a_job_from_b.text)
+
+            client.post("/api/repositories/select", json={"repo_name": "repo-a"})
+            repo_a_jobs = client.get("/api/jobs")
+            self.assertEqual(repo_a_jobs.status_code, 200, repo_a_jobs.text)
+            self.assertEqual([job["jobId"] for job in repo_a_jobs.json()["jobs"]], [job_a_id])
+            repo_b_job_from_a = client.get(f"/api/jobs/{job_b_id}")
+            self.assertEqual(repo_b_job_from_a.status_code, 404, repo_b_job_from_a.text)
+
+    def test_git_commit_runs_inside_selected_repository(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
+            root = Path(tmp)
+            remote = self.make_bare_remote(root)
+            workspace = root / "studio"
+            client = TestClient(create_app(workspace))
+            cloned = client.post(
+                "/api/repositories/clone",
+                json={"url": str(remote), "repo_name": "repo-scope"},
+            )
+            self.assertEqual(cloned.status_code, 200, cloned.text)
+            repository = workspace / "problems" / "repo-scope"
+            self.git(repository, "config", "user.email", "studio@example.com")
+            self.git(repository, "config", "user.name", "Problem Studio")
+            self.git(repository, "checkout", "-b", "feature/repo-scope")
+
+            created = client.post(
+                "/api/problems",
+                json={"problem_id": "alpha", "title": "Scoped Alpha"},
+            )
+            self.assertEqual(created.status_code, 200, created.text)
+            committed = client.post(
+                "/api/workspace/git/commit",
+                json={"message": "Add scoped alpha"},
+            )
+
+            self.assertEqual(committed.status_code, 200, committed.text)
+            self.assertFalse(committed.json()["dirty"])
+            self.assertEqual(committed.json()["repositoryName"], "repo-scope")
+            committed_files = self.git(repository, "show", "--name-only", "--format=", "HEAD")
+            self.assertIn("problems/alpha/problem.json", committed_files.splitlines())
+            self.assertFalse((workspace / ".git").exists())
+
+    def test_repository_name_rejects_unsafe_paths(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-problem-studio-repos-") as tmp:
+            client = TestClient(create_app(Path(tmp) / "studio"))
+
+            for name in ["../x", ".git", "owner/repo/extra", "bad name"]:
+                response = client.post("/api/repositories/register", json={"repo_name": name})
+                self.assertEqual(response.status_code, 400, name)
+                self.assertIn("invalid repository name", response.json()["detail"])
+
+    def test_legacy_flat_workspace_still_works_with_repository_metadata(self) -> None:
+        directory, client, workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        create_problem(workspace, "alpha", "Legacy Alpha")
+
+        response = client.get("/api/workspace")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["problemIds"], ["alpha"])
+        self.assertIsNone(payload["activeRepository"])
+        self.assertFalse(payload["repositoryMode"])
+        self.assertEqual(payload["repositories"], [])
 
 
 if __name__ == "__main__":

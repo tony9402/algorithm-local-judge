@@ -291,6 +291,30 @@ profiles:
         self.assertEqual(result.diagnostics[0].location, "profiles.hidden")
         self.assertIn("unknown profile: hidden", result.diagnostics[0].message)
 
+    def test_synthetic_full_profile_compiles_all_declared_profiles(self) -> None:
+        """`full` should mean every declared profile when no explicit full exists."""
+        path = self.write_cases_yaml(
+            """
+profiles:
+  sample:
+    cases:
+      - name: sample
+        type: fixed
+        content: ""
+  hidden:
+    cases:
+      - name: hidden
+        type: fixed
+        content: ""
+""".lstrip()
+        )
+
+        result = compile_cases_file(path, "full")
+
+        self.assertTrue(result.valid, format_compile_result(result))
+        self.assertEqual([profile.name for profile in result.profiles], ["sample", "hidden"])
+        self.assertEqual(sum(len(profile.cases) for profile in result.profiles), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
-from commons.generate import expand_cases
+from commons.generate import expand_cases, write_cases
 
 
 class GenerateDslTest(unittest.TestCase):
@@ -190,6 +192,26 @@ class GenerateDslTest(unittest.TestCase):
             ]
         )
         self.assertEqual([case["name"] for case in cases], ["same", "same"])
+
+    def test_synthetic_full_profile_writes_all_declared_profile_cases(self) -> None:
+        """`full` should write sample and hidden cases when no explicit full profile exists."""
+        config = {
+            "profiles": {
+                "sample": {
+                    "cases": [{"name": "sample", "type": "fixed", "content": "1 1\n"}],
+                },
+                "hidden": {
+                    "cases": [{"name": "hidden", "type": "fixed", "content": "2 2\n"}],
+                },
+            }
+        }
+        with tempfile.TemporaryDirectory(prefix="alj-generate-full-") as tmp:
+            out_dir = Path(tmp) / "cases"
+
+            cases = write_cases(config, Path(tmp) / "unused-generator", out_dir, "full")
+
+        self.assertEqual([case["name"] for case in cases], ["sample", "hidden"])
+        self.assertEqual([case["input"] for case in cases], ["001.in", "002.in"])
 
 
 if __name__ == "__main__":

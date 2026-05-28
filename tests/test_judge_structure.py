@@ -76,17 +76,30 @@ class JudgeStructureTest(unittest.TestCase):
                 [
                     "problem",
                     "install",
-                    "tony9402/algorithm-modules",
+                    "tony9402/algorithm-package",
                     "--asset",
                     "basic-1-macos-arm64.aljpack",
+                    "--ref",
+                    "main",
                 ]
             )
         )
 
         self.assertEqual(args.command, "problem")
         self.assertEqual(args.problem_command, "install")
-        self.assertEqual(args.source, "tony9402/algorithm-modules")
+        self.assertEqual(args.source, "tony9402/algorithm-package")
         self.assertEqual(args.asset, "basic-1-macos-arm64.aljpack")
+        self.assertEqual(args.ref, "main")
+
+    def test_pack_trust_parser_accepts_repository_management(self) -> None:
+        """Pack trust subcommands should parse explicit repository management actions."""
+        parser = build_parser()
+        args = parser.parse_args(normalize_argv(["pack", "trust", "add", "example/problems"]))
+
+        self.assertEqual(args.command, "pack")
+        self.assertEqual(args.pack_command, "trust")
+        self.assertEqual(args.trust_command, "add")
+        self.assertEqual(args.repository, "example/problems")
 
     def test_web_parser_opens_browser_by_default(self) -> None:
         """`judge web` should open the browser unless explicitly disabled."""

@@ -9,15 +9,25 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from judge.cli_parser import build_parser
+
 ROOT = Path(__file__).resolve().parents[1]
 JUDGE = [sys.executable, "-m", "judge"]
+PROBLEM_PACKAGE_ROOT = ROOT / "problems" / "algorithm-package"
+PROBLEM_SOURCE_ROOT = PROBLEM_PACKAGE_ROOT / "problems"
 
 
-def run_judge(*args: str, check: bool = False) -> subprocess.CompletedProcess[str]:
+def run_judge(
+    *args: str,
+    check: bool = False,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     """Run the judge CLI in the repository root for smoke tests."""
     env = os.environ.copy()
     env["ALJ_CACHE_HOME"] = str(ROOT / ".judge-cache")
     env["ALJ_PYTHON"] = sys.executable
+    if extra_env:
+        env.update(extra_env)
     result = subprocess.run(
         [*JUDGE, *args],
         cwd=ROOT,
@@ -38,16 +48,17 @@ class JudgeCliSmokeTest(unittest.TestCase):
 
     def test_problem_metadata_has_no_forbidden_keys(self) -> None:
         """Problem metadata should avoid external platform-specific fields."""
-        metadata = json.loads((ROOT / "problems/06/problem.json").read_text(encoding="utf-8"))
+        problem_dir = PROBLEM_SOURCE_ROOT / "06"
+        metadata = json.loads((problem_dir / "problem.json").read_text(encoding="utf-8"))
         forbidden = {"externalId", "externalUrl", "externalPlatform", "platform"}
         self.assertFalse(forbidden.intersection(metadata))
         self.assertFalse(
             [key for key in metadata if key != "problemId" and key.lower().endswith("id")]
         )
         for relative_path in metadata["tools"].values():
-            self.assertTrue((ROOT / "problems/06" / relative_path).exists())
+            self.assertTrue((problem_dir / relative_path).exists())
         self.assertTrue((ROOT / "commons/generate.py").exists())
-        self.assertFalse((ROOT / "problems/06/generate.py").exists())
+        self.assertFalse((problem_dir / "generate.py").exists())
         self.assertIn("generatorConfig", metadata["tools"])
 
     def test_generate_and_reuse_sample_cache(self) -> None:
@@ -60,7 +71,10 @@ class JudgeCliSmokeTest(unittest.TestCase):
     def test_solution_is_accepted_with_default_file_command(self) -> None:
         """Implicit run syntax should accept the reference solution."""
         result = run_judge(
-            "--profile", "sample", "problems/06/solutions/main_solution.ac.cpp", check=True
+            "--profile",
+            "sample",
+            "problems/algorithm-package/problems/06/solutions/main_solution.ac.cpp",
+            check=True,
         )
         self.assertIn("Accepted", result.stdout)
 
@@ -283,7 +297,11 @@ profiles:
 
     def test_rejects_abbreviated_global_options(self) -> None:
         """Long option abbreviations should be disabled for consistency."""
-        result = run_judge("--prof", "sample", "problems/06/solutions/main_solution.ac.cpp")
+        result = run_judge(
+            "--prof",
+            "sample",
+            "problems/algorithm-package/problems/06/solutions/main_solution.ac.cpp",
+        )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unrecognized arguments", result.stderr)
 
@@ -300,9 +318,145 @@ profiles:
         self.assertIn("Problems:", result.stdout)
         self.assertIn("06", result.stdout)
 
+    def test_doctor_reports_local_environment(self) -> None:
+        """The doctor command should print a concise local readiness report."""
+        with tempfile.TemporaryDirectory(prefix="alj-doctor-") as tmp:
+            tmp_path = Path(tmp)
+            result = run_judge(
+                "doctor",
+                check=True,
+                extra_env={
+                    "ALJ_DATA_HOME": str(tmp_path / "data"),
+                    "ALJ_CACHE_HOME": str(tmp_path / "cache"),
+                },
+            )
+
+        self.assertIn("Judge doctor:", result.stdout)
+        self.assertIn("Platform:", result.stdout)
+        self.assertIn("Python: OK", result.stdout)
+        self.assertIn("Tools:", result.stdout)
+        self.assertIn("C++ compiler:", result.stdout)
+        self.assertIn("Java compiler:", result.stdout)
+        self.assertIn("Git:", result.stdout)
+        self.assertIn("Paths:", result.stdout)
+        self.assertIn("Installed packs: 0", result.stdout)
+        self.assertIn("Official repository: OK tony9402/algorithm-package", result.stdout)
+
+    def test_doctor_verbose_and_json_output(self) -> None:
+        """Doctor verbose text and JSON output should expose stable diagnostics."""
+        with tempfile.TemporaryDirectory(prefix="alj-doctor-json-") as tmp:
+            tmp_path = Path(tmp)
+            env = {
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+                "ALJ_CACHE_HOME": str(tmp_path / "cache"),
+            }
+            verbose = run_judge("doctor", "--verbose", check=True, extra_env=env)
+            json_result = run_judge("doctor", "--json", check=True, extra_env=env)
+
+        self.assertIn("exists:", verbose.stdout)
+        payload = json.loads(json_result.stdout)
+        self.assertEqual(payload["schemaVersion"], 1)
+        self.assertIn(payload["status"], {"ok", "warning"})
+        self.assertEqual(payload["python"]["status"], "ok")
+        self.assertIn("cpp", payload["tools"])
+        self.assertIn(payload["tools"]["cpp"]["status"], {"ok", "missing"})
+        self.assertIn("projectRoot", payload["paths"])
+        self.assertEqual(payload["installedPacks"]["count"], 0)
+        self.assertEqual(
+            payload["officialRepository"]["repository"],
+            "tony9402/algorithm-package",
+        )
+
+    def test_doctor_reports_invalid_official_repository_without_crashing(self) -> None:
+        """Doctor should diagnose invalid configuration instead of failing outright."""
+        result = run_judge(
+            "doctor",
+            "--json",
+            check=True,
+            extra_env={"ALJ_OFFICIAL_PACK_REPOSITORY": "not a repository"},
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "warning")
+        self.assertEqual(payload["officialRepository"]["status"], "warning")
+        self.assertIn("official repository", payload["officialRepository"]["error"])
+
+    def test_problem_install_checksum_options_are_parsed(self) -> None:
+        """Direct URL checksum options should survive CLI parsing."""
+        parser = build_parser()
+        checksum = "a" * 64
+
+        args = parser.parse_args(
+            [
+                "problem",
+                "install",
+                "https://example.com/basic.aljpack",
+                "--checksum",
+                checksum,
+            ]
+        )
+        self.assertEqual(args.command, "problem")
+        self.assertEqual(args.problem_command, "install")
+        self.assertEqual(args.source, "https://example.com/basic.aljpack")
+        self.assertEqual(args.checksum, checksum)
+        self.assertIsNone(args.checksum_url)
+
+        args = parser.parse_args(
+            [
+                "problem",
+                "install",
+                "https://example.com/basic.aljpack",
+                "--checksum-url",
+                "https://example.com/basic.aljpack.sha256",
+            ]
+        )
+        self.assertIsNone(args.checksum)
+        self.assertEqual(args.checksum_url, "https://example.com/basic.aljpack.sha256")
+
+    def test_pack_trust_repository_management(self) -> None:
+        """The CLI should manage the local trusted repository allowlist."""
+        with tempfile.TemporaryDirectory(prefix="alj-pack-trust-cli-") as tmp:
+            env = {"ALJ_DATA_HOME": str(Path(tmp) / "data")}
+
+            listed = run_judge("pack", "trust", "list", check=True, extra_env=env)
+            self.assertIn("tony9402/algorithm-package (default)", listed.stdout)
+
+            added = run_judge(
+                "pack",
+                "trust",
+                "add",
+                "example/problems",
+                check=True,
+                extra_env=env,
+            )
+            self.assertIn("example/problems", added.stdout)
+
+            listed = run_judge("pack", "trust", "list", check=True, extra_env=env)
+            self.assertIn("example/problems (user)", listed.stdout)
+
+            removed = run_judge(
+                "pack",
+                "trust",
+                "remove",
+                "example/problems",
+                check=True,
+                extra_env=env,
+            )
+            self.assertIn("example/problems", removed.stdout)
+
     def test_validate_problem_sequence_reports_missing_start(self) -> None:
         """Problem numbering validation should report the missing starting id."""
-        result = run_judge("list", "--validate")
+        with tempfile.TemporaryDirectory(prefix="alj-sequence-test-") as tmp:
+            project_root = Path(tmp)
+            shutil.copytree(PROBLEM_SOURCE_ROOT / "06", project_root / "problems" / "06")
+            result = run_judge(
+                "list",
+                "--validate",
+                extra_env={
+                    "ALJ_PROJECT_ROOT": str(project_root),
+                    "ALJ_DATA_HOME": str(project_root / "data"),
+                },
+            )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("problem numbering must start at 1", result.stderr)
 
