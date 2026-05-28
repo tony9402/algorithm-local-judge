@@ -1,5 +1,9 @@
 export const state = {
   workspace: null,
+  repositories: [],
+  activeRepository: null,
+  repositoryMode: false,
+  gitStatus: null,
   problems: [],
   selectedProblem: null,
   selectedFile: null,
@@ -10,6 +14,7 @@ export const state = {
   loadingDepth: 0,
   lastSavedContent: "",
   lastSolutionVerification: null,
+  lastSolutionStress: null,
   lastFullTest: null,
   lastPackResult: null,
   lastRun: null,
@@ -20,6 +25,8 @@ export const state = {
   resourceFilters: {},
   activeModalTrigger: null,
   activePackJob: null,
+  activeBulkJob: null,
+  stalePackJob: null,
   packPollTimer: null,
   editorMode: "default",
   editorSettingsOpen: false,
@@ -44,6 +51,11 @@ export const state = {
   editorComposing: false,
   editorSnapshotBeforeIme: "",
   editingSolutionPath: null,
+  solutionArtifactPreview: null,
+  selectedSolutionArtifact: "input",
+  stressMismatchPreview: null,
+  selectedStressArtifact: "input",
+  pendingStressAppend: null,
   codeMirrorPendingKey: "",
   progress: {
     active: false,
@@ -102,6 +114,7 @@ export const TAB_CONFIGS = {
       { id: "newSolution", label: "새 솔루션 파일 만들기", primary: true },
       { id: "uploadSolutions", label: "솔루션 업로드" },
       { id: "verifySolutions", label: "기대 결과 검증" },
+      { id: "stressSolutions", label: "Stress 테스트" },
     ],
   },
   build: {
@@ -126,6 +139,7 @@ export const SAVE_BEFORE_ACTIONS = new Set([
   "compileReference",
   "compileTools",
   "verifySolutions",
+  "stressSolutions",
   "runAllChecks",
   "buildPack",
   "buildAllPacks",
@@ -198,3 +212,7 @@ export const TAB_INSTANCE_ID =
   window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 export const runAllChannel =
   "BroadcastChannel" in window ? new BroadcastChannel("problem-studio-run-all") : null;
+
+export function activeRepositoryKey() {
+  return state.activeRepository || "legacy";
+}

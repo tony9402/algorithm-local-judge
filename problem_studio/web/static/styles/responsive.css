@@ -1,0 +1,442 @@
+/* Responsive layouts */
+@media (max-width: 1100px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar h2,
+  .toolbar p {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 1380px) {
+  body {
+    overflow: auto;
+  }
+
+  .shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .workspace {
+    overflow: visible;
+    grid-template-rows: auto auto auto;
+  }
+
+  .studio-layout {
+    grid-template-columns: minmax(210px, 270px) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .studio-layout.info-mode {
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  }
+
+  .code-editor {
+    height: min(58vh, 620px);
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-toggle {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 72;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    width: 100%;
+    min-height: 62px;
+    gap: 12px;
+    border-width: 0 0 1px;
+    border-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    background: linear-gradient(135deg, #0f1828, #17233a);
+    color: #eff6ff;
+    padding: 10px 16px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.24);
+    text-align: left;
+  }
+
+  .sidebar-toggle:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: linear-gradient(135deg, #111d31, #1b2a45);
+  }
+
+  .sidebar-toggle-icon {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    justify-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-toggle-icon span {
+    width: 16px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    transition:
+      transform 0.16s ease,
+      opacity 0.16s ease;
+  }
+
+  body.sidebar-open .sidebar-toggle-icon span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  body.sidebar-open .sidebar-toggle-icon span:nth-child(2) {
+    opacity: 0;
+  }
+
+  body.sidebar-open .sidebar-toggle-icon span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  .mobile-header-copy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobile-header-copy span,
+  .mobile-header-meta {
+    color: #9fb0c5;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .mobile-header-copy strong {
+    overflow: hidden;
+    color: #eff6ff;
+    font-size: 16px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-header-meta {
+    max-width: 148px;
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.18);
+    color: #dbeafe;
+    padding: 6px 9px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: block;
+    pointer-events: none;
+    background: rgba(15, 23, 42, 0.38);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+
+  body.sidebar-open .sidebar-backdrop {
+    pointer-events: auto;
+    opacity: 1;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 90;
+    width: min(320px, 86vw);
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    border-bottom: 0;
+    transform: translateX(-102%);
+    transition: transform 0.18s ease;
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding: 16px;
+  }
+
+  body.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-close {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    color: #eff6ff;
+  }
+
+  #problemList {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace {
+    padding: 16px;
+    padding-top: 14px;
+  }
+
+  .alert-stack {
+    top: 54px;
+  }
+
+  .studio-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .task-panel {
+    max-height: min(78vh, 980px);
+  }
+
+  .studio-tabs .tab-list {
+    overflow-x: auto;
+  }
+
+  .action-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .resource-list {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    max-height: 220px;
+  }
+
+  .code-editor {
+    height: 52vh;
+    min-height: 340px;
+  }
+
+  .build-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .solution-editor-modal {
+    width: min(100%, calc(100vw - 32px));
+    height: auto;
+    max-height: calc(100vh - 32px);
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow: auto;
+  }
+
+  .solution-editor-modal .source-modal-editor {
+    height: min(58vh, 620px);
+    min-height: 340px;
+    resize: vertical;
+  }
+
+  .solution-editor-modal .source-modal-codemirror.CodeMirror {
+    height: min(58vh, 620px);
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar-toggle {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .mobile-header-meta {
+    grid-column: 2;
+    max-width: 100%;
+    justify-self: start;
+    padding: 4px 8px;
+  }
+
+  .mobile-header-copy strong {
+    font-size: 15px;
+  }
+
+  .sidebar {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .workspace {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: stretch;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .toolbar-actions button {
+    flex: 0 0 auto;
+    width: auto;
+    padding-inline: 8px;
+  }
+
+  .global-task-status {
+    flex: 1 0 180px;
+  }
+
+  .panel-heading {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .editor-heading-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .editor-heading-actions button {
+    flex: 1 1 auto;
+  }
+
+  .editor-mode-badge {
+    flex: 0 0 auto;
+  }
+
+  .panel-heading button:not(.icon) {
+    width: 100%;
+  }
+
+  .editor-heading-actions button:not(.icon) {
+    width: auto;
+  }
+
+  .editor-settings-panel {
+    top: 104px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+
+  .resource-list,
+  .action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-layout.solutions-mode .action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-layout.solutions-mode .resource-list {
+    grid-template-columns: 1fr;
+    max-height: min(720px, 70vh);
+  }
+
+  .studio-layout.solutions-mode .resource-item.solution-row {
+    grid-template-columns: 1fr;
+  }
+
+  .solution-row-main,
+  .solution-metric-strip,
+  .solution-row-actions {
+    grid-column: 1;
+    grid-row: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .studio-layout.solutions-mode .solution-row .resource-status,
+  .studio-layout.solutions-mode .solution-result-grid {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .solution-cases-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .solution-case-row {
+    min-width: 320px;
+  }
+
+  .build-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metadata-limit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metadata-card-heading,
+  .metadata-details summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .metadata-id-chip {
+    max-width: 100%;
+  }
+
+  .solution-editor-modal {
+    width: min(100%, calc(100vw - 24px));
+    padding: 12px;
+  }
+
+  .solution-editor-modal .solution-editor-options {
+    grid-template-columns: 1fr;
+  }
+
+  .solution-editor-source {
+    grid-template-columns: 1fr;
+  }
+
+  .solution-editor-source .modal-editor-toolbar {
+    justify-self: stretch;
+  }
+
+  .solution-editor-modal .source-modal-editor {
+    height: min(56vh, 560px);
+    min-height: 300px;
+  }
+
+  .solution-editor-modal .source-modal-codemirror.CodeMirror {
+    height: min(56vh, 560px);
+    min-height: 300px;
+  }
+
+  .code-editor {
+    height: 50vh;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 420px) {
+  .toolbar-actions {
+    margin-inline: -2px;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  h2 {
+    font-size: 15px;
+  }
+}

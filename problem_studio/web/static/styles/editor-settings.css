@@ -1,0 +1,112 @@
+/* Editor heading and settings */
+.editor-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.editor-mode-badge {
+  min-width: 66px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  padding: 6px 9px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.editor-mode-badge.vim-normal {
+  border-color: rgba(37, 99, 235, 0.34);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.editor-mode-badge.vim-insert {
+  border-color: rgba(21, 128, 61, 0.28);
+  background: rgba(220, 252, 231, 0.8);
+  color: var(--good);
+}
+
+.editor-mode-badge.vim-visual {
+  border-color: rgba(147, 51, 234, 0.34);
+  background: rgba(243, 232, 255, 0.86);
+  color: #7e22ce;
+}
+
+.editor-settings-panel {
+  position: absolute;
+  top: 58px;
+  right: 14px;
+  z-index: 45;
+  display: grid;
+  width: min(320px, calc(100% - 28px));
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
+}
+
+.editor-settings-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.editor-setting-row {
+  display: grid;
+  grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 4px;
+}
+
+.segmented-control button {
+  min-height: 30px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.segmented-control button:hover {
+  background: #fff;
+}
+
+.segmented-control button.active {
+  border-color: rgba(37, 99, 235, 0.32);
+  background: #fff;
+  color: var(--accent-dark);
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.08);
+}
+
+.setting-chip {
+  justify-self: start;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 900;
+}

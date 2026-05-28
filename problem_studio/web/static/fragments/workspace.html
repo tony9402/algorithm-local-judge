@@ -1,0 +1,357 @@
+  <main class="workspace">
+    <section class="toolbar panel">
+      <div>
+        <h2 id="problemTitle">문제를 선택하세요</h2>
+        <p id="problemMeta">문제를 만들거나 선택하면 제작을 시작할 수 있습니다.</p>
+      </div>
+      <div class="toolbar-actions">
+        <div id="globalTaskStatus" class="global-task-status" aria-live="polite"></div>
+        <button id="jobCenterButton" class="job-center-button" type="button" aria-expanded="false">
+          작업 0개
+        </button>
+      </div>
+    </section>
+
+    <section class="studio-tabs panel">
+      <div class="tab-list" role="tablist" aria-label="Problem authoring areas">
+        <button class="tab-button active" data-tab="info" role="tab" aria-label="문제 정보" aria-selected="true" type="button">
+          <span class="tab-marker" aria-hidden="true">1</span>
+          <span class="tab-copy">
+            <span class="tab-label">문제 정보</span>
+            <span class="tab-hint">메타데이터</span>
+          </span>
+        </button>
+        <button class="tab-button" data-tab="generator" role="tab" aria-label="데이터 생성" aria-selected="false" type="button">
+          <span class="tab-marker" aria-hidden="true">2</span>
+          <span class="tab-copy">
+            <span class="tab-label">데이터 생성</span>
+            <span class="tab-hint">케이스 구성</span>
+          </span>
+        </button>
+        <button class="tab-button" data-tab="validator" role="tab" aria-label="데이터 벨리데이션" aria-selected="false" type="button">
+          <span class="tab-marker" aria-hidden="true">3</span>
+          <span class="tab-copy">
+            <span class="tab-label">데이터 벨리데이션</span>
+            <span class="tab-hint">입력 조건 검증</span>
+          </span>
+        </button>
+        <button class="tab-button" data-tab="checker" role="tab" aria-label="채점기" aria-selected="false" type="button">
+          <span class="tab-marker" aria-hidden="true">4</span>
+          <span class="tab-copy">
+            <span class="tab-label">채점기</span>
+            <span class="tab-hint">checker/정답</span>
+          </span>
+        </button>
+        <button class="tab-button" data-tab="solutions" role="tab" aria-label="솔루션" aria-selected="false" type="button">
+          <span class="tab-marker" aria-hidden="true">5</span>
+          <span class="tab-copy">
+            <span class="tab-label">솔루션</span>
+            <span class="tab-hint">기대 결과</span>
+          </span>
+        </button>
+        <button class="tab-button" data-tab="build" role="tab" aria-label="검증과 빌드" aria-selected="false" type="button">
+          <span class="tab-marker" aria-hidden="true">6</span>
+          <span class="tab-copy">
+            <span class="tab-label">검증/빌드</span>
+            <span class="tab-hint">전체 테스트/팩</span>
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <aside id="jobCenterDrawer" class="job-center-drawer hidden" aria-label="작업 센터">
+      <div class="job-center-heading">
+        <div>
+          <strong>작업 센터</strong>
+          <p id="jobCenterMeta">실행 중인 작업이 없습니다.</p>
+        </div>
+        <button id="jobCenterCloseButton" class="icon-button" type="button" aria-label="작업 센터 닫기">×</button>
+      </div>
+      <div class="job-center-actions">
+        <button data-job-filter="active" class="active" type="button">Active</button>
+        <button data-job-filter="done" type="button">Done</button>
+        <button data-job-filter="failed" type="button">Failed</button>
+        <button id="jobCenterClearButton" type="button">완료 항목 정리</button>
+      </div>
+      <div id="jobCenterList" class="job-center-list muted">작업이 없습니다.</div>
+    </aside>
+
+    <section class="studio-layout">
+      <div class="panel task-panel">
+        <div class="task-copy">
+          <h2 id="taskTitle">문제 정보</h2>
+          <p id="taskDescription">문제를 선택하면 제작 작업을 시작할 수 있습니다.</p>
+        </div>
+
+        <div id="metadataForm" class="metadata-form metadata-workbench hidden">
+          <section class="metadata-card metadata-card-primary">
+            <div class="metadata-card-heading">
+              <div>
+                <strong>기본 정보</strong>
+                <p>목록과 팩 메타데이터에 표시되는 값입니다.</p>
+              </div>
+              <span id="metadataProblemId" class="metadata-id-chip">-</span>
+            </div>
+            <label>
+              문제 번호
+              <input id="metadataProblemIdInput" placeholder="01" />
+              <span class="field-help">폴더명과 problem.json의 problemId가 함께 변경됩니다.</span>
+            </label>
+            <label>
+              제목
+              <input id="metadataTitle" placeholder="문제 제목" />
+              <span class="field-help">문제 목록과 생성된 팩에 표시됩니다.</span>
+            </label>
+            <div class="form-grid">
+              <label>
+                폴더
+                <input id="metadataFolder" placeholder="기본" />
+                <span class="field-help">비우면 기본 폴더에 표시됩니다.</span>
+              </label>
+              <label>
+                버전
+                <input id="metadataVersion" type="number" min="1" />
+                <span class="field-help">팩 버전으로 사용됩니다.</span>
+              </label>
+            </div>
+            <label>
+              기본 프로필
+              <input id="metadataDefaultProfile" list="metadataProfileOptions" />
+              <datalist id="metadataProfileOptions">
+                <option value="sample"></option>
+                <option value="hidden"></option>
+                <option value="full"></option>
+              </datalist>
+              <span class="field-help">주로 검증/빌드에 사용할 기본 데이터 프로필입니다.</span>
+            </label>
+          </section>
+
+          <section class="metadata-card">
+            <div class="metadata-card-heading">
+              <div>
+                <strong>실행 제한</strong>
+                <p>컴파일, 데이터 생성, 기준 정답, 사용자 코드 실행 시간을 밀리초로 관리합니다.</p>
+              </div>
+            </div>
+            <div class="metadata-limit-grid">
+              <label>
+                컴파일
+                <span class="number-with-unit">
+                  <input id="metadataCompileTimeout" type="number" min="100" step="100" />
+                  <span>ms</span>
+                </span>
+              </label>
+              <label>
+                데이터 생성
+                <span class="number-with-unit">
+                  <input id="metadataGenerationTimeout" type="number" min="100" step="100" />
+                  <span>ms</span>
+                </span>
+              </label>
+              <label>
+                기준 정답
+                <span class="number-with-unit">
+                  <input id="metadataSolutionTimeout" type="number" min="100" step="100" />
+                  <span>ms</span>
+                </span>
+              </label>
+              <label>
+                사용자 코드
+                <span class="number-with-unit">
+                  <input id="metadataUserTimeout" type="number" min="100" step="100" />
+                  <span>ms</span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <details class="metadata-card metadata-details">
+            <summary>
+              <span>도구 경로</span>
+              <small>기본 파일 구조를 유지한다면 건드릴 필요 없습니다.</small>
+            </summary>
+            <div class="metadata-tools-grid">
+              <label>
+                Generator
+                <input id="metadataToolGenerator" />
+              </label>
+              <label>
+                Cases YAML
+                <input id="metadataToolGeneratorConfig" />
+              </label>
+              <label>
+                Validator
+                <input id="metadataToolValidator" />
+              </label>
+              <label>
+                Checker
+                <input id="metadataToolChecker" />
+              </label>
+              <label>
+                기준 정답
+                <input id="metadataToolSolution" />
+              </label>
+            </div>
+          </details>
+
+          <div
+            id="metadataValidationSummary"
+            class="metadata-validation-summary"
+            aria-live="polite"
+          ></div>
+        </div>
+
+        <div id="tabActions" class="action-grid"></div>
+        <div id="buildPanel" class="build-panel hidden">
+          <div class="form-note">
+            <strong>팩 빌드 조건</strong>
+            <span id="buildValidationStatus">전체 테스트를 통과한 뒤 현재 문제 팩을 생성합니다.</span>
+          </div>
+          <label>
+            Pack ID
+            <input id="packIdInput" placeholder="basic" />
+          </label>
+          <label>
+            검증 프로필
+            <input id="packVerifyProfileInput" value="hidden" />
+          </label>
+          <div class="build-output-note">
+            <span>출력 위치</span>
+            <strong id="packOutputLabel">dist/packs</strong>
+          </div>
+          <a id="packDownloadLink" class="download-link hidden" href="#" download>팩 다운로드</a>
+        </div>
+        <input
+          id="solutionUploadInput"
+          class="hidden-input"
+          type="file"
+          multiple
+          accept=".cpp,.cc,.cxx,.py,.java"
+        />
+
+        <div class="resource-header">
+          <div>
+            <div class="resource-title">작업 대상</div>
+            <div id="resourceSummary" class="resource-summary">문제를 선택하세요.</div>
+          </div>
+          <input
+            id="resourceFilterInput"
+            class="resource-filter hidden"
+            type="search"
+            placeholder="파일 필터"
+            autocomplete="off"
+          />
+        </div>
+        <div id="tabFiles" class="resource-list muted">문제를 선택하세요.</div>
+        <div
+          id="solutionValidationSummary"
+          class="solution-validation-summary hidden"
+          aria-live="polite"
+        ></div>
+      </div>
+
+      <div class="panel editor-panel">
+        <div id="buildDashboard" class="build-dashboard hidden" aria-live="polite">
+          <section id="buildDashboardHero" class="build-dashboard-hero">
+            <span>검증 상태</span>
+            <h2 id="buildDashboardTitle">전체 테스트 필요</h2>
+            <p id="buildDashboardSummary">팩 빌드 전에 현재 문제의 전체 테스트를 실행해야 합니다.</p>
+          </section>
+          <div class="build-dashboard-grid">
+            <section>
+              <span>최근 전체 테스트</span>
+              <strong id="buildDashboardTestState">대기</strong>
+              <p id="buildDashboardTestDetail">아직 통과 기록이 없습니다.</p>
+            </section>
+            <section>
+              <span>출력 폴더</span>
+              <strong id="buildDashboardOutput">dist/packs</strong>
+              <p>웹에서 완료된 팩을 바로 받을 수 있습니다.</p>
+            </section>
+            <section>
+              <span>검증 프로필</span>
+              <strong id="buildDashboardProfile">hidden</strong>
+              <p>팩 빌드 시 솔루션 기대 결과 검증에 사용됩니다.</p>
+            </section>
+            <section>
+              <span>최근 팩</span>
+              <strong id="buildDashboardPack">아직 없음</strong>
+              <a id="buildDashboardDownloadLink" class="download-link hidden" href="#" download>다운로드</a>
+            </section>
+          </div>
+        </div>
+        <div class="panel-heading">
+          <div>
+            <h2 id="fileTitle">파일 없음</h2>
+            <p id="fileStatus">파일을 열면 여기에서 편집할 수 있습니다.</p>
+          </div>
+          <div class="editor-heading-actions">
+            <button
+              id="editorSettingsButton"
+              type="button"
+              aria-expanded="false"
+              aria-controls="editorSettingsPanel"
+            >
+              설정
+            </button>
+            <span id="editorModeBadge" class="editor-mode-badge">기본</span>
+            <button id="saveFileButton" class="primary" type="button">저장</button>
+          </div>
+        </div>
+        <div
+          id="editorSettingsPanel"
+          class="editor-settings-panel hidden"
+          role="dialog"
+          aria-label="에디터 설정"
+        >
+          <div class="editor-settings-title">에디터 설정</div>
+          <div class="editor-setting-row">
+            <span>입력 방식</span>
+            <div class="segmented-control" role="group" aria-label="입력 방식">
+              <button id="editorModeDefault" class="active" type="button" data-editor-mode="default">
+                기본
+              </button>
+              <button id="editorModeVim" type="button" data-editor-mode="vim">Vim</button>
+            </div>
+          </div>
+          <div class="editor-setting-row">
+            <span>Tab</span>
+            <span class="setting-chip">4 spaces</span>
+          </div>
+        </div>
+        <div id="codeEditor" class="code-editor" data-language="text">
+          <div id="editorLineNumbers" class="editor-line-numbers" aria-hidden="true">1</div>
+          <div class="editor-code-layer">
+            <pre id="codeHighlight" class="code-highlight" aria-hidden="true"></pre>
+            <textarea id="fileEditor" spellcheck="false" aria-label="파일 편집기"></textarea>
+          </div>
+          <div id="editorStatusBar" class="editor-status-bar" aria-live="polite">
+            <span id="editorStatusMode" class="editor-status-mode">기본</span>
+            <span id="editorStatusPosition">Ln 1, Col 1</span>
+            <span id="editorStatusCommand" class="editor-status-command"></span>
+            <span id="editorStatusSearch" class="editor-status-search"></span>
+            <span class="editor-status-spacer"></span>
+            <span id="editorStatusFile">text · 4 spaces</span>
+          </div>
+          <div id="editorCommandLine" class="editor-command-line hidden">
+            <span id="editorCommandPrefix">:</span>
+            <input
+              id="editorCommandInput"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Vim 명령 입력"
+            />
+          </div>
+        </div>
+        <section id="lastRunPanel" class="last-run-panel hidden" aria-live="polite">
+          <div>
+            <span class="last-run-kicker">실행 결과</span>
+            <strong id="lastRunTitle">테스트 결과</strong>
+            <p id="lastRunSummary">아직 실행 결과가 없습니다.</p>
+          </div>
+          <button id="lastRunClose" class="icon" aria-label="테스트 결과 닫기" type="button">×</button>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>

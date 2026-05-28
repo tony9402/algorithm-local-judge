@@ -1,0 +1,30 @@
+<section
+  id="loadingOverlay"
+  class="loading-overlay hidden"
+  aria-live="polite"
+  aria-modal="true"
+  role="alert"
+>
+  <div class="loading-card">
+    <div class="loading-content">
+      <div class="loading-title-row">
+        <strong id="loadingTitle">로딩 중</strong>
+        <div class="spinner" aria-hidden="true"></div>
+      </div>
+      <p id="loadingMessage">작업을 처리하는 중입니다.</p>
+      <div id="progressPanel" class="progress-panel hidden">
+        <div class="progress-bar" aria-hidden="true">
+          <span id="progressBarFill"></span>
+        </div>
+        <div id="progressSummary" class="progress-summary">
+          단계별 진행 상황을 준비하고 있습니다.
+        </div>
+        <ol id="progressSteps" class="progress-steps"></ol>
+        <div class="progress-insight">
+          <strong id="progressInsightTitle">현재 작업</strong>
+          <p id="progressInsightBody">전체 테스트를 준비하고 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

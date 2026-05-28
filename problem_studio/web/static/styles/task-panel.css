@@ -1,0 +1,22 @@
+/* Task panel copy */
+.task-panel {
+  grid-auto-rows: max-content;
+  grid-template-rows: none;
+  align-content: start;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.task-copy {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.task-copy p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}

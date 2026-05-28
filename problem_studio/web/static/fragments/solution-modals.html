@@ -1,0 +1,172 @@
+<section id="solutionCreateModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content modal-content-wide solution-editor-modal">
+    <div class="panel-heading">
+      <h2>새 솔루션 만들기</h2>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <label class="solution-editor-name">
+      솔루션 이름
+      <input id="solutionCreateName" placeholder="wrong_solution" />
+      <span id="solutionCreateNameError" class="field-error"></span>
+    </label>
+    <div class="form-grid solution-editor-options">
+      <label>
+        기대 결과
+        <select id="solutionCreateExpected">
+          <option value="wa">WA</option>
+          <option value="ac">AC</option>
+          <option value="tle">TLE</option>
+          <option value="mle">MLE</option>
+        </select>
+      </label>
+      <label>
+        언어
+        <select id="solutionCreateLanguage">
+          <option value="cpp">C++</option>
+          <option value="python">Python</option>
+          <option value="java">Java</option>
+        </select>
+      </label>
+    </div>
+    <div id="solutionCreatePreview" class="preview-line">wrong_solution.wa.cpp</div>
+    <label class="solution-editor-source">
+      <span class="source-section-label">초기 소스</span>
+      <div class="modal-editor-toolbar">
+        <span>에디터</span>
+        <div class="segmented-control">
+          <button type="button" data-editor-mode="default">기본</button>
+          <button type="button" data-editor-mode="vim">Vim</button>
+        </div>
+      </div>
+      <textarea
+        id="solutionCreateSource"
+        class="source-modal-editor"
+        spellcheck="false"
+        placeholder="비워두면 언어별 기본 템플릿으로 생성됩니다."
+      ></textarea>
+    </label>
+    <button id="solutionCreateButton" class="primary" type="button">솔루션 파일 생성</button>
+  </div>
+</section>
+
+<section id="solutionEditModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content modal-content-wide solution-editor-modal">
+    <div class="panel-heading">
+      <div>
+        <h2>솔루션 편집</h2>
+        <p id="solutionEditPath">solutions/example.wa.cpp</p>
+      </div>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <label class="solution-editor-name">
+      솔루션 이름
+      <input id="solutionName" placeholder="wrong_solution" />
+      <span id="solutionNameError" class="field-error"></span>
+    </label>
+    <div class="form-grid solution-editor-options">
+      <label>
+        기대 결과
+        <select id="solutionExpected">
+          <option value="wa">WA</option>
+          <option value="ac">AC</option>
+          <option value="tle">TLE</option>
+          <option value="mle">MLE</option>
+        </select>
+      </label>
+      <label>
+        언어
+        <select id="solutionLanguage">
+          <option value="cpp">C++</option>
+          <option value="python">Python</option>
+          <option value="java">Java</option>
+        </select>
+      </label>
+    </div>
+    <div id="solutionRenamePreview" class="preview-line">wrong_solution.wa.cpp</div>
+    <label class="solution-editor-source">
+      <span class="source-section-label">소스</span>
+      <div class="modal-editor-toolbar">
+        <span>에디터</span>
+        <div class="segmented-control">
+          <button type="button" data-editor-mode="default">기본</button>
+          <button type="button" data-editor-mode="vim">Vim</button>
+        </div>
+      </div>
+      <textarea id="solutionEditSource" class="source-modal-editor" spellcheck="false"></textarea>
+    </label>
+    <button id="solutionRenameButton" class="primary" type="button">저장</button>
+  </div>
+</section>
+
+<section id="solutionCasesModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content modal-content-wide solution-cases-modal">
+    <div class="panel-heading">
+      <div>
+        <h2>채점 결과</h2>
+        <p id="solutionCasesTitle">solutions/example.wa.cpp</p>
+        <p id="solutionCasesSubtitle">테스트 케이스별 결과</p>
+      </div>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <div id="solutionCasesBody" class="solution-cases-body"></div>
+  </div>
+</section>
+
+<section id="solutionStressModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content solution-stress-modal">
+    <div class="panel-heading">
+      <div>
+        <h2>Stress 테스트</h2>
+      </div>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <div class="form-grid">
+      <label>
+        Profile
+        <input id="solutionStressProfile" value="hidden" />
+      </label>
+      <label>
+        대상 프리셋
+        <select id="solutionStressScope">
+          <option value="all">전체 솔루션</option>
+          <option value="selected">현재 선택 솔루션</option>
+          <option value="custom">직접 선택</option>
+        </select>
+      </label>
+    </div>
+    <div class="stress-solution-picker">
+      <div class="stress-picker-heading">
+        <strong>대상 솔루션</strong>
+        <span id="solutionStressSelectionSummary">0개 선택</span>
+      </div>
+      <div id="solutionStressSelection" class="stress-solution-selection"></div>
+    </div>
+    <div class="stress-duration-options" role="group" aria-label="Stress 테스트 시간">
+      <label><input type="radio" name="solutionStressDuration" value="30" /> 30초</label>
+      <label><input type="radio" name="solutionStressDuration" value="60" checked /> 1분</label>
+      <label><input type="radio" name="solutionStressDuration" value="300" /> 5분</label>
+    </div>
+    <label class="checkbox-row">
+      <input id="solutionStressStopOnMismatch" type="checkbox" checked />
+      첫 mismatch에서 중단
+    </label>
+    <label>
+      최대 케이스
+      <input id="solutionStressMaxCases" type="number" min="1" placeholder="시간 제한만 사용" />
+    </label>
+    <button id="solutionStressStartButton" class="primary" type="button">Stress 시작</button>
+  </div>
+</section>
+
+<section id="solutionStressReviewModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content modal-content-wide solution-stress-review-modal">
+    <div class="panel-heading">
+      <div>
+        <h2>Stress mismatch</h2>
+        <p id="solutionStressReviewTitle">case</p>
+      </div>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <div id="solutionStressReviewBody" class="solution-stress-review-body"></div>
+  </div>
+</section>

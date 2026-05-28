@@ -1,0 +1,290 @@
+/* Source editor */
+.code-editor {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f172a;
+}
+
+.code-editor[data-editor-mode="vim"][data-vim-mode="normal"] {
+  border-color: rgba(37, 99, 235, 0.52);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.code-editor[data-editor-mode="vim"][data-vim-mode="insert"] {
+  border-color: rgba(21, 128, 61, 0.42);
+}
+
+.code-editor:has(.CodeMirror) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.code-editor:has(.CodeMirror) .editor-line-numbers,
+.code-editor:has(.CodeMirror) .code-highlight {
+  display: none;
+}
+
+.code-editor:has(.CodeMirror) .editor-code-layer {
+  grid-column: 1 / -1;
+}
+
+.editor-line-numbers {
+  grid-row: 1;
+  overflow: hidden;
+  border-right: 1px solid rgba(148, 163, 184, 0.24);
+  background: #111827;
+  color: #7c8aa5;
+  padding: 9px 8px;
+  text-align: right;
+  white-space: pre;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  user-select: none;
+}
+
+.editor-code-layer {
+  position: relative;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.code-highlight,
+.editor-code-layer textarea {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 10px;
+  overflow: auto;
+  white-space: pre;
+  word-break: normal;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  tab-size: 4;
+}
+
+.code-highlight {
+  pointer-events: none;
+  background: transparent;
+  color: #dbeafe;
+}
+
+.editor-code-layer textarea {
+  resize: none;
+  background: transparent;
+  color: transparent;
+  caret-color: #e2e8f0;
+  outline: none;
+}
+
+.editor-code-layer textarea::selection {
+  background: rgba(96, 165, 250, 0.38);
+}
+
+.studio-codemirror.CodeMirror {
+  height: 100%;
+  background: #0f172a;
+  color: #dbeafe;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.studio-codemirror .CodeMirror-scroll {
+  height: 100%;
+  min-height: 0;
+}
+
+.studio-codemirror .CodeMirror-gutters {
+  border-right: 1px solid rgba(148, 163, 184, 0.24);
+  background: #111827;
+}
+
+.studio-codemirror .CodeMirror-linenumber {
+  color: #7c8aa5;
+}
+
+.studio-codemirror .CodeMirror-cursor {
+  border-left-color: #e2e8f0;
+}
+
+.code-editor[data-editor-mode="vim"][data-vim-mode="normal"] .studio-codemirror .CodeMirror-cursor {
+  width: 0.65em;
+  border: 0;
+  background: rgba(226, 232, 240, 0.85);
+}
+
+.code-editor[data-editor-mode="vim"][data-vim-mode="insert"] .studio-codemirror .CodeMirror-cursor {
+  width: 0;
+  border-left: 1px solid #e2e8f0;
+  background: transparent;
+}
+
+.code-editor[data-editor-mode="vim"][data-vim-mode="visual"] .studio-codemirror .CodeMirror-selected,
+.studio-codemirror .CodeMirror-selected {
+  background: rgba(96, 165, 250, 0.34);
+}
+
+.studio-codemirror .cm-keyword {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.studio-codemirror .cm-meta,
+.studio-codemirror .cm-operator,
+.studio-codemirror .cm-bracket,
+.studio-codemirror .cm-punctuation {
+  color: #c4b5fd;
+}
+
+.studio-codemirror .cm-def,
+.studio-codemirror .cm-type,
+.studio-codemirror .cm-builtin,
+.studio-codemirror .cm-variable-2,
+.studio-codemirror .cm-variable-3 {
+  color: #bae6fd;
+}
+
+.studio-codemirror .cm-variable {
+  color: #dbeafe;
+}
+
+.studio-codemirror .cm-string {
+  color: #86efac;
+}
+
+.studio-codemirror .cm-string-2 {
+  color: #bef264;
+}
+
+.studio-codemirror .cm-comment {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.studio-codemirror .cm-number {
+  color: #fbbf24;
+}
+
+.studio-codemirror .cm-property,
+.studio-codemirror .cm-atom {
+  color: #f0abfc;
+}
+
+.editor-status-bar {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  background: #0b1220;
+  color: #9fb0cc;
+  padding: 6px 10px;
+  overflow-x: auto;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.editor-status-mode {
+  min-width: 58px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.14);
+  color: #dbeafe;
+  padding: 3px 6px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.editor-status-mode.vim-normal {
+  background: #2563eb;
+  color: #fff;
+}
+
+.editor-status-mode.vim-insert {
+  background: #15803d;
+  color: #fff;
+}
+
+.editor-status-mode.vim-visual {
+  background: #7e22ce;
+  color: #fff;
+}
+
+.editor-status-command,
+.editor-status-search {
+  overflow: hidden;
+  max-width: 32ch;
+  color: #bfdbfe;
+  text-overflow: ellipsis;
+}
+
+.editor-status-search {
+  color: #fde68a;
+}
+
+.editor-status-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.editor-command-line {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+  background: #020617;
+  color: #dbeafe;
+  padding: 6px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.editor-command-line input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #dbeafe;
+  padding: 0;
+  font: inherit;
+  outline: none;
+}
+
+.tok-keyword {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.tok-string {
+  color: #86efac;
+}
+
+.tok-comment {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.tok-number {
+  color: #fbbf24;
+}
+
+.tok-key {
+  color: #f0abfc;
+}
+

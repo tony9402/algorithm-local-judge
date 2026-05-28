@@ -1,0 +1,393 @@
+.job-center-button {
+  min-width: 108px;
+  border-color: var(--line-strong);
+  background: var(--panel-soft);
+  font-weight: 800;
+}
+
+.job-center-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 110;
+  display: flex;
+  width: min(520px, 100vw);
+  height: 100vh;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: -18px 0 48px rgba(15, 23, 42, 0.2);
+}
+
+.job-center-drawer.hidden {
+  display: none;
+}
+
+.job-center-actions,
+.job-row-header,
+.job-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.job-center-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  background: var(--panel);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.job-center-heading > div {
+  min-width: 0;
+}
+
+.job-center-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+#jobCenterCloseButton {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.job-center-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  flex-wrap: wrap;
+}
+
+.job-center-actions button {
+  min-width: 0;
+  border-color: transparent;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.job-center-actions button.active {
+  border-color: var(--accent);
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+#jobCenterClearButton {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+
+.job-filter-count {
+  display: inline-flex;
+  min-width: 20px;
+  justify-content: center;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.14);
+  color: inherit;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.job-center-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+}
+
+.job-row {
+  display: grid;
+  gap: 7px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.job-row.failed {
+  border-color: rgba(194, 65, 59, 0.35);
+  background: #fff7f6;
+}
+
+.job-row.running,
+.job-row.cancelling {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
+}
+
+.job-row.succeeded {
+  border-color: color-mix(in srgb, var(--good) 28%, var(--line));
+}
+
+.job-row-header {
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.job-row-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.job-row-title,
+.job-row-target,
+.job-row-log {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-row-subheader {
+  display: flex;
+  min-width: 0;
+}
+
+.job-row-target,
+.job-row-log,
+.job-progress-meta,
+.job-cancel-reason,
+.job-row-time {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.job-progress-meta {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-cancel-reason {
+  white-space: normal;
+}
+
+.job-row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.job-row-actions button {
+  min-height: 30px;
+  padding-inline: 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.job-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  padding: 2px 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.job-status::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  content: "";
+}
+
+.job-status.running::before,
+.job-status.cancelling::before {
+  background: var(--accent);
+}
+
+.job-status.running,
+.job-status.cancelling {
+  border-color: rgba(37, 99, 235, 0.26);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.job-status.succeeded::before {
+  background: var(--good);
+}
+
+.job-status.succeeded {
+  border-color: rgba(21, 128, 61, 0.22);
+  background: #ecfdf3;
+  color: var(--good);
+}
+
+.job-status.failed::before {
+  background: var(--bad);
+}
+
+.job-status.failed {
+  border-color: rgba(194, 65, 59, 0.26);
+  background: #fff1ef;
+  color: var(--bad);
+}
+
+.job-status.cancelled::before,
+.job-status.queued::before {
+  background: var(--muted);
+}
+
+.job-progress-track {
+  position: relative;
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 16%, #fff);
+  box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.12);
+}
+
+.job-progress-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--muted);
+  transition:
+    width 180ms ease,
+    background-color 180ms ease;
+}
+
+.job-row.queued .job-progress-track,
+.job-row.cancelled .job-progress-track,
+.job-row.stale .job-progress-track {
+  background: color-mix(in srgb, var(--muted) 18%, #fff);
+}
+
+.job-row.queued .job-progress-fill,
+.job-row.cancelled .job-progress-fill,
+.job-row.stale .job-progress-fill {
+  background: color-mix(in srgb, var(--muted) 76%, #fff);
+}
+
+.job-row.running .job-progress-track {
+  background: color-mix(in srgb, var(--accent) 18%, #fff);
+}
+
+.job-row.running .job-progress-fill {
+  background: linear-gradient(90deg, var(--accent), #60a5fa);
+}
+
+.job-row.cancelling .job-progress-track {
+  background: color-mix(in srgb, var(--warn) 20%, #fff);
+}
+
+.job-row.cancelling .job-progress-fill {
+  background: linear-gradient(90deg, var(--warn), #f59e0b);
+}
+
+.job-row.succeeded .job-progress-track {
+  background: color-mix(in srgb, var(--good) 18%, #fff);
+}
+
+.job-row.succeeded .job-progress-fill {
+  background: linear-gradient(90deg, var(--good), #22c55e);
+}
+
+.job-row.failed .job-progress-track {
+  background: color-mix(in srgb, var(--bad) 18%, #fff);
+}
+
+.job-row.failed .job-progress-fill {
+  background: linear-gradient(90deg, var(--bad), #f87171);
+}
+
+.job-progress-track.indeterminate .job-progress-fill {
+  width: 36% !important;
+  min-width: 68px;
+  animation: job-progress-sweep 1.15s ease-in-out infinite;
+}
+
+@keyframes job-progress-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .job-progress-track.indeterminate .job-progress-fill {
+    animation: none;
+    transform: none;
+  }
+}
+
+.job-empty-state {
+  display: grid;
+  gap: 4px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 16px;
+}
+
+.job-empty-state strong {
+  color: var(--text);
+}
+
+.job-empty-state span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .job-center-drawer {
+    top: auto;
+    bottom: 0;
+    width: 100vw;
+    height: min(80vh, 620px);
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .job-center-heading {
+    margin: -12px -12px 0;
+    padding: 12px;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .job-center-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #jobCenterClearButton {
+    grid-column: 1 / -1;
+  }
+}

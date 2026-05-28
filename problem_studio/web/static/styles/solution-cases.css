@@ -1,0 +1,295 @@
+/* Solution case result modal */
+.solution-case-table {
+  display: grid;
+  max-height: min(56vh, 520px);
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.solution-case-row {
+  display: grid;
+  grid-template-columns:
+    minmax(110px, 1fr)
+    minmax(56px, auto)
+    minmax(62px, auto)
+    minmax(70px, auto)
+    minmax(70px, auto);
+  gap: 8px;
+  align-items: center;
+  min-width: 440px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  padding: 6px 8px;
+}
+
+.solution-case-row:first-child {
+  border-top: 0;
+}
+
+.solution-case-row.head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.solution-case-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solution-case-row strong {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+.solution-case-row button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.solution-case-row.ok strong {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.solution-case-row.warn strong {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.solution-case-row.bad strong {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.solution-cases-modal {
+  align-content: start;
+}
+
+.solution-cases-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.solution-cases-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.solution-cases-summary span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  padding: 8px 9px;
+}
+
+.solution-cases-summary small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.solution-cases-summary strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solution-cases-message,
+.empty-state {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.solution-stress-modal {
+  align-content: start;
+  gap: 14px;
+  max-width: 580px;
+}
+
+.stress-solution-picker {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  padding: 10px;
+}
+
+.stress-picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stress-picker-heading strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.stress-picker-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stress-solution-selection {
+  display: grid;
+  gap: 7px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.stress-solution-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  padding: 8px 9px;
+}
+
+.stress-solution-option input {
+  width: auto;
+}
+
+.stress-solution-option span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.stress-solution-option strong,
+.stress-solution-option small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stress-solution-option strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.stress-solution-option small,
+.stress-solution-empty {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.stress-duration-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stress-duration-options label,
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  padding: 9px 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.stress-duration-options input,
+.checkbox-row input {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.checkbox-row {
+  justify-content: flex-start;
+}
+
+.solution-stress-review-modal {
+  align-content: start;
+}
+
+.solution-stress-review-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.stress-review-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stress-review-summary span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  padding: 8px 9px;
+}
+
+.stress-review-summary small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stress-review-summary strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stress-append-panel {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(120px, 1fr) minmax(160px, 1.4fr) auto auto;
+  gap: 8px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  padding: 10px;
+}
+
+.stress-append-panel button {
+  min-height: 38px;
+  font-weight: 900;
+}

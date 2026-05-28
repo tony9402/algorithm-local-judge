@@ -1,0 +1,87 @@
+/* Build dashboard */
+.build-dashboard {
+  display: grid;
+  min-height: 100%;
+  align-content: start;
+  gap: 14px;
+}
+
+.build-dashboard-hero {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 13px 14px;
+}
+
+.build-dashboard-hero.success {
+  border-left-color: var(--good);
+  background: #f3fbf6;
+}
+
+.build-dashboard-hero.error {
+  border-left-color: var(--bad);
+  background: #fff7f6;
+}
+
+.build-dashboard-hero.stale {
+  border-left-color: var(--warn);
+  background: #fffaf0;
+}
+
+.build-dashboard-hero.running {
+  border-left-color: var(--accent);
+  background: #eef6ff;
+}
+
+.build-dashboard-hero span,
+.build-dashboard-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.build-dashboard-hero h2 {
+  font-size: 20px;
+  line-height: 1.18;
+}
+
+.build-dashboard-hero p,
+.build-dashboard-grid p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.build-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.build-dashboard-grid section {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 10px;
+}
+
+.build-dashboard-grid strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.build-dashboard-grid .download-link {
+  margin-top: 2px;
+}

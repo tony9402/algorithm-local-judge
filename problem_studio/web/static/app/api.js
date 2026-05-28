@@ -28,7 +28,10 @@ export async function api(path, options = {}) {
     : await response.text();
   if (!response.ok) {
     const detail = typeof body === "object" && body.detail ? body.detail : body;
-    throw new Error(normalizeErrorDetail(detail) || `HTTP ${response.status}`);
+    const error = new Error(normalizeErrorDetail(detail) || `HTTP ${response.status}`);
+    error.status = response.status;
+    error.body = body;
+    throw error;
   }
   return body;
 }

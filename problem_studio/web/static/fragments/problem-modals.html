@@ -1,0 +1,91 @@
+<section id="newProblemModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <div class="panel-heading">
+      <h2>문제 만들기</h2>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <label>
+      문제 ID
+      <input id="newProblemId" placeholder="graph-shortest-path" />
+    </label>
+    <label>
+      제목
+      <input id="newProblemTitle" placeholder="새 문제" />
+    </label>
+    <label>
+      폴더
+      <input id="newProblemFolder" placeholder="기본" />
+    </label>
+    <details class="metadata-card metadata-details new-problem-settings">
+      <summary>
+        <span>초기 설정</span>
+        <small>나중에 문제 정보에서 바꿀 수 있습니다.</small>
+      </summary>
+      <div class="metadata-tools-grid">
+        <div class="form-grid">
+          <label>
+            버전
+            <input id="newProblemVersion" type="number" min="1" value="1" />
+          </label>
+          <label>
+            기본 프로필
+            <input id="newProblemDefaultProfile" list="metadataProfileOptions" value="hidden" />
+          </label>
+        </div>
+        <div class="metadata-limit-grid">
+          <label>
+            컴파일
+            <span class="number-with-unit">
+              <input id="newProblemCompileTimeout" type="number" min="100" step="100" value="5000" />
+              <span>ms</span>
+            </span>
+          </label>
+          <label>
+            데이터 생성
+            <span class="number-with-unit">
+              <input id="newProblemGenerationTimeout" type="number" min="100" step="100" value="5000" />
+              <span>ms</span>
+            </span>
+          </label>
+          <label>
+            기준 정답
+            <span class="number-with-unit">
+              <input id="newProblemSolutionTimeout" type="number" min="100" step="100" value="2000" />
+              <span>ms</span>
+            </span>
+          </label>
+          <label>
+            사용자 코드
+            <span class="number-with-unit">
+              <input id="newProblemUserTimeout" type="number" min="100" step="100" value="2000" />
+              <span>ms</span>
+            </span>
+          </label>
+        </div>
+      </div>
+    </details>
+    <button id="createProblemButton" class="primary" type="button">만들기</button>
+  </div>
+</section>
+
+<section id="deleteProblemModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <div class="panel-heading">
+      <div>
+        <h2>문제 삭제</h2>
+        <p id="deleteProblemDescription">선택한 문제를 삭제합니다.</p>
+      </div>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <div class="danger-note">
+      문제 폴더와 내부 파일이 삭제됩니다. 되돌릴 수 없습니다.
+    </div>
+    <label>
+      확인 문구
+      <input id="deleteProblemConfirmInput" placeholder="확인했습니다" autocomplete="off" />
+    </label>
+    <button id="deleteProblemButton" class="danger full" type="button" disabled>
+      문제 삭제
+    </button>
+  </div>
+</section>

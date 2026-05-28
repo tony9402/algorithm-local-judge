@@ -1,0 +1,62 @@
+/* Workspace and panel layout */
+.studio-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 330px) minmax(420px, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
+.studio-layout.info-mode {
+  grid-template-columns: minmax(360px, 460px) minmax(420px, 1fr);
+}
+
+.studio-layout.solutions-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.panel-heading > div {
+  min-width: 0;
+}
+
+.panel-heading h2,
+.panel-heading p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-panel,
+.editor-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.editor-panel {
+  position: relative;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.editor-panel.build-mode {
+  display: block;
+}
+
+.editor-panel.build-mode .panel-heading,
+.editor-panel.build-mode .editor-settings-panel,
+.editor-panel.build-mode .code-editor {
+  display: none;
+}
+
+.editor-panel.solutions-hidden {
+  display: none;
+}

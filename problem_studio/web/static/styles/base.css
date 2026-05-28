@@ -1,0 +1,142 @@
+/* Base theme and primitive controls */
+:root {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: light;
+  --bg: #e9eef5;
+  --panel: #ffffff;
+  --panel-soft: #f7fafc;
+  --text: #152033;
+  --muted: #64748b;
+  --line: #d6dee9;
+  --line-strong: #aebdd0;
+  --accent: #2563eb;
+  --accent-dark: #1d4ed8;
+  --accent-soft: #e8f1ff;
+  --good: #15803d;
+  --bad: #c2413b;
+  --warn: #b7791f;
+  --shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  --sidebar: #0f1828;
+  --sidebar-soft: #1d2838;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  padding: 0 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-soft);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.primary:hover {
+  background: var(--accent-dark);
+}
+
+button.danger {
+  border-color: var(--bad);
+  background: var(--bad);
+  color: #fff;
+  font-weight: 900;
+}
+
+button.danger:hover {
+  border-color: #991b1b;
+  background: #991b1b;
+}
+
+button.dirty {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+button.full {
+  width: 100%;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  padding: 8px 10px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+textarea {
+  min-height: 0;
+  height: 100%;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 22px;
+}
+
+h2 {
+  font-size: 16px;
+}
+

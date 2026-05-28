@@ -1,0 +1,92 @@
+/* Solution mismatch artifact preview */
+.solution-artifact-preview {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  padding: 10px;
+}
+
+.solution-artifact-heading,
+.solution-artifact-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.solution-artifact-heading > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.solution-artifact-heading strong,
+.solution-artifact-heading span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solution-artifact-heading span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.solution-artifact-tabs {
+  justify-content: flex-start;
+}
+
+.solution-artifact-tabs button,
+.solution-artifact-heading button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.solution-artifact-tabs button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.solution-artifact-notice {
+  border: 1px solid color-mix(in srgb, var(--warn) 36%, var(--line));
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
+.solution-artifact-output {
+  max-height: min(34vh, 320px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.solution-artifact-output .diff-add {
+  display: block;
+  color: #86efac;
+}
+
+.solution-artifact-output .diff-remove {
+  display: block;
+  color: #fda4af;
+}
+
+.solution-artifact-output .diff-hunk,
+.solution-artifact-output .diff-file {
+  display: block;
+  color: #93c5fd;
+  font-weight: 800;
+}

@@ -1,0 +1,210 @@
+/* Dialogs */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.44);
+}
+
+.modal-content {
+  width: min(480px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.modal-content-wide {
+  width: min(1120px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+
+.workspace-build-modal {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+
+.workspace-build-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workspace-build-toolbar strong {
+  font-size: 13px;
+}
+
+.bulk-build-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bulk-problem-list {
+  display: grid;
+  gap: 7px;
+  max-height: min(360px, 42vh);
+  overflow: auto;
+}
+
+.bulk-problem-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  padding: 9px 10px;
+}
+
+.bulk-problem-option input {
+  width: auto;
+}
+
+.bulk-problem-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.bulk-problem-copy strong,
+.bulk-problem-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bulk-problem-copy small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.solution-editor-modal {
+  width: min(1640px, calc(100vw - 48px));
+  height: calc(100vh - 40px);
+  max-height: calc(100vh - 28px);
+  grid-template-columns: minmax(300px, 0.72fr) minmax(360px, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px 16px;
+  overflow: hidden;
+}
+
+.solution-editor-modal .panel-heading,
+.solution-editor-modal .preview-line,
+.solution-editor-source,
+.solution-editor-modal > button.primary {
+  grid-column: 1 / -1;
+}
+
+.solution-editor-modal .panel-heading {
+  margin-bottom: 0;
+}
+
+.solution-editor-modal .solution-editor-options {
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+}
+
+.solution-editor-source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-self: stretch;
+  min-height: 0;
+}
+
+.source-section-label {
+  align-self: center;
+}
+
+.solution-editor-modal > button.primary {
+  min-height: 44px;
+}
+
+.source-modal-editor {
+  min-height: 260px;
+  max-height: min(52vh, 520px);
+  resize: vertical;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f172a;
+  color: #dbeafe;
+  padding: 10px 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  tab-size: 4;
+}
+
+.solution-editor-modal .source-modal-editor {
+  grid-column: 1 / -1;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  resize: none;
+}
+
+.modal-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 6px 0 8px;
+}
+
+.modal-editor-toolbar > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.solution-editor-source .modal-editor-toolbar {
+  justify-self: end;
+  margin: 0 0 8px;
+}
+
+.source-modal-codemirror.CodeMirror {
+  height: min(58vh, 620px);
+  min-height: 320px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.solution-editor-modal .source-modal-codemirror.CodeMirror {
+  grid-column: 1 / -1;
+  height: 100%;
+  min-height: 0;
+}
+
+.source-modal-codemirror[data-editor-mode="vim"][data-vim-mode="normal"] .CodeMirror-cursor {
+  width: 0.65em;
+  border: 0;
+  background: rgba(226, 232, 240, 0.85);
+}
+
+.source-modal-codemirror[data-editor-mode="vim"][data-vim-mode="insert"] .CodeMirror-cursor {
+  width: 0;
+  border-left: 1px solid #e2e8f0;
+  background: transparent;
+}
+
+.icon {
+  width: 32px;
+  padding: 0;
+}
+
+.hidden {
+  display: none !important;
+}

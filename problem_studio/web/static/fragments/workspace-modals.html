@@ -1,0 +1,66 @@
+<section id="workspaceBuildModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content workspace-build-modal">
+    <div class="panel-heading">
+      <div>
+        <h2>전체 문제 테스트/팩 빌드</h2>
+        <p>선택한 문제를 병렬로 검증한 뒤 하나의 팩으로 생성합니다.</p>
+      </div>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <div class="form-grid">
+      <label>
+        Pack ID
+        <input id="bulkPackIdInput" value="basic" />
+      </label>
+      <label>
+        검증 프로필
+        <input id="bulkVerifyProfileInput" value="hidden" />
+      </label>
+    </div>
+    <label>
+      병렬 워커 수
+      <input id="bulkMaxWorkersInput" type="number" min="1" max="16" placeholder="자동" />
+    </label>
+    <div class="workspace-build-toolbar">
+      <strong>팩에 포함할 문제</strong>
+      <button id="bulkSelectAllButton" type="button">전체 선택</button>
+    </div>
+    <div id="bulkBuildSummary" class="bulk-build-summary">선택한 문제와 워커 설정을 확인하세요.</div>
+    <div id="bulkProblemList" class="bulk-problem-list"></div>
+    <button id="workspaceBuildStartButton" class="primary" type="button">
+      선택한 문제로 팩 빌드
+    </button>
+  </div>
+</section>
+
+<section id="repositoryModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <div class="panel-heading">
+      <div>
+        <h2>저장소 추가</h2>
+        <p>GitHub 저장소를 현재 workspace의 problems 폴더 아래로 받아옵니다.</p>
+      </div>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <label>
+      Git 저장소
+      <input id="repositoryUrlInput" placeholder="owner/repository 또는 Git URL" />
+    </label>
+    <div class="form-grid">
+      <label>
+        Branch
+        <input id="repositoryBranchInput" placeholder="기본 branch" />
+      </label>
+      <label>
+        Local 이름
+        <input id="repositoryNameInput" placeholder="repository" />
+      </label>
+    </div>
+    <button id="repositoryCloneStartButton" class="primary full" type="button">
+      Clone and open
+    </button>
+    <button id="repositoryRegisterButton" class="full" type="button">
+      Open existing
+    </button>
+  </div>
+</section>
