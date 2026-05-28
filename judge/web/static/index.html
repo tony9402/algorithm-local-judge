@@ -9,7 +9,7 @@
         localStorage.getItem("alj-theme") ||
         (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     </script>
-    <link rel="stylesheet" href="/static/styles.css?v=20260515-01" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260522-01" />
   </head>
   <body>
     <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
@@ -24,6 +24,7 @@
             Dark
           </button>
           <button id="cacheManageButton" type="button">Cache 정리</button>
+          <button id="jobsButton" type="button" aria-expanded="false">Jobs 0</button>
         </div>
       </header>
 
@@ -35,6 +36,13 @@
 
           <section>
             <div class="section-title">Problems</div>
+            <div class="problem-folder-tools">
+              <label>
+                Folder
+                <input id="problemFolderInput" type="text" placeholder="Uncategorized" />
+              </label>
+              <button id="problemFolderSaveButton" type="button">Move</button>
+            </div>
             <div id="problemList" class="list muted">Loading...</div>
           </section>
 
@@ -53,16 +61,22 @@
           <section class="panel run-panel">
             <div class="panel-heading">
               <div>
-              <h2>Run</h2>
-              <p>Upload or paste a source, then run hidden cases.</p>
-            </div>
+                <h2>Run</h2>
+                <p>Upload or paste a source, then run selected cases.</p>
+              </div>
               <span id="languageBadge" class="badge neutral">No source</span>
             </div>
 
-            <label>
-              Problem
-              <select id="problemSelect"></select>
-            </label>
+            <div class="grid two">
+              <label>
+                Problem
+                <select id="problemSelect"></select>
+              </label>
+              <label>
+                Run Profile
+                <select id="runProfileSelect"></select>
+              </label>
+            </div>
 
             <div class="mode-tabs" role="tablist">
               <button id="uploadModeButton" class="active" type="button">Upload File</button>
@@ -71,7 +85,7 @@
 
             <div class="actions">
               <span id="sourceReadiness" class="source-readiness" role="status">Source needed</span>
-              <button id="runButton" class="primary" type="button">Run Hidden Tests</button>
+              <button id="runButton" class="primary" type="button">Run Tests</button>
               <details class="advanced-run-options">
                 <summary>Advanced</summary>
                 <div class="advanced-actions">
@@ -137,6 +151,23 @@
                 <span>Cached Sources</span>
                 <small>Cache 정리 전까지 최근 채점 코드를 불러올 수 있습니다.</small>
               </div>
+              <div class="source-history-filters">
+                <input
+                  id="sourceHistoryFilterInput"
+                  type="search"
+                  placeholder="Search filename, problem, language"
+                  aria-label="Search cached sources"
+                />
+                <select id="sourceHistoryStatusFilter" aria-label="Filter cached sources by status">
+                  <option value="all">All statuses</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="wrong_answer">Wrong answer</option>
+                  <option value="compile_error">Compile error</option>
+                  <option value="runtime_error">Runtime error</option>
+                  <option value="time_limit">Time limit</option>
+                  <option value="memory_limit">Memory limit</option>
+                </select>
+              </div>
               <div id="sourceHistoryList" class="source-history-list muted">
                 No cached sources.
               </div>
@@ -171,12 +202,12 @@
               <div class="status-card">
                 <span>Cases</span>
                 <strong id="casesStatusValue">Idle</strong>
-                <small id="casesStatusMeta">Hidden cases.yml plan</small>
+                <small id="casesStatusMeta">Selected cases.yml plan</small>
               </div>
               <div class="status-card">
                 <span>Data</span>
                 <strong id="dataStatusValue">Idle</strong>
-                <small id="dataStatusMeta">Hidden judge data</small>
+                <small id="dataStatusMeta">Selected judge data</small>
               </div>
               <div class="status-card">
                 <span>Judge</span>
@@ -190,6 +221,21 @@
               </div>
             </div>
             <div id="resultSummary" class="result-summary muted">Ready.</div>
+            <section id="jobsPanel" class="jobs-panel hidden" aria-label="Jobs">
+              <div class="jobs-panel-heading">
+                <div>
+                  <strong>Jobs</strong>
+                  <p id="jobsMeta">No queued jobs.</p>
+                </div>
+                <div class="jobs-panel-actions">
+                  <button data-job-filter="active" class="active" type="button">Active</button>
+                  <button data-job-filter="done" type="button">Done</button>
+                  <button data-job-filter="failed" type="button">Failed</button>
+                  <button id="jobsClearButton" type="button">Clear Done</button>
+                </div>
+              </div>
+              <div id="jobsList" class="jobs-list muted">No jobs.</div>
+            </section>
             <div
               id="generationProgress"
               class="progress hidden"
@@ -215,6 +261,12 @@
                 <h2>Wrong Case</h2>
                 <p id="wrongMeta"></p>
               </div>
+              <div class="artifact-actions" aria-label="Wrong case artifact actions">
+                <button id="artifactCopyButton" type="button">Copy</button>
+                <button id="artifactDownloadButton" type="button">Download</button>
+                <button id="artifactWrapButton" type="button" aria-pressed="false">Wrap</button>
+                <button id="artifactExpandButton" type="button" aria-pressed="false">Expand</button>
+              </div>
             </div>
             <div class="mode-tabs">
               <button class="artifact-tab active" data-artifact="input" type="button">Input</button>
@@ -236,7 +288,7 @@
       <div class="modal-heading">
         <div>
           <h2 id="packModalTitle">문제 팩 설치</h2>
-          <p>Problem pack을 설치합니다.</p>
+          <p>신뢰한 repository 또는 .aljpack만 설치하세요. 공식 설치는 .aljpack release asset을 우선 사용하고 없으면 source archive로 fallback합니다.</p>
         </div>
         <button class="icon-button" type="button" data-modal-close aria-label="Close">×</button>
       </div>
@@ -255,8 +307,12 @@
             Asset Name
             <input id="packAssetInput" type="text" placeholder="latest matching .aljpack" />
           </label>
+          <label>
+            Branch / Tag
+            <input id="packRefInput" type="text" placeholder="default branch" />
+          </label>
         </div>
-        <button id="downloadPackButton" type="button">Download Official Pack</button>
+        <button id="downloadPackButton" type="button">Install Official Problems</button>
         <div id="packStatus" class="modal-status muted">No pack installed in this session.</div>
       </div>
     </section>
@@ -278,6 +334,6 @@
       <div id="cacheOutput" class="modal-status muted">Ready.</div>
     </section>
 
-    <script src="/static/app.js?v=20260515-01"></script>
+    <script type="module" src="/static/app.js?v=20260522-01"></script>
   </body>
 </html>

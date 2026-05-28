@@ -14,6 +14,7 @@ class PackDownloadRequest(BaseModel):
 
     repository: str | None = None
     asset_name: str | None = None
+    ref: str | None = None
 
 
 class GenerateRequest(BaseModel):
@@ -29,6 +30,12 @@ class CasesCompileRequest(BaseModel):
 
     problem_id: str = Field(min_length=1)
     profile: str | None = None
+
+
+class ProblemFolderUpdateRequest(BaseModel):
+    """Request body for changing a problem display folder."""
+
+    folder: str = ""
 
 
 class RunRequest(BaseModel):

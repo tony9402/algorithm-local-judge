@@ -1,0 +1,150 @@
+.jobs-panel {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-muted);
+}
+
+.jobs-panel.hidden {
+  display: none;
+}
+
+.jobs-panel-heading,
+.jobs-panel-actions,
+.job-row-header,
+.job-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jobs-panel-heading {
+  justify-content: space-between;
+}
+
+.jobs-panel-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.jobs-panel-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.jobs-panel-actions button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.jobs-list {
+  display: grid;
+  gap: 8px;
+}
+
+.job-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.job-row-header {
+  justify-content: space-between;
+}
+
+.job-row-title,
+.job-row-target,
+.job-row-log {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-row-title {
+  min-width: 0;
+  font-weight: 700;
+}
+
+.job-row-target,
+.job-row-log,
+.job-cancel-reason,
+.job-row-time {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.job-cancel-reason {
+  white-space: normal;
+}
+
+.job-row-actions {
+  flex-wrap: wrap;
+}
+
+.job-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.job-status::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  content: "";
+}
+
+.job-status.running::before,
+.job-status.cancelling::before {
+  background: var(--accent);
+}
+
+.job-status.succeeded::before {
+  background: var(--good);
+}
+
+.job-status.failed::before {
+  background: var(--bad);
+}
+
+.job-progress-track {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.job-progress-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .jobs-panel {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    z-index: 30;
+    max-height: 78vh;
+    overflow: auto;
+    box-shadow: var(--shadow);
+  }
+
+  .jobs-panel-heading,
+  .jobs-panel-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

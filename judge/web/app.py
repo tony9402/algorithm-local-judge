@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, Response
 
+from commons.job_queue import BackgroundJobStore
 from judge.web.routes import API_ROUTERS
 
 WEB_ROOT = Path(__file__).resolve().parent
@@ -21,9 +22,18 @@ def register_api_routes(app: FastAPI) -> None:
         app.include_router(router)
 
 
-def create_app() -> FastAPI:
+def create_app(
+    *,
+    local_binding: bool = True,
+    remote_warning: bool = False,
+    allow_remote_run: bool = False,
+) -> FastAPI:
     """Create the FastAPI application for the local judge UI."""
     app = FastAPI(title="Algorithm Local Judge", docs_url=None, redoc_url=None)
+    app.state.local_binding = local_binding
+    app.state.remote_warning = remote_warning
+    app.state.allow_remote_run = allow_remote_run
+    app.state.jobs = BackgroundJobStore(max_running_jobs=4)
     register_api_routes(app)
 
     @app.get("/")
@@ -34,10 +44,13 @@ def create_app() -> FastAPI:
             headers={"Cache-Control": "no-store"},
         )
 
-    @app.get("/static/{filename}")
-    def static_file(filename: str) -> FileResponse:
+    @app.get("/static/{file_path:path}")
+    def static_file(file_path: str) -> FileResponse:
         """Serve web UI assets without browser cache reuse during local development."""
-        path = STATIC_ROOT / filename
+        root = STATIC_ROOT.resolve()
+        path = (root / file_path).resolve()
+        if root not in path.parents and path != root:
+            return Response(status_code=404)
         if not path.is_file():
             return Response(status_code=404)
         return FileResponse(

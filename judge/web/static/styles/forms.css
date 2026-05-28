@@ -1,0 +1,134 @@
+.mode-tabs,
+.actions,
+.advanced-actions,
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.actions {
+  justify-content: flex-end;
+}
+
+.advanced-run-options {
+  position: relative;
+}
+
+.advanced-run-options summary {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  padding: 0 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.advanced-run-options summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-run-options summary::after {
+  content: "⌄";
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.advanced-run-options[open] summary {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.advanced-actions {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  width: min(560px, calc(100vw - 40px));
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  justify-content: stretch;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 10px;
+  box-shadow: var(--shadow);
+}
+
+.advanced-actions button,
+.advanced-actions .check {
+  min-width: 0;
+}
+
+.source-readiness {
+  margin-right: auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-muted);
+  color: var(--muted);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.source-readiness.ready {
+  border-color: color-mix(in srgb, var(--good) 38%, var(--line));
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.stack-form {
+  display: grid;
+  gap: 12px;
+}
+
+.drop-zone {
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  padding: 12px;
+  background: var(--panel-muted);
+}
+
+.drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.drop-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mode-tabs button.active {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  color: var(--accent-ink);
+}
+
+.check {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.check input {
+  width: auto;
+  min-height: auto;
+}
+
+.debug-toggle {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}

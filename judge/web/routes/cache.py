@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from judge.web import services
 from judge.web.routes.common import to_http_error
 from judge.web.schemas import CacheClearRequest
+from judge.web.security_policy import ensure_local_web_action_allowed
 
 router = APIRouter(prefix="/api/cache", tags=["cache"])
 
@@ -19,9 +20,11 @@ def api_cache() -> dict:
 
 
 @router.post("/clear")
-def api_cache_clear(request: CacheClearRequest) -> dict:
+def api_cache_clear(http_request: Request, request: CacheClearRequest) -> dict:
     """Preview or apply a cache clear request."""
     try:
+        if not request.dry_run:
+            ensure_local_web_action_allowed(http_request, "cache clear")
         return services.cache_clear(
             request.problem,
             request.profile,

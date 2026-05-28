@@ -1,0 +1,100 @@
+@media (max-width: 900px) {
+  .topbar {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  body.has-problems .workspace {
+    order: 1;
+  }
+
+  body.has-problems .sidebar {
+    order: 2;
+  }
+
+  .grid.two,
+  .sample-artifacts,
+  .status-grid,
+  .status-grid.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-heading,
+  .modal-heading {
+    align-items: flex-start;
+  }
+
+  .source-history-item {
+    grid-template-columns: 1fr;
+  }
+
+  .problem-folder-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .source-history-actions {
+    justify-content: flex-end;
+  }
+
+  .source-history-actions button {
+    min-height: 44px;
+  }
+
+  .source-history-item span {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 560px) {
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .actions button,
+  .advanced-run-options,
+  .advanced-run-options summary,
+  .source-readiness {
+    width: 100%;
+  }
+
+  .advanced-actions {
+    position: static;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .advanced-actions button,
+  .advanced-actions .check {
+    width: 100%;
+  }
+
+  .source-readiness {
+    margin-right: 0;
+    text-align: center;
+  }
+
+  .source-history-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .source-history-heading span {
+    white-space: nowrap;
+  }
+
+  .source-history-heading small {
+    text-align: left;
+  }
+}

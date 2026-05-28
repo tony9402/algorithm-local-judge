@@ -1,0 +1,52 @@
+.artifact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.artifact-actions button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.artifact-notice {
+  border: 1px solid color-mix(in srgb, var(--warn) 36%, var(--line));
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+#artifactOutput {
+  white-space: pre;
+}
+
+#artifactOutput.wrapped {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#artifactOutput.collapsed {
+  max-height: min(42vh, 360px);
+  overflow: auto;
+}
+
+#artifactOutput .diff-add {
+  display: block;
+  color: var(--good);
+}
+
+#artifactOutput .diff-remove {
+  display: block;
+  color: var(--bad);
+}
+
+#artifactOutput .diff-hunk,
+#artifactOutput .diff-file {
+  display: block;
+  color: var(--accent);
+  font-weight: 800;
+}

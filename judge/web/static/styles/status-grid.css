@@ -1,0 +1,58 @@
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.status-grid.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.status-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-muted);
+  padding: 12px;
+  min-width: 0;
+}
+
+.status-card span,
+.status-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.status-card strong {
+  display: block;
+  margin: 5px 0 3px;
+  color: var(--text);
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.result-summary,
+.modal-status {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-muted);
+  padding: 12px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.result-summary.success,
+.modal-status.success {
+  border-color: color-mix(in srgb, var(--good) 36%, var(--line));
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.result-summary.error,
+.modal-status.error {
+  border-color: color-mix(in srgb, var(--bad) 36%, var(--line));
+  background: var(--bad-soft);
+  color: var(--bad);
+}
