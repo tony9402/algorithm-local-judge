@@ -1,3 +1,4 @@
+"""생성된 데이터 파일의 줄 끝 공백을 정리하는 명령줄 유틸리티입니다."""
 from __future__ import annotations
 
 import argparse
@@ -5,7 +6,12 @@ from pathlib import Path
 
 
 def cleanup_inplace(file_path: str | Path, only_last: bool) -> None:
-    """Trim trailing whitespace in a generated data file."""
+    """지정한 데이터 파일을 제자리에서 열어 줄 끝 공백을 제거합니다. 전체 줄을 정리하거나 마지막 줄만 정리하는 두 모드를 지원합니다.
+
+    Args:
+        file_path (str | Path): 공백 정리를 적용할 데이터 파일 경로입니다.
+        only_last (bool): 참이면 마지막 줄만 정리하고, 거짓이면 모든 줄의 오른쪽 공백을 정리합니다.
+    """
     path = Path(file_path)
     with path.open("r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -20,7 +26,11 @@ def cleanup_inplace(file_path: str | Path, only_last: bool) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse cleanup CLI arguments."""
+    """공백 정리 명령에서 사용할 대상 파일 경로와 마지막 줄 정리 옵션을 파싱합니다.
+
+    Returns:
+        argparse.Namespace: `file_path`와 `only_last` 값을 담은 명령줄 인자 네임스페이스입니다.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", dest="file_path", help="데이터 파일 경로", required=True)
     parser.add_argument(

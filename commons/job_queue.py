@@ -1,3 +1,4 @@
+"""웹 API에서 사용하는 백그라운드 작업의 상태, 취소 토큰, 실행 큐, 보존 정책을 관리하는 공통 모듈입니다."""
 from __future__ import annotations
 
 import threading
@@ -17,33 +18,45 @@ ACTIVE_STATUSES = {"queued", "running", "cancelling"}
 
 
 class JobCancelledError(Exception):
-    """Raised when a background job cooperatively stops after cancellation."""
+    """협력적 취소가 요청된 작업 실행을 중단하기 위해 작업 함수 안에서 발생시키는 예외입니다."""
 
 
 class CancelToken:
-    """Thread-safe cancellation token passed to cancellable background jobs."""
+    """실행 중인 작업에 취소 요청을 전달하고 작업 함수가 중단 여부를 확인할 수 있게 하는 토큰입니다."""
 
     def __init__(self) -> None:
+        """취소 요청 여부를 스레드 사이에서 공유할 이벤트 객체로 초기화합니다."""
         self._event = threading.Event()
 
     def cancel(self) -> None:
-        """Request cancellation."""
+        """대기 중인 작업은 즉시 취소 처리하고, 실행 중인 취소 가능 작업에는 취소 토큰을 전달합니다.
+
+        Args:
+            job_id (str): 취소할 백그라운드 작업 식별자입니다.
+
+        Returns:
+            bool: 취소 요청이 받아들여졌으면 `True`, 대상이 없거나 취소할 수 없으면 `False`입니다.
+        """
         self._event.set()
 
     @property
     def cancelled(self) -> bool:
-        """Return whether cancellation has been requested."""
+        """현재 토큰에 취소 요청이 들어왔는지 확인합니다.
+
+        Returns:
+            bool: 취소 요청이 기록되어 있으면 `True`, 아니면 `False`입니다.
+        """
         return self._event.is_set()
 
     def check(self) -> None:
-        """Raise when cancellation has been requested."""
+        """취소 요청이 기록된 경우 작업 실행을 중단하도록 `JobCancelledError`를 발생시킵니다."""
         if self.cancelled:
             raise JobCancelledError("job cancelled")
 
 
 @dataclass
 class BackgroundJob:
-    """State for one queued operation started from the web UI."""
+    """큐에 등록된 백그라운드 작업의 식별자, 상태, 진행률, 로그, 결과, 취소 정보를 보관하는 데이터 객체입니다."""
 
     job_id: str
     kind: str
@@ -72,13 +85,28 @@ class BackgroundJob:
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def expires_at(self, ttl_seconds: int) -> datetime | None:
-        """Return when a completed job becomes stale."""
+        """완료된 작업이 TTL 정책에 따라 오래된 작업으로 바뀌는 시각을 계산합니다.
+
+        Args:
+            ttl_seconds (int): 완료 작업을 최신 상태로 유지할 초 단위 기간입니다.
+
+        Returns:
+            datetime | None: 터미널 상태 작업의 만료 시각입니다. 아직 실행 중이면 `None`입니다.
+        """
         if self.status not in TERMINAL_STATUSES:
             return None
         return self.updated_at + timedelta(seconds=ttl_seconds)
 
     def stale(self, ttl_seconds: int, now: datetime | None = None) -> bool:
-        """Return whether this completed job is past its visible freshness window."""
+        """완료된 작업이 TTL을 지나 오래된 상태로 표시되어야 하는지 판정합니다.
+
+        Args:
+            ttl_seconds (int): 완료 작업을 최신 상태로 유지할 초 단위 기간입니다.
+            now (datetime | None): 비교 기준 시각입니다. 생략하면 현재 UTC 시각을 사용합니다.
+
+        Returns:
+            bool: 작업이 만료 시각을 지났으면 `True`, 아니면 `False`입니다.
+        """
         expires_at = self.expires_at(ttl_seconds)
         if expires_at is None:
             return False
@@ -90,7 +118,15 @@ class BackgroundJob:
         ttl_seconds: int = DEFAULT_JOB_TTL_SECONDS,
         now: datetime | None = None,
     ) -> dict[str, Any]:
-        """Return a JSON-friendly representation of this job."""
+        """프런트엔드와 API 응답에서 사용하는 camelCase 작업 상태 사전으로 변환합니다.
+
+        Args:
+            ttl_seconds (int): stale 상태 계산에 사용할 완료 작업 보존 기간입니다.
+            now (datetime | None): stale 상태 계산 기준 시각입니다.
+
+        Returns:
+            dict[str, Any]: 작업 상태, 결과, 취소 정보, 진행률, 로그, 타임스탬프를 담은 응답 사전입니다.
+        """
         is_stale = self.stale(ttl_seconds, now)
         expires_at = self.expires_at(ttl_seconds)
         return {
@@ -127,12 +163,14 @@ class BackgroundJob:
 
 @dataclass(frozen=True)
 class _QueuedOperation:
+    """작업 큐에 보관된 실행 함수와 취소 지원 여부를 함께 담는 내부 값 객체입니다."""
+
     operation: Callable[..., dict[str, Any]]
     cancel_supported: bool
 
 
 class BackgroundJobStore:
-    """Thread-safe in-memory queue for local web background jobs."""
+    """백그라운드 작업을 등록, 실행, 취소, 조회하고 동시 실행 수와 보존 개수를 제한하는 스레드 안전 저장소입니다."""
 
     def __init__(
         self,
@@ -143,6 +181,15 @@ class BackgroundJobStore:
         lane_limits: dict[str, int] | None = None,
         recent_log_limit: int = DEFAULT_RECENT_LOG_LIMIT,
     ) -> None:
+        """작업 저장소의 보존 기간, 동시 실행 한도, 레인별 제한, 최근 로그 개수를 설정합니다.
+
+        Args:
+            ttl_seconds (int): 완료된 작업을 최신 상태로 유지할 초 단위 기간입니다.
+            max_jobs (int): 저장소에 보존할 최대 작업 수입니다.
+            max_running_jobs (int): 동시에 실행할 수 있는 전체 작업 수입니다.
+            lane_limits (dict[str, int] | None): 레인 이름별 동시 실행 제한입니다.
+            recent_log_limit (int): 작업마다 보존할 최근 로그 항목 수입니다.
+        """
         self._lock = threading.Lock()
         self._jobs: dict[str, BackgroundJob] = {}
         self._tokens: dict[str, CancelToken] = {}
@@ -170,7 +217,26 @@ class BackgroundJobStore:
         cancel_mode: str = "cooperative",
         cancel_blocked_reason: str | None = None,
     ) -> BackgroundJob:
-        """Enqueue an operation and return its job state."""
+        """새 백그라운드 작업을 큐에 등록하고 실행 가능한 작업이 있으면 즉시 스레드로 시작합니다.
+
+        Args:
+            kind (str): 화면과 API에서 작업을 구분할 작업 종류입니다.
+            title (str): 작업 목록에 표시할 사용자용 제목입니다.
+            problem_id (str): 작업이 속한 문제 식별자입니다. 작업공간 단위 작업은 공용 식별자를 사용할 수 있습니다.
+            operation (Callable[..., dict[str, Any]]): 백그라운드 스레드에서 실행할 작업 함수입니다.
+            cancel_supported (bool): 작업 함수가 취소 토큰을 받아 협력적으로 중단할 수 있는지 여부입니다.
+            app (str | None): 작업을 생성한 애플리케이션 또는 화면 영역 이름입니다.
+            lane (str | None): 동시 실행 제한을 별도로 적용할 작업 레인 이름입니다.
+            target (dict[str, Any] | None): 작업 대상 문제, 파일, 패키지 등 UI가 표시할 메타데이터입니다.
+            progress (dict[str, Any] | None): 작업 시작 시 노출할 초기 진행 상태입니다.
+            result_actions (dict[str, Any] | None): 완료 후 UI가 제공할 다운로드나 이동 동작 정보입니다.
+            input_snapshot_summary (str | None): 작업 시작 시점의 입력 상태를 설명하는 요약 문자열입니다.
+            cancel_mode (str): 취소 방식 표시 값입니다. 협력적 취소와 취소 불가 작업 구분에 사용합니다.
+            cancel_blocked_reason (str | None): 취소할 수 없는 작업일 때 UI에 표시할 사유입니다.
+
+        Returns:
+            BackgroundJob: 큐에 등록된 작업 상태 객체입니다.
+        """
         job = BackgroundJob(
             job_id=uuid.uuid4().hex,
             kind=kind,
@@ -194,27 +260,53 @@ class BackgroundJobStore:
         return job
 
     def running_count(self) -> int:
-        """Return the number of currently running retained jobs."""
+        """현재 실행 중이거나 취소 중인 작업 수를 스레드 안전하게 계산합니다.
+
+        Returns:
+            int: 실행 슬롯을 점유 중인 작업 수입니다.
+        """
         with self._lock:
             return self.running_count_locked()
 
     def running_count_locked(self) -> int:
-        """Return the number of running jobs while the caller holds the lock."""
+        """이미 락을 잡은 코드 경로에서 실행 슬롯을 점유 중인 작업 수를 계산합니다.
+
+        Returns:
+            int: 실행 중 또는 취소 중 상태의 작업 수입니다.
+        """
         return sum(1 for job in self._jobs.values() if job.status in {"running", "cancelling"})
 
     def queued_count(self) -> int:
-        """Return the number of queued jobs."""
+        """아직 시작되지 않고 큐에 대기 중인 작업 수를 계산합니다.
+
+        Returns:
+            int: `queued` 상태 작업 수입니다.
+        """
         with self._lock:
             return sum(1 for job in self._jobs.values() if job.status == "queued")
 
     def get(self, job_id: str) -> BackgroundJob | None:
-        """Return a job by id if it is still retained."""
+        """작업 식별자로 현재 저장소에 남아 있는 작업을 조회합니다. 조회 전에 만료된 완료 작업을 정리합니다.
+
+        Args:
+            job_id (str): 조회할 백그라운드 작업 식별자입니다.
+
+        Returns:
+            BackgroundJob | None: 작업이 남아 있으면 작업 객체이고, 없으면 `None`입니다.
+        """
         with self._lock:
             self._prune_locked()
             return self._jobs.get(job_id)
 
     def list(self, problem_id: str | None = None) -> list[BackgroundJob]:
-        """Return retained jobs, active first and then newest first."""
+        """문제 식별자 조건에 맞는 작업 목록을 최신 실행 상태가 먼저 오도록 정렬해 반환합니다.
+
+        Args:
+            problem_id (str | None): 특정 문제의 작업만 조회할 때 사용할 문제 식별자입니다.
+
+        Returns:
+            list[BackgroundJob]: 정렬된 작업 객체 목록입니다.
+        """
         with self._lock:
             self._prune_locked()
             jobs = [
@@ -225,7 +317,14 @@ class BackgroundJobStore:
         return sorted(jobs, key=self._sort_key)
 
     def dismiss(self, job_id: str) -> bool:
-        """Remove a retained job by id."""
+        """완료된 작업 하나를 사용자가 닫을 수 있도록 저장소에서 제거합니다. 실행 중인 작업은 제거하지 않습니다.
+
+        Args:
+            job_id (str): 제거할 완료 작업 식별자입니다.
+
+        Returns:
+            bool: 작업이 제거되었으면 `True`, 제거할 수 없으면 `False`입니다.
+        """
         with self._lock:
             job = self._jobs.get(job_id)
             if job is None or job.status in ACTIVE_STATUSES:
@@ -236,7 +335,14 @@ class BackgroundJobStore:
             return True
 
     def clear_completed(self, predicate: Callable[[BackgroundJob], bool] | None = None) -> int:
-        """Remove terminal retained jobs and return the number removed."""
+        """완료된 작업 중 선택 조건을 만족하는 항목을 저장소에서 일괄 제거합니다.
+
+        Args:
+            predicate (Callable[[BackgroundJob], bool] | None): 제거할 완료 작업을 추가로 필터링하는 함수입니다.
+
+        Returns:
+            int: 제거된 작업 수입니다.
+        """
         with self._lock:
             removable = [
                 job_id
@@ -250,7 +356,14 @@ class BackgroundJobStore:
             return len(removable)
 
     def cancel(self, job_id: str) -> bool:
-        """Cancel a queued job or request cancellation for a running job."""
+        """대기 중인 작업은 즉시 취소 처리하고, 실행 중인 취소 가능 작업에는 취소 토큰을 전달합니다.
+
+        Args:
+            job_id (str): 취소할 백그라운드 작업 식별자입니다.
+
+        Returns:
+            bool: 취소 요청이 받아들여졌으면 `True`, 대상이 없거나 취소할 수 없으면 `False`입니다.
+        """
         start_after: list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]] = []
         with self._lock:
             job = self._jobs.get(job_id)
@@ -291,7 +404,16 @@ class BackgroundJobStore:
         label: str | None = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
-        """Update one job's latest progress and recent logs."""
+        """작업의 진행률, 진행 메시지, 최근 로그를 갱신해 API 조회와 화면 표시가 같은 상태를 보도록 합니다.
+
+        Args:
+            job_id (str): 진행 상태를 갱신할 작업 식별자입니다.
+            message (str | None): 최근 로그와 진행 메시지에 기록할 문구입니다.
+            current (int | None): 현재 처리한 항목 수입니다.
+            total (int | None): 전체 처리 대상 수입니다.
+            label (str | None): 진행률이 어떤 단계를 의미하는지 설명하는 라벨입니다.
+            extra (dict[str, Any] | None): 진행 상태 사전에 병합할 추가 값입니다.
+        """
         with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
@@ -313,7 +435,14 @@ class BackgroundJobStore:
             job.updated_at = datetime.now(UTC)
 
     def job_dict(self, job: BackgroundJob) -> dict[str, Any]:
-        """Return a JSON-friendly job dictionary using this store's policy."""
+        """저장소의 TTL 정책을 적용해 작업 객체를 API 응답 사전으로 변환합니다.
+
+        Args:
+            job (BackgroundJob): 응답으로 직렬화할 작업 객체입니다.
+
+        Returns:
+            dict[str, Any]: 클라이언트에 전달할 작업 상태 사전입니다.
+        """
         return job.to_dict(ttl_seconds=self.ttl_seconds)
 
     def _finish(
@@ -324,6 +453,14 @@ class BackgroundJobStore:
         result: dict[str, Any] | None = None,
         error: str | None = None,
     ) -> None:
+        """작업의 최종 상태, 결과, 오류를 기록하고 후속 대기 작업을 시작할 수 있도록 실행 슬롯을 비웁니다.
+
+        Args:
+            job_id (str): 완료 처리할 백그라운드 작업 식별자입니다.
+            status (str): 기록할 최종 상태입니다.
+            result (dict[str, Any] | None): 성공 시 작업 함수가 반환한 결과 데이터입니다.
+            error (str | None): 실패 시 화면과 로그에 표시할 오류 메시지입니다.
+        """
         with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
@@ -348,6 +485,11 @@ class BackgroundJobStore:
     def _ready_jobs_locked(
         self,
     ) -> list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]]:
+        """현재 실행 슬롯과 레인 제한을 기준으로 바로 시작할 수 있는 대기 작업들을 선택합니다. 호출자는 저장소 락을 보유해야 합니다.
+
+        Returns:
+            list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]]: 시작할 작업, 취소 토큰, 실행 함수 묶음 목록입니다.
+        """
         starts: list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]] = []
         while self.running_count_locked() + len(starts) < self.max_running_jobs:
             candidate = self._next_ready_job_locked(starts)
@@ -374,6 +516,14 @@ class BackgroundJobStore:
     def _next_ready_job_locked(
         self, planned: list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]]
     ) -> BackgroundJob | None:
+        """대기열에서 전역 실행 제한과 레인별 제한을 모두 만족하는 다음 작업을 찾습니다. 호출자는 저장소 락을 보유해야 합니다.
+
+        Args:
+            planned (list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]]): 이번 스케줄링 라운드에서 이미 시작 대상으로 선택한 작업 목록입니다.
+
+        Returns:
+            BackgroundJob | None: 시작 가능한 다음 작업입니다. 없으면 `None`입니다.
+        """
         queued = sorted(
             (job for job in self._jobs.values() if job.status == "queued"),
             key=lambda job: job.queued_at,
@@ -396,6 +546,7 @@ class BackgroundJobStore:
         return None
 
     def _spawn_ready_jobs(self) -> None:
+        """저장소 락 안에서 시작 가능한 작업을 고른 뒤 락 밖에서 백그라운드 스레드를 생성합니다."""
         with self._lock:
             starts = self._ready_jobs_locked()
         self._spawn_jobs(starts)
@@ -403,6 +554,11 @@ class BackgroundJobStore:
     def _spawn_jobs(
         self, starts: list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]]
     ) -> None:
+        """선택된 작업 실행 묶음마다 데몬 스레드를 생성해 실제 작업 함수를 실행합니다.
+
+        Args:
+            starts (list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]]): 시작할 작업, 취소 토큰, 실행 함수 묶음 목록입니다.
+        """
         for job, token, operation in starts:
             threading.Thread(
                 target=self._run_operation,
@@ -416,6 +572,13 @@ class BackgroundJobStore:
         token: CancelToken | None,
         operation: _QueuedOperation,
     ) -> None:
+        """백그라운드 스레드에서 작업 함수를 실행하고 성공, 실패, 취소 상태를 저장소에 반영합니다.
+
+        Args:
+            job_id (str): 실행 중인 백그라운드 작업 식별자입니다.
+            token (CancelToken | None): 취소 가능 작업에 전달할 취소 토큰입니다.
+            operation (_QueuedOperation): 실행 함수와 취소 지원 여부를 담은 큐 항목입니다.
+        """
         try:
             if operation.cancel_supported:
                 result = operation.operation(token)
@@ -431,6 +594,12 @@ class BackgroundJobStore:
             self._finish(job_id, "failed", error=str(exc))
 
     def _append_log_locked(self, job: BackgroundJob, message: str) -> None:
+        """작업의 최근 로그 목록에 메시지를 추가하고 보존 개수 제한을 넘는 오래된 로그를 제거합니다. 호출자는 저장소 락을 보유해야 합니다.
+
+        Args:
+            job (BackgroundJob): 로그를 추가할 작업 객체입니다.
+            message (str): 최근 로그에 기록할 메시지입니다.
+        """
         job.last_log = message
         job.logs.append(
             {
@@ -442,7 +611,7 @@ class BackgroundJobStore:
             del job.logs[: len(job.logs) - self.recent_log_limit]
 
     def _prune_locked(self) -> None:
-        """Keep active jobs and the newest completed jobs within the retention limit."""
+        """저장된 작업 수가 보존 한도를 넘으면 가장 오래된 완료 작업부터 제거합니다. 호출자는 저장소 락을 보유해야 합니다."""
         if self.max_jobs <= 0:
             return
         if len(self._jobs) <= self.max_jobs:
@@ -459,6 +628,14 @@ class BackgroundJobStore:
 
     @staticmethod
     def _sort_key(job: BackgroundJob) -> tuple[int, datetime]:
+        """작업 목록 정렬을 위해 실행 중, 대기 중, 완료 순서와 각 상태의 기준 시각을 계산합니다.
+
+        Args:
+            job (BackgroundJob): 정렬 키를 계산할 작업 객체입니다.
+
+        Returns:
+            tuple[int, datetime]: 작업 목록 정렬에 사용할 상태 우선순위와 시각 값입니다.
+        """
         if job.status in {"running", "cancelling"}:
             return (0, job.started_at or job.queued_at)
         if job.status == "queued":

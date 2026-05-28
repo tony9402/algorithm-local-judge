@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+
+"""cases.yml에 정의된 고정 입력, 템플릿, 생성기 기반 케이스를 확장해 채점 입력 파일과 매니페스트를 만드는 유틸리티입니다."""
 from __future__ import annotations
 
 import argparse
@@ -21,12 +23,26 @@ FULL_PROFILE = "full"
 
 
 def sha256_text(text: str) -> str:
-    """Return the SHA-256 hex digest for generated input text."""
+    """생성된 입력 문자열을 UTF-8 바이트로 인코딩해 SHA-256 해시를 계산합니다.
+
+    Args:
+        text (str): 입력 파일에 기록된 원문 문자열입니다.
+
+    Returns:
+        str: 입력 문자열의 SHA-256 해시를 16진수로 표현한 값입니다.
+    """
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def parse_scalar(value: str) -> Any:
-    """Parse a small YAML-like scalar used by the fallback parser."""
+    """fallback YAML 파서가 읽은 스칼라 문자열을 null, bool, int, 문자열 값으로 변환합니다.
+
+    Args:
+        value (str): cases.yml에서 읽은 스칼라 표현 문자열입니다.
+
+    Returns:
+        Any: DSL 평가와 케이스 렌더링에 사용할 Python 값입니다.
+    """
     value = value.strip()
     if value in {"null", "None", "~"}:
         return None
@@ -45,7 +61,14 @@ def parse_scalar(value: str) -> Any:
 
 
 def load_with_fallback_parser(path: Path) -> dict[str, Any]:
-    """Load the supported cases.yml subset without requiring PyYAML."""
+    """PyYAML이 없는 환경에서 지원 가능한 cases.yml 하위 구조만 직접 읽습니다. 프로필, 케이스 목록, args 맵, 블록 문자열을 처리하고 지원하지 않는 구조는 명시적으로 거부합니다.
+
+    Args:
+        path (Path): 읽을 cases.yml 파일 경로입니다.
+
+    Returns:
+        dict[str, Any]: `profiles` 키를 포함한 생성 설정 사전입니다.
+    """
     lines = path.read_text(encoding="utf-8").splitlines()
     data = {"profiles": {}}
     current_profile = None
@@ -121,7 +144,14 @@ def load_with_fallback_parser(path: Path) -> dict[str, Any]:
 
 
 def load_config(path: Path) -> dict[str, Any]:
-    """Load a generator configuration from YAML or the fallback parser."""
+    """YAML 설정을 로드하되 PyYAML이 설치되지 않은 배포 환경에서는 내장 fallback 파서를 사용합니다.
+
+    Args:
+        path (Path): 생성 DSL 설정 파일 경로입니다.
+
+    Returns:
+        dict[str, Any]: 케이스 생성에 사용할 설정 데이터입니다.
+    """
     try:
         import yaml
 
@@ -132,7 +162,11 @@ def load_config(path: Path) -> dict[str, Any]:
 
 
 def validate_variable_name(name: Any) -> None:
-    """Validate a DSL variable name before adding it to context."""
+    """반복과 행렬 DSL에서 컨텍스트에 추가할 변수명이 안전한 Python 식별자 형태인지 검증합니다.
+
+    Args:
+        name (Any): DSL의 `var` 또는 `vars` 항목에서 읽은 변수명 후보입니다.
+    """
     if not isinstance(name, str) or not SAFE_NAME_RE.fullmatch(name):
         raise ValueError(f"invalid variable name: {name}")
     if name.startswith("_"):
@@ -140,7 +174,15 @@ def validate_variable_name(name: Any) -> None:
 
 
 def resolve_attribute(value: Any, attr: str) -> Any:
-    """Resolve safe mapping field access in DSL expressions."""
+    """제한된 표현식에서 `item.field` 형태의 매핑 필드 접근만 허용하고, 비공개 이름이나 알 수 없는 필드는 거부합니다.
+
+    Args:
+        value (Any): 필드 접근 대상이 되는 평가 결과입니다.
+        attr (str): 표현식에서 요청한 필드 이름입니다.
+
+    Returns:
+        Any: 매핑에서 조회한 필드 값입니다.
+    """
     if attr.startswith("_"):
         raise ValueError(f"private attribute access is not allowed: {attr}")
     if isinstance(value, dict):
@@ -151,7 +193,15 @@ def resolve_attribute(value: Any, attr: str) -> Any:
 
 
 def eval_ast(node: ast.AST, context: Mapping[str, Any]) -> Any:
-    """Evaluate the restricted expression AST used by case templates."""
+    """생성 DSL 표현식에 허용된 AST 노드만 재귀적으로 평가합니다. 리터럴, 변수, 매핑 필드, 산술, 비교, 불리언 연산만 허용해 임의 코드 실행을 막습니다.
+
+    Args:
+        node (ast.AST): `ast.parse(..., mode="eval")`로 만든 표현식 AST 노드입니다.
+        context (Mapping[str, Any]): 반복과 행렬 확장에서 현재 사용할 변수 값 사전입니다.
+
+    Returns:
+        Any: 제한된 표현식을 평가한 결과 값입니다.
+    """
     if isinstance(node, ast.Expression):
         return eval_ast(node.body, context)
     if isinstance(node, ast.Constant):
@@ -214,7 +264,14 @@ def eval_ast(node: ast.AST, context: Mapping[str, Any]) -> Any:
 
 
 def split_format_expression(expr: str) -> tuple[str, str | None]:
-    """Split `${expr:format}` while leaving normal colon expressions intact."""
+    """`${expr:format}` 표현식에서 실제 평가식과 선택적 포맷 지정자를 분리합니다. 공백이 있는 콜론 표현식은 일반 표현식으로 유지합니다.
+
+    Args:
+        expr (str): `${...}` 안에서 추출한 표현식 문자열입니다.
+
+    Returns:
+        tuple[str, str | None]: 평가할 표현식과 포맷 지정자입니다. 포맷이 없으면 두 번째 값은 `None`입니다.
+    """
     if ":" not in expr:
         return expr.strip(), None
     expression, fmt = expr.rsplit(":", 1)
@@ -224,7 +281,15 @@ def split_format_expression(expr: str) -> tuple[str, str | None]:
 
 
 def safe_eval(expr: str, context: Mapping[str, Any]) -> Any:
-    """Evaluate a safe expression against the current DSL context."""
+    """DSL 템플릿 표현식을 AST로 파싱한 뒤 허용된 연산만 평가합니다.
+
+    Args:
+        expr (str): `${...}` 안에 작성된 표현식 문자열입니다.
+        context (Mapping[str, Any]): 표현식에서 참조할 수 있는 현재 변수 값 사전입니다.
+
+    Returns:
+        Any: 제한된 표현식 평가 결과입니다.
+    """
     try:
         tree = ast.parse(expr, mode="eval")
     except SyntaxError as exc:
@@ -233,7 +298,15 @@ def safe_eval(expr: str, context: Mapping[str, Any]) -> Any:
 
 
 def render_expression(expr: str, context: Mapping[str, Any]) -> Any:
-    """Render one `${...}` expression, applying an optional format spec."""
+    """하나의 `${...}` 표현식을 평가하고, 포맷 지정자가 있으면 Python 포맷 규칙을 적용합니다.
+
+    Args:
+        expr (str): 렌더링할 DSL 표현식 문자열입니다.
+        context (Mapping[str, Any]): 표현식 평가에 사용할 현재 변수 값 사전입니다.
+
+    Returns:
+        Any: 표현식 평가 결과 또는 포맷된 문자열입니다.
+    """
     expression, fmt = split_format_expression(expr)
     value = safe_eval(expression, context)
     if fmt is not None:
@@ -242,13 +315,28 @@ def render_expression(expr: str, context: Mapping[str, Any]) -> Any:
 
 
 def render_string(value: str, context: Mapping[str, Any]) -> Any:
-    """Render all `${...}` expressions inside a string value."""
+    """문자열 안의 `${...}` 표현식을 모두 렌더링합니다. 문자열 전체가 표현식 하나인 경우에는 원래 타입을 유지합니다.
+
+    Args:
+        value (str): 렌더링할 템플릿 문자열입니다.
+        context (Mapping[str, Any]): 표현식 평가에 사용할 현재 변수 값 사전입니다.
+
+    Returns:
+        Any: 렌더링된 문자열 또는 전체 표현식의 원래 타입 값입니다.
+    """
     full_match = EXPR_RE.fullmatch(value.strip())
     if full_match and value.strip() == value:
         return render_expression(full_match.group(1), context)
 
     def replace(match: re.Match[str]) -> str:
-        """Render one embedded expression as text for substitution."""
+        """정규식으로 찾은 템플릿 표현식 하나를 평가해 문자열 치환값으로 변환합니다.
+
+        Args:
+            match (re.Match[str]): `${...}` 표현식 하나에 대한 정규식 매치 객체입니다.
+
+        Returns:
+            str: 템플릿 문자열에 삽입할 표현식 평가 결과입니다.
+        """
         rendered = render_expression(match.group(1), context)
         return str(rendered)
 
@@ -256,7 +344,15 @@ def render_string(value: str, context: Mapping[str, Any]) -> Any:
 
 
 def render_value(value: Any, context: Mapping[str, Any]) -> Any:
-    """Recursively render expressions in scalar, list, and mapping values."""
+    """케이스 설정 값 내부의 문자열, 리스트, 사전을 순회하며 포함된 DSL 표현식을 렌더링합니다.
+
+    Args:
+        value (Any): 렌더링할 케이스 설정 값입니다.
+        context (Mapping[str, Any]): 표현식 평가에 사용할 현재 변수 값 사전입니다.
+
+    Returns:
+        Any: 입력 구조를 유지하면서 표현식이 치환된 값입니다.
+    """
     if isinstance(value, str):
         return render_string(value, context)
     if isinstance(value, list):
@@ -267,7 +363,15 @@ def render_value(value: Any, context: Mapping[str, Any]) -> Any:
 
 
 def repeat_values(block: Mapping[str, Any], context: Mapping[str, Any]) -> list[Any]:
-    """Return the iteration values for a repeat block."""
+    """repeat 블록의 `in` 목록 또는 `from`/`to`/`step` 범위를 실제 반복 값 목록으로 확장합니다.
+
+    Args:
+        block (Mapping[str, Any]): `var`, `in` 또는 `from`/`to`/`step`을 포함한 repeat 설정입니다.
+        context (Mapping[str, Any]): 반복 범위 표현식을 렌더링할 현재 변수 값 사전입니다.
+
+    Returns:
+        list[Any]: repeat 블록이 순회할 값 목록입니다.
+    """
     if "in" in block:
         values = render_value(block["in"], context)
         if not isinstance(values, list):
@@ -289,7 +393,14 @@ def repeat_values(block: Mapping[str, Any], context: Mapping[str, Any]) -> list[
 
 
 def repeat_items(block: Mapping[str, Any]) -> list[Any]:
-    """Return the item list nested under a repeat block."""
+    """repeat 블록 안에서 반복 대상이 되는 단일 케이스 또는 케이스 목록을 정규화합니다.
+
+    Args:
+        block (Mapping[str, Any]): `item` 또는 `items`를 포함한 repeat 설정입니다.
+
+    Returns:
+        list[Any]: 반복 확장에 사용할 케이스 설정 목록입니다.
+    """
     if "item" in block and "items" in block:
         raise ValueError("repeat must not define both item and items")
     if "item" in block:
@@ -305,7 +416,16 @@ def repeat_items(block: Mapping[str, Any]) -> list[Any]:
 def expand_repeat(
     block: Mapping[str, Any], context: Mapping[str, Any], depth: int
 ) -> list[dict[str, Any]]:
-    """Expand a repeat block into concrete case definitions."""
+    """repeat 블록을 현재 컨텍스트에 변수로 바인딩하며 하위 케이스 목록으로 확장합니다. 중첩 깊이와 변수 섀도잉을 제한합니다.
+
+    Args:
+        block (Mapping[str, Any]): 확장할 repeat 설정입니다.
+        context (Mapping[str, Any]): 상위 반복 또는 행렬에서 전달된 변수 값 사전입니다.
+        depth (int): 현재 repeat/matrix 중첩 깊이입니다.
+
+    Returns:
+        list[dict[str, Any]]: 렌더링 준비가 끝난 케이스 설정 목록입니다.
+    """
     if depth >= MAX_NESTING_DEPTH:
         raise ValueError(f"repeat nesting is limited to {MAX_NESTING_DEPTH} levels")
     var = block.get("var")
@@ -321,7 +441,14 @@ def expand_repeat(
 
 
 def matrix_items(block: Mapping[str, Any]) -> list[Any]:
-    """Return the item list nested under a matrix block."""
+    """matrix 블록 안에서 조합마다 복제할 단일 케이스 또는 케이스 목록을 정규화합니다.
+
+    Args:
+        block (Mapping[str, Any]): `vars`와 `item` 또는 `items`를 포함한 matrix 설정입니다.
+
+    Returns:
+        list[Any]: 행렬 조합마다 확장할 케이스 설정 목록입니다.
+    """
     if "item" in block and "items" in block:
         raise ValueError("matrix must not define both item and items")
     if "item" in block:
@@ -335,7 +462,16 @@ def matrix_items(block: Mapping[str, Any]) -> list[Any]:
 
 
 def matrix_variable_values(name: str, candidates: Any, context: Mapping[str, Any]) -> list[Any]:
-    """Return values for one matrix variable from a list or range block."""
+    """matrix 변수 하나의 후보 값을 목록 또는 range 매핑에서 계산합니다.
+
+    Args:
+        name (str): 후보 값을 계산할 matrix 변수명입니다.
+        candidates (Any): 변수 후보 목록 또는 `range` 설정 매핑입니다.
+        context (Mapping[str, Any]): 후보 값 표현식을 렌더링할 현재 변수 값 사전입니다.
+
+    Returns:
+        list[Any]: 해당 matrix 변수가 가질 수 있는 값 목록입니다.
+    """
     if isinstance(candidates, list):
         return [render_value(candidate, context) for candidate in candidates]
     if isinstance(candidates, dict):
@@ -351,7 +487,16 @@ def matrix_variable_values(name: str, candidates: Any, context: Mapping[str, Any
 def expand_matrix(
     block: Mapping[str, Any], context: Mapping[str, Any], depth: int
 ) -> list[dict[str, Any]]:
-    """Expand a matrix block into concrete case definitions."""
+    """matrix 블록의 변수 후보 곱집합을 순회하며 where 조건을 통과한 조합만 하위 케이스로 확장합니다.
+
+    Args:
+        block (Mapping[str, Any]): `vars`, 선택적 `where`, `item` 또는 `items`를 포함한 matrix 설정입니다.
+        context (Mapping[str, Any]): 상위 반복 또는 행렬에서 전달된 변수 값 사전입니다.
+        depth (int): 현재 repeat/matrix 중첩 깊이입니다.
+
+    Returns:
+        list[dict[str, Any]]: 모든 허용 조합이 확장된 케이스 설정 목록입니다.
+    """
     if depth >= MAX_NESTING_DEPTH:
         raise ValueError(f"matrix nesting is limited to {MAX_NESTING_DEPTH} levels")
     vars_config = block.get("vars", {})
@@ -382,7 +527,16 @@ def expand_cases(
     context: Mapping[str, Any] | None = None,
     depth: int = 0,
 ) -> list[dict[str, Any]]:
-    """Expand fixed, repeat, and matrix case entries into concrete cases."""
+    """cases.yml의 케이스 목록을 순회하며 repeat와 matrix DSL을 실제 케이스 목록으로 펼칩니다.
+
+    Args:
+        cases_config (Sequence[Any]): 프로필에 선언된 원본 케이스 설정 목록입니다.
+        context (Mapping[str, Any] | None): 상위 DSL 블록에서 전달된 변수 값 사전입니다.
+        depth (int): 현재 repeat/matrix 중첩 깊이입니다.
+
+    Returns:
+        list[dict[str, Any]]: 생성 방식과 이름이 확정된 케이스 설정 목록입니다.
+    """
     context = context or {}
     expanded = []
     for case in cases_config:
@@ -398,7 +552,15 @@ def expand_cases(
 
 
 def run_generator(generator: Path, case: Mapping[str, Any]) -> str:
-    """Run a compiled testlib generator for one case definition."""
+    """외부 생성기 실행 파일에 seed와 args를 전달해 한 케이스의 입력 텍스트를 생성합니다.
+
+    Args:
+        generator (Path): 컴파일된 테스트 데이터 생성기 실행 파일 경로입니다.
+        case (Mapping[str, Any]): `seed`, 선택적 `args`, `name`을 포함한 generator 케이스 설정입니다.
+
+    Returns:
+        str: 생성기가 표준 출력으로 기록한 입력 데이터입니다.
+    """
     seed = case.get("seed")
     if seed is None:
         raise ValueError(f"generator case requires seed: {case.get('name')}")
@@ -420,7 +582,14 @@ def run_generator(generator: Path, case: Mapping[str, Any]) -> str:
 
 
 def render_template(case: Mapping[str, Any]) -> str:
-    """Render a Python format template case."""
+    """template 케이스의 문자열에 `vars` 값을 적용해 입력 텍스트를 만듭니다.
+
+    Args:
+        case (Mapping[str, Any]): `template`과 선택적 `vars`를 포함한 template 케이스 설정입니다.
+
+    Returns:
+        str: 포맷 적용이 끝난 입력 데이터입니다.
+    """
     template = case.get("template")
     if template is None:
         raise ValueError(f"template case requires template: {case.get('name')}")
@@ -429,7 +598,15 @@ def render_template(case: Mapping[str, Any]) -> str:
 
 
 def render_case(generator: Path, case: Mapping[str, Any]) -> str:
-    """Render one case to input text according to its case type."""
+    """케이스 타입에 따라 고정 입력, 템플릿 입력, 생성기 입력 중 하나를 렌더링합니다.
+
+    Args:
+        generator (Path): generator 타입 케이스가 사용할 실행 파일 경로입니다.
+        case (Mapping[str, Any]): 렌더링할 케이스 설정입니다.
+
+    Returns:
+        str: `.in` 파일에 기록할 입력 데이터입니다.
+    """
     case_type = case.get("type")
     if case_type == "fixed":
         return case.get("content", "")
@@ -443,7 +620,17 @@ def render_case(generator: Path, case: Mapping[str, Any]) -> str:
 def write_cases(
     config: Mapping[str, Any], generator: Path, out_dir: Path, profile: str
 ) -> list[dict[str, Any]]:
-    """Write all expanded input cases for a profile and return summaries."""
+    """선택한 프로필의 케이스를 확장하고 각 입력 파일과 매니페스트 항목을 출력 디렉터리에 기록합니다.
+
+    Args:
+        config (Mapping[str, Any]): `profiles`를 포함한 전체 생성 설정입니다.
+        generator (Path): generator 타입 케이스가 사용할 실행 파일 경로입니다.
+        out_dir (Path): 생성된 `.in` 파일을 기록할 출력 디렉터리입니다.
+        profile (str): 생성할 프로필 이름입니다. `full` 합성 프로필도 처리합니다.
+
+    Returns:
+        list[dict[str, Any]]: 생성된 각 케이스의 식별자, 이름, seed, 입력 파일명, 해시 정보입니다.
+    """
     profiles = config.get("profiles", {})
     if profile == FULL_PROFILE and profile not in profiles:
         cases_source = []
@@ -486,7 +673,17 @@ def generate_cases(
     out_dir: Path,
     profile: str,
 ) -> dict[str, Any]:
-    """Generate input files for a profile and return a structured summary."""
+    """설정 파일과 생성기를 검증한 뒤 요청한 프로필의 입력 파일을 생성하고 요약 정보를 반환합니다.
+
+    Args:
+        config_path (Path): cases.yml 생성 설정 파일 경로입니다.
+        generator (Path): generator 타입 케이스가 사용할 실행 파일 경로입니다.
+        out_dir (Path): 생성된 입력 파일을 기록할 출력 디렉터리입니다.
+        profile (str): 생성할 프로필 이름입니다.
+
+    Returns:
+        dict[str, Any]: 생성한 프로필 이름과 케이스 매니페스트 목록입니다.
+    """
     if not generator.exists():
         raise FileNotFoundError(f"generator not found: {generator}")
     if not config_path.exists():
@@ -497,7 +694,11 @@ def generate_cases(
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse the common generator script CLI arguments."""
+    """입력 생성 명령에서 사용할 설정 파일, 생성기, 출력 디렉터리, 프로필 인자를 파싱합니다.
+
+    Returns:
+        argparse.Namespace: `config`, `generator`, `out`, `profile` 값을 담은 명령줄 인자 네임스페이스입니다.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
     parser.add_argument("--generator", required=True)
@@ -507,7 +708,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Generate input files and emit a JSON summary to stdout."""
+    """명령줄 인자를 바탕으로 케이스를 생성하고, 성공 시 생성 요약 JSON을 표준 출력에 기록합니다."""
     args = parse_args()
     try:
         summary = generate_cases(
