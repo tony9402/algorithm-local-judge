@@ -1,3 +1,11 @@
+"""templates 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -86,7 +94,20 @@ def create_problem(
     default_profile: str = "hidden",
     limits: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Create a new problem from the default authoring templates."""
+    """create_problem 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        title (str): `title` 값입니다.
+        folder (str): `folder` 값입니다.
+        version (int): `version` 값입니다.
+        default_profile (str): `default_profile` 값입니다.
+        limits (dict[str, Any] | None): `limits` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     validate_safe_id("problem id", problem_id)
     target = problem_dir(workspace, problem_id)
     if target.exists():

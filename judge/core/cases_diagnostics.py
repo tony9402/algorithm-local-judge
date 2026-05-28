@@ -1,3 +1,11 @@
+"""cases_diagnostics 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import re
@@ -20,7 +28,19 @@ def diagnostic(
     location: str = "",
     hint: str | None = None,
 ) -> CaseCompileDiagnostic:
-    """Create an error diagnostic for one file location."""
+    """diagnostic 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        message (str): 메시지입니다.
+        line (int | None): `line` 값입니다.
+        profile (str | None): `profile` 값입니다.
+        location (str): `location` 값입니다.
+        hint (str | None): `hint` 값입니다.
+    
+    Returns:
+        CaseCompileDiagnostic: 처리 결과를 반환합니다.
+    """
     return CaseCompileDiagnostic(
         severity="error",
         path=rel(path),
@@ -33,7 +53,14 @@ def diagnostic(
 
 
 def type_label(value: Any) -> str:
-    """Return a user-facing type label for YAML values."""
+    """type_label 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        value (Any): 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     if value is None:
         return "null"
     if isinstance(value, dict):
@@ -44,17 +71,39 @@ def type_label(value: Any) -> str:
 
 
 def is_integer(value: Any) -> bool:
-    """Return whether a YAML value is an integer but not a boolean."""
+    """is_integer 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        value (Any): 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     return isinstance(value, int) and not isinstance(value, bool)
 
 
 def line_indent(line: str) -> int:
-    """Return the leading-space indentation for one line."""
+    """line_indent 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        line (str): `line` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     return len(line) - len(line.lstrip(" "))
 
 
 def find_profile_line(lines: list[str], profile: str) -> int | None:
-    """Find the 1-based line for a profile key when possible."""
+    """find_profile_line 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        lines (list[str]): `lines` 값입니다.
+        profile (str): `profile` 값입니다.
+    
+    Returns:
+        int | None: 처리 결과를 반환합니다.
+    """
     target = f"{profile}:"
     for index, line in enumerate(lines, start=1):
         if line_indent(line) == 2 and line.strip() == target:
@@ -63,7 +112,15 @@ def find_profile_line(lines: list[str], profile: str) -> int | None:
 
 
 def profile_bounds(lines: list[str], profile: str) -> tuple[int, int] | None:
-    """Return zero-based line bounds for one profile block."""
+    """profile_bounds 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        lines (list[str]): `lines` 값입니다.
+        profile (str): `profile` 값입니다.
+    
+    Returns:
+        tuple[int, int] | None: 처리 결과를 반환합니다.
+    """
     start = None
     for index, line in enumerate(lines):
         if line_indent(line) == 2 and line.strip() == f"{profile}:":
@@ -81,7 +138,16 @@ def profile_bounds(lines: list[str], profile: str) -> tuple[int, int] | None:
 
 
 def find_case_line(lines: list[str], profile: str, case_index: int) -> int | None:
-    """Find the 1-based line for a top-level case entry."""
+    """find_case_line 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        lines (list[str]): `lines` 값입니다.
+        profile (str): `profile` 값입니다.
+        case_index (int): `case_index` 값입니다.
+    
+    Returns:
+        int | None: 처리 결과를 반환합니다.
+    """
     bounds = profile_bounds(lines, profile)
     if bounds is None:
         return None
@@ -95,7 +161,14 @@ def find_case_line(lines: list[str], profile: str, case_index: int) -> int | Non
 
 
 def location_part(key: str | int) -> str:
-    """Return a dotted diagnostic location segment."""
+    """location_part 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        key (str | int): `key` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     if isinstance(key, int):
         return f"[{key}]"
     if re.fullmatch(SAFE_CASE_NAME_RE, key):
@@ -104,12 +177,28 @@ def location_part(key: str | int) -> str:
 
 
 def expression_mentions_variable(value: str, variable: str) -> bool:
-    """Return whether a template expression string appears to reference a variable."""
+    """expression_mentions_variable 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        value (str): 값입니다.
+        variable (str): `variable` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     return "${" in value and re.search(rf"\b{re.escape(variable)}\b", value) is not None
 
 
 def find_variable_reference_location(value: Any, variable: str) -> str | None:
-    """Find the first nested field that appears to reference a variable."""
+    """find_variable_reference_location 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        value (Any): 값입니다.
+        variable (str): `variable` 값입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     if isinstance(value, str):
         return "" if expression_mentions_variable(value, variable) else None
     if isinstance(value, dict):
@@ -126,7 +215,16 @@ def find_variable_reference_location(value: Any, variable: str) -> str | None:
 
 
 def expansion_error_location(case: Any, base_location: str, message: str) -> str:
-    """Return the most specific location available for a DSL expansion error."""
+    """expansion_error_location 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        case (Any): `case` 값입니다.
+        base_location (str): `base_location` 값입니다.
+        message (str): 메시지입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     if not isinstance(case, dict):
         return base_location
     if "matrix" in case:
@@ -137,7 +235,16 @@ def expansion_error_location(case: Any, base_location: str, message: str) -> str
 
 
 def matrix_error_location(block: Any, base_location: str, message: str) -> str:
-    """Return a diagnostic location for a matrix expansion error."""
+    """matrix_error_location 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        block (Any): `block` 값입니다.
+        base_location (str): `base_location` 값입니다.
+        message (str): 메시지입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     matrix_location = f"{base_location}.matrix"
     if not isinstance(block, dict):
         return matrix_location
@@ -159,7 +266,16 @@ def matrix_error_location(block: Any, base_location: str, message: str) -> str:
 
 
 def repeat_error_location(block: Any, base_location: str, message: str) -> str:
-    """Return a diagnostic location for a repeat expansion error."""
+    """repeat_error_location 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        block (Any): `block` 값입니다.
+        base_location (str): `base_location` 값입니다.
+        message (str): 메시지입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     repeat_location = f"{base_location}.repeat"
     if not isinstance(block, dict):
         return repeat_location

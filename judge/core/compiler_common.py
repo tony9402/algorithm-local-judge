@@ -1,3 +1,11 @@
+"""compiler_common 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import os
@@ -22,7 +30,14 @@ COMPILE_OUTPUT_LIMIT = 6000
 
 @dataclass(frozen=True)
 class PreparedSubmission:
-    """Executable command and metadata for a prepared user submission."""
+    """PreparedSubmission 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     command: list[str]
     language: str
@@ -31,7 +46,18 @@ class PreparedSubmission:
 def compile_cpp(
     source: Path, output: Path, include_root: Path, timeout_ms: int, log_path: Path
 ) -> dict[str, Any]:
-    """Compile a C++ source file into an executable."""
+    """compile_cpp 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source (Path): `source` 값입니다.
+        output (Path): `output` 값입니다.
+        include_root (Path): `include_root` 값입니다.
+        timeout_ms (int): `timeout_ms` 값입니다.
+        log_path (Path): `log_path` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     include_paths = [include_root]
     problems_include = include_root / "problems"
     if problems_include.exists():
@@ -52,7 +78,17 @@ def compile_cpp(
 
 
 def compile_error_message(label: str, source: Path, log_path: Path, stderr: bytes) -> str:
-    """Build a compile failure message with the useful compiler output inline."""
+    """compile_error_message 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        label (str): `label` 값입니다.
+        source (Path): `source` 값입니다.
+        log_path (Path): `log_path` 값입니다.
+        stderr (bytes): `stderr` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     text = stderr.decode("utf-8", errors="replace").strip()
     if len(text) > COMPILE_OUTPUT_LIMIT:
         text = text[-COMPILE_OUTPUT_LIMIT:]
@@ -64,7 +100,15 @@ def compile_error_message(label: str, source: Path, log_path: Path, stderr: byte
 
 
 def resolve_tool(env_name: str, candidates: list[str]) -> str:
-    """Resolve a language tool from an environment variable or PATH."""
+    """resolve_tool 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        env_name (str): `env_name` 값입니다.
+        candidates (list[str]): `candidates` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     configured = os.environ.get(env_name)
     if configured:
         return configured
@@ -78,7 +122,14 @@ def resolve_tool(env_name: str, candidates: list[str]) -> str:
 
 
 def java_main_class(source: Path) -> str:
-    """Return the Java class name to execute for a source file."""
+    """java_main_class 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source (Path): `source` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     match = JAVA_PUBLIC_CLASS_RE.search(source.read_text(encoding="utf-8", errors="replace"))
     if match:
         return match.group(1)

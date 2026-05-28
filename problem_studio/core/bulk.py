@@ -1,3 +1,11 @@
+"""bulk 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import os
@@ -20,18 +28,40 @@ DEFAULT_MAX_WORKERS = 4
 
 
 def check_cancel(cancel_token: Any | None) -> None:
-    """Cooperatively stop a bulk build when cancellation is requested."""
+    """check_cancel 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        cancel_token (Any | None): `cancel_token` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     if cancel_token:
         cancel_token.check()
 
 
 def cancellation_requested(cancel_token: Any | None) -> bool:
-    """Return whether a generic cancellation token has been tripped."""
+    """cancellation_requested 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        cancel_token (Any | None): `cancel_token` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     return bool(getattr(cancel_token, "cancelled", False))
 
 
 def bulk_worker_count(problem_count: int, requested: int | None = None) -> int:
-    """Return a bounded parallel worker count for workspace-wide builds."""
+    """bulk_worker_count 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_count (int): `problem_count` 값입니다.
+        requested (int | None): `requested` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     if problem_count <= 0:
         return 1
     if requested is not None and requested > 0:
@@ -48,7 +78,19 @@ def run_problem_full_test(
     progress: Callable[[str], None],
     cancel_token: Any | None = None,
 ) -> dict[str, Any]:
-    """Run the same full-test stages used before building one problem pack."""
+    """run_problem_full_test 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        verify_profile (str): `verify_profile` 값입니다.
+        force (bool): `force` 값입니다.
+        progress (Callable[[str], None]): `progress` 값입니다.
+        cancel_token (Any | None): `cancel_token` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     check_cancel(cancel_token)
     progress("Checking cases.yml.")
     cases_result = compile_problem_cases(problem_id, None, workspace)
@@ -104,7 +146,23 @@ def build_all_problem_packs(
     problem_ids: list[str] | None = None,
     cancel_token: Any | None = None,
 ) -> dict[str, Any]:
-    """Full-test selected problems and build one source-free pack containing them."""
+    """build_all_problem_packs 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        pack_id (str): `pack_id` 값입니다.
+        output_dir (Path): `output_dir` 값입니다.
+        platform_id (str | None): `platform_id` 값입니다.
+        verify_profile (str): `verify_profile` 값입니다.
+        force (bool): `force` 값입니다.
+        progress (Callable[[str], None] | None): `progress` 값입니다.
+        max_workers (int | None): `max_workers` 값입니다.
+        problem_ids (list[str] | None): `problem_ids` 값입니다.
+        cancel_token (Any | None): `cancel_token` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     check_cancel(cancel_token)
     available_problem_ids = discover_problem_ids(workspace)
     if problem_ids is None:
@@ -123,11 +181,30 @@ def build_all_problem_packs(
     worker_count = bulk_worker_count(len(selected_problem_ids), max_workers)
 
     def emit(index: int, problem_id: str, message: str) -> None:
+    """emit 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        index (int): `index` 값입니다.
+        problem_id (str): 문제 ID입니다.
+        message (str): 메시지입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         check_cancel(cancel_token)
         if progress:
             progress(f"[{index}/{len(selected_problem_ids)}] Problem {problem_id}: {message}")
 
     def run_one(index: int, problem_id: str) -> dict[str, Any]:
+    """run_one 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        index (int): `index` 값입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
         try:
             check_cancel(cancel_token)
             emit(index, problem_id, "Starting full test.")

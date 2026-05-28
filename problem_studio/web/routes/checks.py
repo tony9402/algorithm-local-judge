@@ -1,3 +1,11 @@
+"""checks 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -24,7 +32,16 @@ def api_run_all_checks_job(
     problem_id: str,
     body: DataValidateRequest | None = None,
 ) -> dict:
-    """Queue the full Problem Studio validation flow for one problem."""
+    """api_run_all_checks_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (DataValidateRequest | None): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "full problem check")
         workspace = workspace_from_request(request)
@@ -32,6 +49,15 @@ def api_run_all_checks_job(
         force = True if body is None else body.force
 
         def operation(cancel_token, progress):
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+            progress (Any): `progress` 값입니다.
+        
+        Returns:
+            Any: 처리 결과를 반환합니다.
+        """
             progress("Compiling cases.yml.", current=1, total=4, label="cases.yml 검사")
             cases = compile_cases(workspace, problem_id, None)
             cancel_token.check()

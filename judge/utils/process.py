@@ -1,3 +1,11 @@
+"""process 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import os
@@ -13,7 +21,14 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class CommandResult:
-    """Completed subprocess result with lightweight resource metrics."""
+    """CommandResult 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     returncode: int
     stdout: bytes
@@ -31,25 +46,63 @@ PROCESS_GROUP_KILL_GRACE_SECONDS = 0.2
 
 
 class MemorySampler:
-    """Best-effort peak RSS sampler for a running subprocess."""
+    """MemorySampler 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     def __init__(self, pid: int) -> None:
+    """__init__ 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        pid (int): `pid` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         self.pid = pid
         self.max_bytes: int | None = process_memory_bytes(pid)
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._sample, daemon=True)
 
     def start(self) -> None:
-        """Start sampling process memory."""
+        """start 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        
+        Returns:
+            None: 처리 결과를 반환합니다.
+        """
         self._thread.start()
 
     def stop(self) -> int | None:
-        """Stop sampling and return the largest observed memory value."""
+        """stop 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        
+        Returns:
+            int | None: 처리 결과를 반환합니다.
+        """
         self._stop.set()
         self._thread.join(timeout=0.5)
         return self.max_bytes
 
     def _sample(self) -> None:
+    """_sample 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        self (Any): 현재 인스턴스를 나타내는 객체입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         while not self._stop.is_set():
             memory = process_memory_bytes(self.pid)
             if memory is not None:
@@ -58,7 +111,14 @@ class MemorySampler:
 
 
 def process_memory_bytes(pid: int) -> int | None:
-    """Return the current RSS for a process when the platform exposes it."""
+    """process_memory_bytes 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        pid (int): `pid` 값입니다.
+    
+    Returns:
+        int | None: 처리 결과를 반환합니다.
+    """
     system = platform.system()
     if system == "Linux":
         return linux_process_memory_bytes(pid)
@@ -68,7 +128,14 @@ def process_memory_bytes(pid: int) -> int | None:
 
 
 def linux_process_memory_bytes(pid: int) -> int | None:
-    """Read Linux /proc RSS for one process."""
+    """linux_process_memory_bytes 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        pid (int): `pid` 값입니다.
+    
+    Returns:
+        int | None: 처리 결과를 반환합니다.
+    """
     status = Path(f"/proc/{pid}/status")
     try:
         for line in status.read_text(encoding="utf-8").splitlines():
@@ -82,7 +149,14 @@ def linux_process_memory_bytes(pid: int) -> int | None:
 
 
 def darwin_process_memory_bytes(pid: int) -> int | None:
-    """Read macOS RSS for one process using ps."""
+    """darwin_process_memory_bytes 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        pid (int): `pid` 값입니다.
+    
+    Returns:
+        int | None: 처리 결과를 반환합니다.
+    """
     try:
         result = subprocess.run(
             ["ps", "-o", "rss=", "-p", str(pid)],
@@ -103,7 +177,16 @@ def darwin_process_memory_bytes(pid: int) -> int | None:
 
 
 def truncated_bytes(data: bytes, limit: int, label: str) -> tuple[bytes, bool]:
-    """Return data capped to limit bytes with a short marker when truncated."""
+    """truncated_bytes 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        data (bytes): 처리할 데이터입니다.
+        limit (int): `limit` 값입니다.
+        label (str): `label` 값입니다.
+    
+    Returns:
+        tuple[bytes, bool]: 처리 결과를 반환합니다.
+    """
     if limit <= 0:
         return b"", bool(data)
     if len(data) <= limit:
@@ -115,13 +198,30 @@ def truncated_bytes(data: bytes, limit: int, label: str) -> tuple[bytes, bool]:
 
 
 def append_stderr_note(stderr: bytes, note: str, limit: int) -> tuple[bytes, bool]:
-    """Append a diagnostic note to stderr while respecting the stderr cap."""
+    """append_stderr_note 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        stderr (bytes): `stderr` 값입니다.
+        note (str): `note` 값입니다.
+        limit (int): `limit` 값입니다.
+    
+    Returns:
+        tuple[bytes, bool]: 처리 결과를 반환합니다.
+    """
     suffix = (b"\n" if stderr else b"") + note.encode("utf-8")
     return truncated_bytes(stderr + suffix, limit, "stderr")
 
 
 def truncate_output_file(path: Path, limit: int) -> bool:
-    """Cap an output file in place and return whether it was truncated."""
+    """truncate_output_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        limit (int): `limit` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     if limit <= 0:
         path.write_bytes(b"")
         return True
@@ -137,7 +237,14 @@ def truncate_output_file(path: Path, limit: int) -> bool:
 
 
 def terminate_process_group(process: subprocess.Popen[bytes]) -> None:
-    """Terminate a subprocess and its children on platforms that expose process groups."""
+    """terminate_process_group 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        process (subprocess.Popen[bytes]): `process` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     if process.poll() is not None:
         return
     if os.name != "nt":
@@ -172,7 +279,22 @@ def run_command_result(
     stderr_limit_bytes: int = DEFAULT_CAPTURE_LIMIT_BYTES,
     output_limit_bytes: int = DEFAULT_FILE_OUTPUT_LIMIT_BYTES,
 ) -> CommandResult:
-    """Run a subprocess and return output plus elapsed time and peak RSS."""
+    """run_command_result 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        command (Sequence[str]): `command` 값입니다.
+        timeout_ms (int | None): `timeout_ms` 값입니다.
+        cwd (Path | None): `cwd` 값입니다.
+        input_path (Path | None): `input_path` 값입니다.
+        output_path (Path | None): `output_path` 값입니다.
+        log_path (Path | None): `log_path` 값입니다.
+        stdout_limit_bytes (int): `stdout_limit_bytes` 값입니다.
+        stderr_limit_bytes (int): `stderr_limit_bytes` 값입니다.
+        output_limit_bytes (int): `output_limit_bytes` 값입니다.
+    
+    Returns:
+        CommandResult: 처리 결과를 반환합니다.
+    """
     stdin = None
     stdout = subprocess.PIPE
     start = time.perf_counter()
@@ -269,7 +391,19 @@ def run_command(
     output_path: Path | None = None,
     log_path: Path | None = None,
 ) -> tuple[int, bytes, bytes]:
-    """Run a subprocess and return returncode, stdout, and stderr bytes."""
+    """run_command 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        command (Sequence[str]): `command` 값입니다.
+        timeout_ms (int | None): `timeout_ms` 값입니다.
+        cwd (Path | None): `cwd` 값입니다.
+        input_path (Path | None): `input_path` 값입니다.
+        output_path (Path | None): `output_path` 값입니다.
+        log_path (Path | None): `log_path` 값입니다.
+    
+    Returns:
+        tuple[int, bytes, bytes]: 처리 결과를 반환합니다.
+    """
     result = run_command_result(
         command,
         timeout_ms,

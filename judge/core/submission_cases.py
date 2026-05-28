@@ -1,3 +1,11 @@
+"""submission_cases 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -13,6 +21,14 @@ from judge.utils.process import CommandResult, run_command_result
 
 @dataclass(frozen=True)
 class SubmissionCasesResult:
+"""SubmissionCasesResult 클래스를 정의하고 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
     status: str
     results: list[dict[str, Any]]
     first_wrong: dict[str, Any] | None
@@ -34,7 +50,24 @@ def run_submission_cases(
     command_runner: Callable[..., CommandResult] = run_command_result,
     checker: Callable[[Path, Path, Path, Path, int], tuple[int, str]] = checker_compare,
 ) -> SubmissionCasesResult:
-    """Run user code against compiled cases and capture judge status."""
+    """run_submission_cases 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        manifest (dict[str, Any]): `manifest` 값입니다.
+        data_dir (Path): `data_dir` 값입니다.
+        outputs_dir (Path): `outputs_dir` 값입니다.
+        wrong_dir (Path): `wrong_dir` 값입니다.
+        command (list[str]): `command` 값입니다.
+        limits (dict[str, Any]): `limits` 값입니다.
+        checker_path (Path): `checker_path` 값입니다.
+        emit (Callable[[str], None]): `emit` 값입니다.
+        stop_on_first_failure (bool): `stop_on_first_failure` 값입니다.
+        command_runner (Callable[..., CommandResult]): `command_runner` 값입니다.
+        checker (Callable[[Path, Path, Path, Path, int], tuple[int, str]]): `checker` 값입니다.
+    
+    Returns:
+        SubmissionCasesResult: 처리 결과를 반환합니다.
+    """
     results: list[dict[str, Any]] = []
     status = "accepted"
     first_wrong = None

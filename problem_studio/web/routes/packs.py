@@ -1,3 +1,11 @@
+"""packs 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,7 +32,16 @@ PACK_OUTPUT_DIR = Path("dist/packs")
 
 
 def pack_job_dict(jobs, job, problem_id: str) -> dict:
-    """Return a pack job response with a download URL once the artifact is ready."""
+    """pack_job_dict 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        jobs (Any): `jobs` 값입니다.
+        job (Any): `job` 값입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     data = jobs.job_dict(job)
     if data["status"] == "succeeded" and isinstance(data.get("result"), dict):
         data["result"] = {
@@ -38,7 +55,16 @@ def pack_job_dict(jobs, job, problem_id: str) -> dict:
 def api_pack_build_stream(
     request: Request, problem_id: str, body: PackBuildRequest
 ) -> StreamingResponse:
-    """Verify and build a source-free problem pack with progress events."""
+    """api_pack_build_stream 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (PackBuildRequest): `body` 값입니다.
+    
+    Returns:
+        StreamingResponse: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "pack build")
         workspace = workspace_from_request(request)
@@ -46,6 +72,14 @@ def api_pack_build_stream(
         raise to_http_error(exc) from exc
 
     def operation(progress):
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        progress (Any): `progress` 값입니다.
+    
+    Returns:
+        Any: 처리 결과를 반환합니다.
+    """
         progress(f"Building pack {body.pack_id} for problem {problem_id}.")
         result = build_problem_pack(
             workspace,
@@ -63,13 +97,30 @@ def api_pack_build_stream(
 
 @router.post("/build")
 def api_pack_build(request: Request, problem_id: str, body: PackBuildRequest) -> dict:
-    """Start a background problem pack build and return the job state."""
+    """api_pack_build 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (PackBuildRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "pack build")
         workspace = workspace_from_request(request)
         jobs = jobs_from_request(request)
 
         def operation(cancel_token) -> dict:
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+        
+        Returns:
+            dict: 처리 결과를 반환합니다.
+        """
             return build_problem_pack(
                 workspace,
                 problem_id,
@@ -105,7 +156,15 @@ def api_pack_build(request: Request, problem_id: str, body: PackBuildRequest) ->
 
 @router.get("/jobs")
 def api_pack_build_jobs(request: Request, problem_id: str) -> dict:
-    """Return retained background pack jobs for one problem."""
+    """api_pack_build_jobs 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     jobs = jobs_from_request(request)
     return {
         "jobs": [
@@ -118,7 +177,16 @@ def api_pack_build_jobs(request: Request, problem_id: str) -> dict:
 
 @router.get("/jobs/{job_id}")
 def api_pack_build_job(request: Request, problem_id: str, job_id: str) -> dict:
-    """Return the latest state of a background pack build job."""
+    """api_pack_build_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
     if not job or job.problem_id != problem_id or not job_matches_active_repository(request, job):
@@ -128,7 +196,16 @@ def api_pack_build_job(request: Request, problem_id: str, job_id: str) -> dict:
 
 @router.delete("/jobs/{job_id}")
 def api_pack_build_job_dismiss(request: Request, problem_id: str, job_id: str) -> dict:
-    """Dismiss a retained background pack build job."""
+    """api_pack_build_job_dismiss 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "pack build job dismiss")
     except Exception as exc:
@@ -146,7 +223,16 @@ def api_pack_build_job_dismiss(request: Request, problem_id: str, job_id: str) -
 
 @router.post("/jobs/{job_id}/cancel")
 def api_pack_build_job_cancel(request: Request, problem_id: str, job_id: str) -> dict:
-    """Cancel a running background pack build job."""
+    """api_pack_build_job_cancel 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "pack build job cancel")
     except Exception as exc:
@@ -163,7 +249,16 @@ def api_pack_build_job_cancel(request: Request, problem_id: str, job_id: str) ->
 
 @router.get("/jobs/{job_id}/download")
 def api_pack_build_download(request: Request, problem_id: str, job_id: str) -> FileResponse:
-    """Download a completed pack build artifact."""
+    """api_pack_build_download 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        FileResponse: 처리 결과를 반환합니다.
+    """
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
     if not job or job.problem_id != problem_id or not job_matches_active_repository(request, job):

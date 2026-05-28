@@ -1,3 +1,11 @@
+"""service_generation 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import contextlib
@@ -16,7 +24,16 @@ from judge.web.service_common import SSE_DONE, sse
 
 
 def generate_problem(problem_id: str, profile: str | None, force: bool) -> dict[str, Any]:
-    """Generate test data and return a concise result summary."""
+    """generate_problem 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        force (bool): `force` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         data_dir = generate(problem_id, profile, force)
@@ -29,7 +46,17 @@ def generate_problem_with_progress(
     force: bool,
     progress,
 ) -> dict[str, Any]:
-    """Generate test data with a queue progress callback."""
+    """generate_problem_with_progress 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        force (bool): `force` 값입니다.
+        progress (Any): `progress` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
         data_dir = generate(problem_id, profile, force, progress=progress)
@@ -37,12 +64,28 @@ def generate_problem_with_progress(
 
 
 def compile_problem_cases_result(problem_id: str, profile: str | None) -> dict[str, Any]:
-    """Compile a problem cases.yml profile and return structured diagnostics."""
+    """compile_problem_cases_result 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     return compile_problem_cases(problem_id, profile).to_dict()
 
 
 def build_generate_result(data_dir: Path, message: str) -> dict[str, Any]:
-    """Build a web response from a generated data directory."""
+    """build_generate_result 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        data_dir (Path): `data_dir` 값입니다.
+        message (str): 메시지입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     manifest = read_json(data_dir / "manifest.json")
     return {
         "path": str(data_dir),
@@ -58,13 +101,38 @@ def generate_problem_events(
     profile: str | None,
     force: bool,
 ) -> Iterator[str]:
-    """Stream test data generation progress as Server-Sent Events."""
+    """generate_problem_events 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        force (bool): `force` 값입니다.
+    
+    Returns:
+        Iterator[str]: 처리 결과를 반환합니다.
+    """
     events: queue.Queue[dict[str, Any] | object] = queue.Queue()
 
     def progress(message: str) -> None:
+    """progress 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        message (str): 메시지입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         events.put({"event": "log", "data": {"message": message}})
 
     def worker() -> None:
+    """worker 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         output = io.StringIO()
         try:
             progress("Starting test data generation.")

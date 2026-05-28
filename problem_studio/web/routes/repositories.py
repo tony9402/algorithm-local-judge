@@ -1,3 +1,11 @@
+"""repositories 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -27,14 +35,28 @@ router = APIRouter(prefix="/api/repositories", tags=["repositories"])
 
 
 def ensure_repository_write_enabled(request: Request) -> None:
-    """Block repository mutations when local Git write actions are disabled."""
+    """ensure_repository_write_enabled 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     ensure_local_write_allowed(request, "repository Git action")
     if not getattr(request.app.state, "git_write_enabled", True):
         raise JudgeError("Git network/write actions are disabled for this server binding")
 
 
 def repository_response(request: Request) -> dict:
-    """Return repository selection state for the UI."""
+    """repository_response 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     workspace_root = workspace_root_from_request(request)
     return {
         "workspaceRoot": str(workspace_root),
@@ -45,7 +67,14 @@ def repository_response(request: Request) -> dict:
 
 
 def selected_payload(request: Request) -> dict:
-    """Return the full payload after a repository selection change."""
+    """selected_payload 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     workspace = workspace_status_from_request(request)
     git = git_status(request.app.state.workspace)
     git["writeEnabled"] = bool(getattr(request.app.state, "git_write_enabled", True))
@@ -62,15 +91,38 @@ def selected_payload(request: Request) -> dict:
 
 @router.get("")
 def api_repositories(request: Request) -> dict:
-    """Return nested problem repositories available in this workspace."""
+    """api_repositories 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     return route_result(lambda: repository_response(request))
 
 
 @router.post("/select")
 def api_repository_select(request: Request, body: RepositorySelectRequest) -> dict:
-    """Switch the active nested problem repository."""
+    """api_repository_select 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        body (RepositorySelectRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         set_active_repository(request, body.repo_name)
         return selected_payload(request)
 
@@ -79,9 +131,25 @@ def api_repository_select(request: Request, body: RepositorySelectRequest) -> di
 
 @router.post("/clone")
 def api_repository_clone(request: Request, body: RepositoryCloneRequest) -> dict:
-    """Clone a problem repository under workspace/problems/{repo_name} and select it."""
+    """api_repository_clone 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        body (RepositoryCloneRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_repository_write_enabled(request)
         summary = clone_problem_repository(
             workspace_root_from_request(request),
@@ -99,9 +167,25 @@ def api_repository_clone(request: Request, body: RepositoryCloneRequest) -> dict
 
 @router.post("/register")
 def api_repository_register(request: Request, body: RepositoryRegisterRequest) -> dict:
-    """Open an existing nested problem repository."""
+    """api_repository_register 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        body (RepositoryRegisterRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         set_active_repository(request, body.repo_name)
         payload = selected_payload(request)
         payload["repository"] = repository_summary(

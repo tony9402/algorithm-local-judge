@@ -1,3 +1,11 @@
+"""pack_build 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import tarfile
@@ -32,7 +40,14 @@ __all__ = [
 
 
 def write_pack_checksum(archive_path: Path) -> Path:
-    """Write the sidecar SHA-256 checksum expected next to release pack assets."""
+    """write_pack_checksum 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        archive_path (Path): `archive_path` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     return write_sha256_sidecar(archive_path)
 
 
@@ -44,7 +59,19 @@ def build_pack(
     verify_profile: str = "hidden",
     warmup_profile: str | None = None,
 ) -> PackBuildResult:
-    """Build a source-free problem pack archive for one problem."""
+    """build_pack 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_path (Path): `problem_path` 값입니다.
+        pack_id (str): `pack_id` 값입니다.
+        platform_id (str | None): `platform_id` 값입니다.
+        output_dir (Path | None): `output_dir` 값입니다.
+        verify_profile (str): `verify_profile` 값입니다.
+        warmup_profile (str | None): `warmup_profile` 값입니다.
+    
+    Returns:
+        PackBuildResult: 처리 결과를 반환합니다.
+    """
     problem_path = problem_path.resolve()
     if not (problem_path / "problem.json").exists():
         raise JudgeError(f"problem metadata not found: {problem_path / 'problem.json'}")
@@ -71,7 +98,21 @@ def build_pack_for_problem_ids(
     solution_checks: list[dict[str, object]] | None = None,
     warmup_profile: str | None = None,
 ) -> PackBuildResult:
-    """Build one source-free problem pack archive containing multiple problems."""
+    """build_pack_for_problem_ids 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_ids (list[str]): `problem_ids` 값입니다.
+        pack_id (str): `pack_id` 값입니다.
+        platform_id (str | None): `platform_id` 값입니다.
+        output_dir (Path | None): `output_dir` 값입니다.
+        root (Path | None): `root` 값입니다.
+        verify_profile (str): `verify_profile` 값입니다.
+        solution_checks (list[dict[str, object]] | None): `solution_checks` 값입니다.
+        warmup_profile (str | None): `warmup_profile` 값입니다.
+    
+    Returns:
+        PackBuildResult: 처리 결과를 반환합니다.
+    """
     validate_safe_id("pack id", pack_id)
     if not problem_ids:
         raise JudgeError("problem pack must contain at least one problem")

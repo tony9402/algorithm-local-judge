@@ -1,3 +1,11 @@
+"""source_history_store 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import contextlib
@@ -28,7 +36,15 @@ from judge.web.source_history_paths import (
 
 
 def attach_run_to_source(source: Path, result: dict[str, Any]) -> str | None:
-    """Store the latest run result summary beside a cached source file."""
+    """attach_run_to_source 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source (Path): `source` 값입니다.
+        result (dict[str, Any]): `result` 값입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     source_id = source_id_from_path(source)
     if source_id is None:
         return None
@@ -49,7 +65,16 @@ def save_uploaded_source(
     filename: str | None,
     problem_id: str,
 ) -> Path:
-    """Persist an uploaded source file in the web source history and return its path."""
+    """save_uploaded_source 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        file_obj (BinaryIO): `file_obj` 값입니다.
+        filename (str | None): `filename` 값입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     source_id, target = create_source_target(problem_id, filename or "main.py")
     try:
         copy_limited(
@@ -68,7 +93,16 @@ def save_uploaded_source(
 
 
 def save_text_source(source_text: str, filename: str | None, problem_id: str) -> Path:
-    """Persist pasted source code in the web source history and return its path."""
+    """save_text_source 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_text (str): `source_text` 값입니다.
+        filename (str | None): `filename` 값입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     source_id, target = create_source_target(problem_id, filename)
     try:
         write_text_limited(
@@ -85,7 +119,16 @@ def save_text_source(source_text: str, filename: str | None, problem_id: str) ->
 
 
 def save_existing_source(path: Path, problem_id: str, source_mode: str) -> Path:
-    """Copy an existing local source file into the web source history."""
+    """save_existing_source 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        problem_id (str): 문제 ID입니다.
+        source_mode (str): `source_mode` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     source_id, target = create_source_target(problem_id, path.name)
     try:
         with path.open("rb") as source:
@@ -105,7 +148,14 @@ def save_existing_source(path: Path, problem_id: str, source_mode: str) -> Path:
 
 
 def list_source_history(limit: int = SOURCE_HISTORY_LIMIT) -> dict[str, Any]:
-    """Return recently submitted web source files without loading their full contents."""
+    """list_source_history 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        limit (int): `limit` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     root = source_history_root()
     if not root.exists():
         return {"sources": []}
@@ -122,7 +172,14 @@ def list_source_history(limit: int = SOURCE_HISTORY_LIMIT) -> dict[str, Any]:
 
 
 def source_history_detail(source_id: str) -> dict[str, Any]:
-    """Return source code text for one cached source history entry."""
+    """source_history_detail 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_id (str): 소스 ID입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     entry_dir = source_entry_dir(source_id)
     if not entry_dir.exists():
         raise JudgeError(f"source history entry not found: {source_id}")
@@ -148,7 +205,14 @@ def source_history_detail(source_id: str) -> dict[str, Any]:
 
 
 def delete_source_history(source_id: str) -> dict[str, Any]:
-    """Delete one cached source history entry."""
+    """delete_source_history 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_id (str): 소스 ID입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     entry_dir = source_entry_dir(source_id)
     if not entry_dir.exists():
         raise JudgeError(f"source history entry not found: {source_id}")

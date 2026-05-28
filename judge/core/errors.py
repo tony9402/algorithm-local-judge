@@ -1,22 +1,58 @@
+"""errors 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 class JudgeError(Exception):
-    """User-facing error raised for recoverable judge failures."""
+    """JudgeError 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     pass
 
 
 class SecurityPolicyError(JudgeError):
-    """Raised when a request is blocked by an explicit security policy."""
+    """SecurityPolicyError 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     pass
 
 
 class LimitExceededError(JudgeError):
-    """Raised when an input exceeds a configured safety limit."""
+    """LimitExceededError 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     pass
 
 
 class ConcurrencyLimitError(JudgeError):
-    """Raised when a concurrent operation limit has been reached."""
+    """ConcurrencyLimitError 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     pass

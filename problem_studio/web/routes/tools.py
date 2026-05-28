@@ -1,3 +1,11 @@
+"""tools 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -22,9 +30,26 @@ router = APIRouter(prefix="/api/problems/{problem_id}/tools", tags=["tools"])
 def api_tools_compile(
     request: Request, problem_id: str, body: ToolCompileRequest | None = None
 ) -> dict:
-    """Compile all problem tools or one selected tool."""
+    """api_tools_compile 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (ToolCompileRequest | None): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_local_write_allowed(request, "tool compilation")
         workspace = workspace_from_request(request)
         if body is not None and body.tool:
@@ -45,7 +70,16 @@ def api_tools_compile(
 def api_tools_compile_job(
     request: Request, problem_id: str, body: ToolCompileRequest | None = None
 ) -> dict:
-    """Queue tool compilation for one problem."""
+    """api_tools_compile_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (ToolCompileRequest | None): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "tool compilation")
         workspace = workspace_from_request(request)
@@ -54,6 +88,15 @@ def api_tools_compile_job(
         title = f"{tool} 컴파일 · {problem_id}" if tool else f"전체 도구 컴파일 · {problem_id}"
 
         def operation(cancel_token, progress):
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+            progress (Any): `progress` 값입니다.
+        
+        Returns:
+            Any: 처리 결과를 반환합니다.
+        """
             progress(title, label="도구 컴파일")
             cancel_token.check()
             if tool:

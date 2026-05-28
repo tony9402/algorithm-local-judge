@@ -1,3 +1,11 @@
+"""bulk 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,7 +33,15 @@ WORKSPACE_JOB_PROBLEM_ID = "__workspace__"
 
 
 def bulk_job_dict(jobs, job) -> dict:
-    """Return a workspace bulk build job response."""
+    """bulk_job_dict 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        jobs (Any): `jobs` 값입니다.
+        job (Any): `job` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     return jobs.job_dict(job)
 
 
@@ -34,7 +50,15 @@ def api_workspace_pack_build_all_stream(
     request: Request,
     body: BulkPackBuildRequest,
 ) -> StreamingResponse:
-    """Full-test selected problems and build one pack containing them."""
+    """api_workspace_pack_build_all_stream 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        body (BulkPackBuildRequest): `body` 값입니다.
+    
+    Returns:
+        StreamingResponse: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "workspace pack build")
         workspace = workspace_from_request(request)
@@ -42,6 +66,14 @@ def api_workspace_pack_build_all_stream(
         raise to_http_error(exc) from exc
 
     def operation(progress):
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        progress (Any): `progress` 값입니다.
+    
+    Returns:
+        Any: 처리 결과를 반환합니다.
+    """
         progress("Starting full workspace test and pack build.")
         result = build_all_problem_packs(
             workspace,
@@ -62,13 +94,30 @@ def api_workspace_pack_build_all_stream(
 
 @router.post("/packs/build-all")
 def api_workspace_pack_build_all(request: Request, body: BulkPackBuildRequest) -> dict:
-    """Start a cancellable background full-workspace pack build."""
+    """api_workspace_pack_build_all 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        body (BulkPackBuildRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "workspace pack build")
         workspace = workspace_from_request(request)
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+            progress (Any): `progress` 값입니다.
+        
+        Returns:
+            Any: 처리 결과를 반환합니다.
+        """
             return build_all_problem_packs(
                 workspace,
                 body.pack_id,
@@ -104,7 +153,14 @@ def api_workspace_pack_build_all(request: Request, body: BulkPackBuildRequest) -
 
 @router.get("/packs/jobs")
 def api_workspace_pack_build_jobs(request: Request) -> dict:
-    """Return retained workspace bulk build jobs."""
+    """api_workspace_pack_build_jobs 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     jobs = jobs_from_request(request)
     return {
         "jobs": [
@@ -118,7 +174,15 @@ def api_workspace_pack_build_jobs(request: Request) -> dict:
 
 @router.get("/packs/jobs/{job_id}")
 def api_workspace_pack_build_job(request: Request, job_id: str) -> dict:
-    """Return the latest state of a workspace bulk build job."""
+    """api_workspace_pack_build_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
     if (
@@ -132,7 +196,15 @@ def api_workspace_pack_build_job(request: Request, job_id: str) -> dict:
 
 @router.post("/packs/jobs/{job_id}/cancel")
 def api_workspace_pack_build_job_cancel(request: Request, job_id: str) -> dict:
-    """Cancel a running workspace bulk build job."""
+    """api_workspace_pack_build_job_cancel 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "workspace pack build job cancel")
     except Exception as exc:
@@ -153,7 +225,15 @@ def api_workspace_pack_build_job_cancel(request: Request, job_id: str) -> dict:
 
 @router.delete("/packs/jobs/{job_id}")
 def api_workspace_pack_build_job_dismiss(request: Request, job_id: str) -> dict:
-    """Dismiss a retained workspace bulk build job."""
+    """api_workspace_pack_build_job_dismiss 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "workspace pack build job dismiss")
     except Exception as exc:

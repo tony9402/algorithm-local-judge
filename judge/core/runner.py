@@ -1,3 +1,11 @@
+"""runner 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,7 +20,14 @@ INPUT_PREVIEW_LINES = 12
 
 
 def compact_process_output(stderr: bytes) -> str:
-    """Return stderr as readable, bounded text."""
+    """compact_process_output 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        stderr (bytes): `stderr` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     text = stderr.decode("utf-8", errors="replace").strip()
     if len(text) > PROCESS_OUTPUT_LIMIT:
         return f"...truncated...\n{text[-PROCESS_OUTPUT_LIMIT:]}"
@@ -20,7 +35,14 @@ def compact_process_output(stderr: bytes) -> str:
 
 
 def input_preview(input_path: Path) -> str:
-    """Return a line-numbered preview of a generated input file."""
+    """input_preview 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        input_path (Path): `input_path` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     try:
         data = input_path.read_bytes()
     except OSError as exc:
@@ -36,7 +58,14 @@ def input_preview(input_path: Path) -> str:
 
 
 def validator_hint(message: str) -> str:
-    """Return a short hint for common testlib validator errors."""
+    """validator_hint 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        message (str): 메시지입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     lowered = message.lower()
     if "expected eof" in lowered:
         return (
@@ -59,7 +88,19 @@ def validator_error_message(
     case_total: int | None = None,
     root: Path | None = None,
 ) -> str:
-    """Build a detailed validator failure message for CLI and web surfaces."""
+    """validator_error_message 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        input_path (Path): `input_path` 값입니다.
+        stderr (bytes): `stderr` 값입니다.
+        profile (str | None): `profile` 값입니다.
+        case_index (int | None): `case_index` 값입니다.
+        case_total (int | None): `case_total` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     reason = compact_process_output(stderr) or "validator exited with a non-zero status"
     case_label = f"{case_index}/{case_total}" if case_index and case_total else input_path.name
     context = []
@@ -89,7 +130,20 @@ def validator_check(
     case_total: int | None = None,
     root: Path | None = None,
 ) -> None:
-    """Run the validator against a generated input file."""
+    """validator_check 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        validator (Path): `validator` 값입니다.
+        input_path (Path): `input_path` 값입니다.
+        timeout_ms (int): `timeout_ms` 값입니다.
+        profile (str | None): `profile` 값입니다.
+        case_index (int | None): `case_index` 값입니다.
+        case_total (int | None): `case_total` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     code, _, stderr = run_command([str(validator)], timeout_ms, input_path=input_path)
     if code != 0:
         raise JudgeError(
@@ -105,7 +159,17 @@ def validator_check(
 
 
 def solution_write(solution: Path, input_path: Path, answer_path: Path, timeout_ms: int) -> None:
-    """Run the reference solution and write the expected answer file."""
+    """solution_write 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        solution (Path): `solution` 값입니다.
+        input_path (Path): `input_path` 값입니다.
+        answer_path (Path): `answer_path` 값입니다.
+        timeout_ms (int): `timeout_ms` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     code, _, stderr = run_command(
         [str(solution)], timeout_ms, input_path=input_path, output_path=answer_path
     )
@@ -118,7 +182,18 @@ def solution_write(solution: Path, input_path: Path, answer_path: Path, timeout_
 def checker_compare(
     checker: Path, input_path: Path, output_path: Path, answer_path: Path, timeout_ms: int
 ) -> tuple[int, str]:
-    """Run the checker and return its exit code plus stderr message."""
+    """checker_compare 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        checker (Path): `checker` 값입니다.
+        input_path (Path): `input_path` 값입니다.
+        output_path (Path): `output_path` 값입니다.
+        answer_path (Path): `answer_path` 값입니다.
+        timeout_ms (int): `timeout_ms` 값입니다.
+    
+    Returns:
+        tuple[int, str]: 처리 결과를 반환합니다.
+    """
     code, _, stderr = run_command(
         [str(checker), str(input_path), str(output_path), str(answer_path)], timeout_ms
     )

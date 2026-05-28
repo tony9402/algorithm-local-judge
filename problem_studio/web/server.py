@@ -1,3 +1,11 @@
+"""server 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import threading
@@ -12,9 +20,24 @@ from problem_studio.web.security_policy import is_local_binding
 
 
 def open_browser_later(url: str) -> None:
-    """Open a browser shortly after the local server starts."""
+    """open_browser_later 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        url (str): `url` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     def worker() -> None:
+    """worker 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         time.sleep(0.7)
         webbrowser.open(url)
 
@@ -28,7 +51,18 @@ def run_server(
     open_browser: bool = False,
     active_repository: str | None = None,
 ) -> None:
-    """Run the local problem authoring web server."""
+    """run_server 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        host (str): `host` 값입니다.
+        port (int): `port` 값입니다.
+        open_browser (bool): `open_browser` 값입니다.
+        active_repository (str | None): `active_repository` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     url = f"http://{host}:{port}"
     local_binding = is_local_binding(host)
     if not local_binding:

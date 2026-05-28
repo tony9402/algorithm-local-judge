@@ -1,3 +1,11 @@
+"""paths 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import os
@@ -17,19 +25,40 @@ ENV_SOURCE_HOME = "ALJ_SOURCE_HOME"
 
 
 def repo_root() -> Path:
-    """Return the repository root inferred from the installed package path."""
+    """repo_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if configured := os.environ.get(ENV_PROJECT_ROOT):
         return Path(configured).expanduser().resolve()
     return Path(__file__).resolve().parents[2]
 
 
 def is_frozen() -> bool:
-    """Return whether the process is running from a frozen standalone binary."""
+    """is_frozen 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     return bool(getattr(sys, "frozen", False))
 
 
 def app_root() -> Path:
-    """Return the root directory that owns the running application."""
+    """app_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if is_frozen():
         executable = Path(sys.executable).resolve()
         if executable.parent.name == "bin":
@@ -39,7 +68,14 @@ def app_root() -> Path:
 
 
 def _configured_path(env_name: str) -> Path | None:
-    """Return an expanded path from an environment variable if it is set."""
+    """_configured_path 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        env_name (str): `env_name` 값입니다.
+    
+    Returns:
+        Path | None: 처리 결과를 반환합니다.
+    """
     value = os.environ.get(env_name)
     if not value:
         return None
@@ -47,7 +83,14 @@ def _configured_path(env_name: str) -> Path | None:
 
 
 def _windows_local_app_data() -> Path:
-    """Return the base local app data directory on Windows-like environments."""
+    """_windows_local_app_data 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     value = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
     if value:
         return Path(value).expanduser()
@@ -55,7 +98,14 @@ def _windows_local_app_data() -> Path:
 
 
 def user_data_root() -> Path:
-    """Return the per-user directory for installed packs and configuration."""
+    """user_data_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if configured := _configured_path(ENV_DATA_HOME):
         return configured
     if os.name == "nt":
@@ -65,7 +115,14 @@ def user_data_root() -> Path:
 
 
 def default_cache_root() -> Path:
-    """Return the per-user cache directory for generated data and run artifacts."""
+    """default_cache_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if configured := _configured_path(ENV_CACHE_HOME):
         return configured
     if os.name == "nt":
@@ -75,33 +132,69 @@ def default_cache_root() -> Path:
 
 
 def problem_pack_root() -> Path:
-    """Return the directory where standalone problem packs are installed."""
+    """problem_pack_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if configured := _configured_path(ENV_PACK_HOME):
         return configured
     return user_data_root() / "problem-packs"
 
 
 def problem_source_root() -> Path:
-    """Return the directory where source problem packages are installed."""
+    """problem_source_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if configured := _configured_path(ENV_SOURCE_HOME):
         return configured
     return user_data_root() / "problem-sources"
 
 
 def cache_root(root: Path | None = None) -> Path:
-    """Return the root directory for generated data and run artifacts."""
+    """cache_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if root is not None:
         return root / ".judge-cache"
     return default_cache_root()
 
 
 def build_root(root: Path | None = None) -> Path:
-    """Return the root directory for compiled helper binaries."""
+    """build_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     return (root or repo_root()) / "build"
 
 
 def rel(path: Path, root: Path | None = None) -> str:
-    """Format a path relative to a useful runtime root when possible."""
+    """rel 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     roots = (
         [root] if root is not None else [repo_root(), app_root(), user_data_root(), cache_root()]
     )
@@ -117,12 +210,26 @@ def rel(path: Path, root: Path | None = None) -> str:
 
 
 def executable_suffix() -> str:
-    """Return the executable suffix for the current operating system."""
+    """executable_suffix 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     return ".exe" if os.name == "nt" else ""
 
 
 def normalized_arch(machine: str | None = None) -> str:
-    """Normalize platform machine names into release architecture ids."""
+    """normalized_arch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        machine (str | None): `machine` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     value = (machine or platform.machine()).lower()
     if value in {"x86_64", "amd64"}:
         return "amd64"
@@ -132,7 +239,14 @@ def normalized_arch(machine: str | None = None) -> str:
 
 
 def normalized_os(system: str | None = None) -> str:
-    """Normalize operating system names into release os ids."""
+    """normalized_os 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        system (str | None): `system` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     value = (system or platform.system()).lower()
     if value == "darwin":
         return "macos"
@@ -144,12 +258,27 @@ def normalized_os(system: str | None = None) -> str:
 
 
 def current_platform_id() -> str:
-    """Return the release platform id for this runtime."""
+    """current_platform_id 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     return f"{normalized_os()}-{normalized_arch()}"
 
 
 def ensure_inside(path: Path, base: Path) -> Path:
-    """Return a resolved path only if it stays inside the given base."""
+    """ensure_inside 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        base (Path): `base` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     path = path.resolve()
     base = base.resolve()
     if path == base or base in path.parents:
@@ -158,6 +287,14 @@ def ensure_inside(path: Path, base: Path) -> Path:
 
 
 def validate_safe_id(name: str, value: str) -> None:
-    """Validate a CLI-visible id before using it in filesystem paths."""
+    """validate_safe_id 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        name (str): 이름입니다.
+        value (str): 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     if not value or not SAFE_ID_RE.fullmatch(value):
         raise JudgeError(f"invalid {name}: {value}")

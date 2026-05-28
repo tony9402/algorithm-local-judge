@@ -1,3 +1,11 @@
+"""tool_compiler 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -21,7 +29,17 @@ def compile_problem_tool(
     root: Path | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> Path:
-    """Compile one problem tool and return its executable path."""
+    """compile_problem_tool 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        tool_name (str): `tool_name` 값입니다.
+        root (Path | None): `root` 값입니다.
+        progress (Callable[[str], None] | None): `progress` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if tool_name not in TOOL_NAMES:
         raise JudgeError(f"unknown problem tool: {tool_name}")
     problem_dir, _, metadata, paths = tool_paths(problem_id, root)
@@ -44,7 +62,16 @@ def compile_problem_tools(
     root: Path | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, Path]:
-    """Compile generator, validator, checker, and reference solution."""
+    """compile_problem_tools 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        root (Path | None): `root` 값입니다.
+        progress (Callable[[str], None] | None): `progress` 값입니다.
+    
+    Returns:
+        dict[str, Path]: 처리 결과를 반환합니다.
+    """
     _, _, metadata, paths = tool_paths(problem_id, root)
     if is_precompiled_problem(metadata):
         return {name: paths[name] for name in TOOL_NAMES}

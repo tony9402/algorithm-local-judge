@@ -1,3 +1,11 @@
+"""artifacts 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import difflib
@@ -9,7 +17,16 @@ from judge.utils.text import preview
 
 
 def wrong_artifact_paths(run_id: str, case_id: str, root: Path | None = None) -> dict[str, Path]:
-    """Return saved wrong-answer artifact paths for one run case."""
+    """wrong_artifact_paths 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        dict[str, Path]: 처리 결과를 반환합니다.
+    """
     validate_safe_id("run id", run_id)
     validate_safe_id("case id", case_id)
     wrong_dir = cache_root(root) / "runs" / run_id / "wrong"
@@ -21,7 +38,16 @@ def wrong_artifact_paths(run_id: str, case_id: str, root: Path | None = None) ->
 
 
 def wrong_artifacts(run_id: str, case_id: str, root: Path | None = None) -> dict[str, str]:
-    """Return saved wrong-answer artifact text for web/API callers."""
+    """wrong_artifacts 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        dict[str, str]: 처리 결과를 반환합니다.
+    """
     display_root = root or repo_root()
     files = wrong_artifact_paths(run_id, case_id, root)
     texts = {}
@@ -33,7 +59,16 @@ def wrong_artifacts(run_id: str, case_id: str, root: Path | None = None) -> dict
 
 
 def wrong_diff_text(run_id: str, case_id: str, root: Path | None = None) -> str:
-    """Return a unified diff between expected and actual wrong outputs."""
+    """wrong_diff_text 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     files = wrong_artifact_paths(run_id, case_id, root)
     expected = files["expected"]
     actual = files["actual"]
@@ -55,7 +90,17 @@ def wrong_diff_text(run_id: str, case_id: str, root: Path | None = None) -> str:
 
 
 def show(run_id: str, case_id: str, part: str | None = None, root: Path | None = None) -> None:
-    """Print saved wrong-answer artifacts for one run case."""
+    """show 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+        part (str | None): `part` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     display_root = root or repo_root()
     files = wrong_artifact_paths(run_id, case_id, root)
     selected = [part] if part else ["input", "expected", "actual"]
@@ -69,5 +114,14 @@ def show(run_id: str, case_id: str, part: str | None = None, root: Path | None =
 
 
 def diff(run_id: str, case_id: str, root: Path | None = None) -> None:
-    """Print a unified diff between expected and actual wrong outputs."""
+    """diff 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     print(wrong_diff_text(run_id, case_id, root), end="")

@@ -1,3 +1,11 @@
+"""editor 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -33,7 +41,16 @@ METADATA_TIMEOUT_FIELDS = {
 
 
 def safe_problem_file(workspace: Path, problem_id: str, raw_path: str) -> Path:
-    """Return a validated file path inside one problem directory."""
+    """safe_problem_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        raw_path (str): `raw_path` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if not raw_path or raw_path.startswith("/"):
         raise JudgeError(f"invalid problem file path: {raw_path}")
     relative = Path(raw_path)
@@ -44,7 +61,15 @@ def safe_problem_file(workspace: Path, problem_id: str, raw_path: str) -> Path:
 
 
 def list_problem_files(workspace: Path, problem_id: str) -> list[dict[str, Any]]:
-    """Return editable files under one problem directory."""
+    """list_problem_files 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        list[dict[str, Any]]: 처리 결과를 반환합니다.
+    """
     base = problem_dir(workspace, problem_id)
     if not base.exists():
         raise JudgeError(f"problem not found: {problem_id}")
@@ -58,7 +83,16 @@ def list_problem_files(workspace: Path, problem_id: str) -> list[dict[str, Any]]
 
 
 def read_problem_file(workspace: Path, problem_id: str, raw_path: str) -> dict[str, str]:
-    """Read a UTF-8 problem file for editing."""
+    """read_problem_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        raw_path (str): `raw_path` 값입니다.
+    
+    Returns:
+        dict[str, str]: 처리 결과를 반환합니다.
+    """
     path = safe_problem_file(workspace, problem_id, raw_path)
     if not path.exists():
         raise JudgeError(f"problem file not found: {rel(path, workspace)}")
@@ -71,7 +105,17 @@ def read_problem_file(workspace: Path, problem_id: str, raw_path: str) -> dict[s
 def write_problem_file(
     workspace: Path, problem_id: str, raw_path: str, content: str
 ) -> dict[str, str]:
-    """Write a UTF-8 problem file after validating it stays inside the problem."""
+    """write_problem_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        raw_path (str): `raw_path` 값입니다.
+        content (str): 요청/저장할 내용입니다.
+    
+    Returns:
+        dict[str, str]: 처리 결과를 반환합니다.
+    """
     path = safe_problem_file(workspace, problem_id, raw_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
@@ -84,7 +128,17 @@ def save_solution_upload(
     filename: str,
     content: bytes,
 ) -> dict[str, Any]:
-    """Save one uploaded expected-result solution under the problem solutions directory."""
+    """save_solution_upload 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        filename (str): `filename` 값입니다.
+        content (bytes): 요청/저장할 내용입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     name = Path(filename).name
     if not name or any(char not in SAFE_UPLOAD_NAME_CHARS for char in name):
         raise JudgeError(f"invalid solution filename: {filename}")
@@ -100,7 +154,14 @@ def save_solution_upload(
 
 
 def safe_solution_base_name(value: str) -> str:
-    """Return a safe solution base name without result token or extension."""
+    """safe_solution_base_name 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        value (str): 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     name = value.strip().replace(" ", "_")
     if not name or any(char not in SAFE_UPLOAD_NAME_CHARS for char in name):
         raise JudgeError(f"invalid solution name: {value}")
@@ -118,7 +179,18 @@ def create_solution_file(
     expected: str,
     language: str,
 ) -> dict[str, Any]:
-    """Create a new empty expected-result solution file."""
+    """create_solution_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        name (str): 이름입니다.
+        expected (str): `expected` 값입니다.
+        language (str): `language` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     if expected not in SOLUTION_EXPECTED_TOKENS:
         raise JudgeError(f"unknown expected result token: {expected}")
     if language not in SOLUTION_LANGUAGE_EXTENSIONS:
@@ -141,7 +213,19 @@ def rename_solution_file(
     expected: str,
     language: str,
 ) -> dict[str, Any]:
-    """Rename an existing expected-result solution file and keep metadata in sync."""
+    """rename_solution_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        raw_path (str): `raw_path` 값입니다.
+        name (str): 이름입니다.
+        expected (str): `expected` 값입니다.
+        language (str): `language` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     if not raw_path.startswith("solutions/"):
         raise JudgeError(f"not a solution file: {raw_path}")
     if expected not in SOLUTION_EXPECTED_TOKENS:
@@ -178,7 +262,15 @@ def rename_solution_file(
 
 
 def validate_metadata_relative_path(label: str, value: Any) -> None:
-    """Validate a problem metadata tool path before persisting it."""
+    """validate_metadata_relative_path 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        label (str): `label` 값입니다.
+        value (Any): 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     if not isinstance(value, str):
         raise JudgeError(f"{label} path must be a string")
     normalized = value.replace("\\", "/").strip()
@@ -190,7 +282,14 @@ def validate_metadata_relative_path(label: str, value: Any) -> None:
 
 
 def validate_problem_metadata_patch(metadata: dict[str, Any]) -> None:
-    """Validate editable metadata fields before writing problem.json."""
+    """validate_problem_metadata_patch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        metadata (dict[str, Any]): `metadata` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     tools = metadata.get("tools")
     if tools is not None:
         if not isinstance(tools, dict):
@@ -215,7 +314,16 @@ def validate_problem_metadata_patch(metadata: dict[str, Any]) -> None:
 def update_problem_metadata(
     workspace: Path, problem_id: str, metadata_patch: dict[str, Any]
 ) -> dict[str, Any]:
-    """Merge and write problem.json metadata for a problem."""
+    """update_problem_metadata 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        metadata_patch (dict[str, Any]): `metadata_patch` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     path = safe_problem_file(workspace, problem_id, "problem.json")
     metadata = read_json(path)
     metadata.update(metadata_patch)

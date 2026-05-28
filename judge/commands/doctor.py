@@ -1,3 +1,11 @@
+"""doctor 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import argparse
@@ -40,7 +48,17 @@ def tool_status(
     env_name: str | None = None,
     hint_key: str | None = None,
 ) -> dict[str, Any]:
-    """Return diagnostic status for a command-line tool."""
+    """tool_status 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        label (str): `label` 값입니다.
+        candidates (list[str]): `candidates` 값입니다.
+        env_name (str | None): `env_name` 값입니다.
+        hint_key (str | None): `hint_key` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     configured = os.environ.get(env_name) if env_name else None
     checked = [configured] if configured else candidates
     resolved = None
@@ -66,7 +84,15 @@ def tool_status(
 
 
 def path_status(label: str, path: Path) -> dict[str, Any]:
-    """Return diagnostic status for a runtime path."""
+    """path_status 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        label (str): `label` 값입니다.
+        path (Path): 경로 문자열입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     return {
         "label": label,
         "status": "ok" if path.exists() else "missing",
@@ -77,7 +103,14 @@ def path_status(label: str, path: Path) -> dict[str, Any]:
 
 
 def collect_diagnostics() -> dict[str, Any]:
-    """Collect local environment diagnostics for the judge CLI."""
+    """collect_diagnostics 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     packs = installed_packs()
     try:
         official_repository = official_pack_repository()
@@ -151,12 +184,27 @@ def collect_diagnostics() -> dict[str, Any]:
 
 
 def status_icon(status: str) -> str:
-    """Return a compact ASCII status marker."""
+    """status_icon 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        status (str): `status` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     return "OK" if status == "ok" else "WARN"
 
 
 def print_text_report(diagnostics: dict[str, Any], verbose: bool) -> None:
-    """Print human-readable diagnostics."""
+    """print_text_report 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        diagnostics (dict[str, Any]): `diagnostics` 값입니다.
+        verbose (bool): `verbose` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     print(f"Judge doctor: {diagnostics['status']}")
     print(f"Platform: {diagnostics['platformId']}")
     python = diagnostics["python"]
@@ -194,7 +242,14 @@ def print_text_report(diagnostics: dict[str, Any], verbose: bool) -> None:
 
 
 def handle(args: argparse.Namespace) -> int:
-    """Handle `judge doctor` diagnostics."""
+    """handle 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        args (argparse.Namespace): `args` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     diagnostics = collect_diagnostics()
     if args.json:
         print(json.dumps(diagnostics, ensure_ascii=False, indent=2, sort_keys=True))

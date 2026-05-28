@@ -1,3 +1,11 @@
+"""git 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import os
@@ -34,7 +42,17 @@ def run_git(
     timeout_seconds: int = 30,
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    """Run one whitelisted git invocation without using a shell."""
+    """run_git 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        args (list[str]): `args` 값입니다.
+        timeout_seconds (int): `timeout_seconds` 값입니다.
+        check (bool): `check` 값입니다.
+    
+    Returns:
+        subprocess.CompletedProcess[str]: 처리 결과를 반환합니다.
+    """
     try:
         result = subprocess.run(
             ["git", *args],
@@ -57,7 +75,14 @@ def run_git(
 
 
 def is_git_repository(workspace: Path) -> bool:
-    """Return whether the workspace is inside a Git work tree."""
+    """is_git_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     if not workspace.exists():
         return False
     result = run_git(workspace, ["rev-parse", "--is-inside-work-tree"], check=False)
@@ -65,13 +90,27 @@ def is_git_repository(workspace: Path) -> bool:
 
 
 def ensure_git_repository(workspace: Path) -> None:
-    """Raise if the workspace is not a Git repository."""
+    """ensure_git_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     if not is_git_repository(workspace):
         raise JudgeError("workspace is not a Git repository")
 
 
 def redact_remote_url(url: str) -> str:
-    """Remove credentials from a remote URL before sending it to the UI."""
+    """redact_remote_url 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        url (str): `url` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     if "://" not in url:
         return url
     parsed = urlsplit(url)
@@ -82,7 +121,15 @@ def redact_remote_url(url: str) -> str:
 
 
 def normalize_github_repository(owner: str, repo: str) -> str:
-    """Return a normalized GitHub owner/repository string."""
+    """normalize_github_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        owner (str): `owner` 값입니다.
+        repo (str): 저장소 경로 또는 식별자입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     repo = repo.removesuffix(".git")
     candidate = f"{owner}/{repo}"
     if not GITHUB_REPOSITORY_RE.fullmatch(candidate):
@@ -91,7 +138,14 @@ def normalize_github_repository(owner: str, repo: str) -> str:
 
 
 def github_repository_from_remote(source: str | None) -> str | None:
-    """Parse GitHub repository information from a Git remote or owner/name string."""
+    """github_repository_from_remote 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source (str | None): `source` 값입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     value = (source or "").strip()
     if not value:
         return None
@@ -113,7 +167,14 @@ def github_repository_from_remote(source: str | None) -> str | None:
 
 
 def expected_problem_repository() -> str:
-    """Return the GitHub repository that should hold problem sources."""
+    """expected_problem_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     configured = os.environ.get(PROBLEM_REPOSITORY_ENV) or DEFAULT_PROBLEM_REPOSITORY
     parsed = github_repository_from_remote(configured)
     if parsed is None:
@@ -122,14 +183,28 @@ def expected_problem_repository() -> str:
 
 
 def repository_name(repository: str | None) -> str | None:
-    """Return the repository name portion from an owner/name string."""
+    """repository_name 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str | None): `repository` 값입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     if not repository:
         return None
     return repository.split("/", 1)[1].removesuffix(".git").lower()
 
 
 def repository_safety(remote: str | None) -> dict[str, Any]:
-    """Return UI/server safety metadata for a Problem Studio Git remote."""
+    """repository_safety 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        remote (str | None): `remote` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     expected = expected_problem_repository()
     expected_name = repository_name(expected)
     detected = github_repository_from_remote(remote)
@@ -165,7 +240,14 @@ def repository_safety(remote: str | None) -> dict[str, Any]:
 
 
 def ensure_problem_repository_remote(workspace: Path) -> None:
-    """Block Git operations when the workspace is pointed at the tool repository."""
+    """ensure_problem_repository_remote 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     safety = repository_safety(remote_url(workspace))
     if safety["toolRepositoryRemote"]:
         warning = safety.get("repositoryWarning") or {}
@@ -175,12 +257,28 @@ def ensure_problem_repository_remote(workspace: Path) -> None:
 
 
 def git_stdout(workspace: Path, args: list[str], *, check: bool = True) -> str:
-    """Run git and return stdout without trailing newlines."""
+    """git_stdout 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        args (list[str]): `args` 값입니다.
+        check (bool): `check` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     return run_git(workspace, args, check=check).stdout.rstrip("\n")
 
 
 def current_branch(workspace: Path) -> str | None:
-    """Return the current branch name, or None when detached."""
+    """current_branch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     result = run_git(workspace, ["rev-parse", "--abbrev-ref", "HEAD"], check=False)
     if result.returncode != 0:
         branch_result = run_git(workspace, ["symbolic-ref", "--short", "HEAD"], check=False)
@@ -191,13 +289,27 @@ def current_branch(workspace: Path) -> str | None:
 
 
 def current_head(workspace: Path) -> str | None:
-    """Return the short HEAD commit if available."""
+    """current_head 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     result = run_git(workspace, ["rev-parse", "--short", "HEAD"], check=False)
     return result.stdout.strip() if result.returncode == 0 else None
 
 
 def upstream_branch(workspace: Path) -> str | None:
-    """Return the configured upstream branch, if any."""
+    """upstream_branch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     result = run_git(
         workspace,
         ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
@@ -207,7 +319,15 @@ def upstream_branch(workspace: Path) -> str | None:
 
 
 def remote_url(workspace: Path, remote: str = "origin") -> str | None:
-    """Return a redacted remote URL for display."""
+    """remote_url 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        remote (str): `remote` 값입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     result = run_git(workspace, ["remote", "get-url", remote], check=False)
     if result.returncode != 0:
         return None
@@ -215,7 +335,15 @@ def remote_url(workspace: Path, remote: str = "origin") -> str | None:
 
 
 def ahead_behind(workspace: Path, upstream: str | None) -> tuple[int, int]:
-    """Return ahead/behind counts against the upstream branch."""
+    """ahead_behind 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        upstream (str | None): `upstream` 값입니다.
+    
+    Returns:
+        tuple[int, int]: 처리 결과를 반환합니다.
+    """
     if not upstream:
         return 0, 0
     result = run_git(workspace, ["rev-list", "--left-right", "--count", f"HEAD...{upstream}"])
@@ -226,7 +354,14 @@ def ahead_behind(workspace: Path, upstream: str | None) -> tuple[int, int]:
 
 
 def parse_status_paths(output: str) -> list[dict[str, str]]:
-    """Parse porcelain status lines into display dictionaries."""
+    """parse_status_paths 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        output (str): `output` 값입니다.
+    
+    Returns:
+        list[dict[str, str]]: 처리 결과를 반환합니다.
+    """
     files = []
     for line in output.splitlines():
         if not line:
@@ -240,7 +375,14 @@ def parse_status_paths(output: str) -> list[dict[str, str]]:
 
 
 def git_status(workspace: Path) -> dict[str, Any]:
-    """Return Git status for a problem studio workspace."""
+    """git_status 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     workspace = workspace.resolve()
     if not is_git_repository(workspace):
         return {
@@ -279,7 +421,14 @@ def git_status(workspace: Path) -> dict[str, Any]:
 
 
 def normalize_git_url(url: str) -> str:
-    """Validate and normalize a Git clone URL."""
+    """normalize_git_url 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        url (str): `url` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     value = url.strip()
     if not value:
         raise JudgeError("git repository URL is required")
@@ -294,7 +443,16 @@ def normalize_git_url(url: str) -> str:
 
 
 def clone_repository(url: str, target: Path, branch: str | None = None) -> dict[str, Any]:
-    """Clone a Git repository into a target directory."""
+    """clone_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        url (str): `url` 값입니다.
+        target (Path): `target` 값입니다.
+        branch (str | None): `branch` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     clone_url = normalize_git_url(url)
     target = target.expanduser().resolve()
     if target.exists() and any(target.iterdir()):
@@ -309,7 +467,14 @@ def clone_repository(url: str, target: Path, branch: str | None = None) -> dict[
 
 
 def normalized_commit_path(path: str) -> str:
-    """Return a safe repository-relative commit path."""
+    """normalized_commit_path 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (str): 경로 문자열입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     normalized = path.replace("\\", "/").strip().lstrip("./")
     parts = [part for part in normalized.split("/") if part]
     if not parts or any(part == ".." for part in parts):
@@ -318,7 +483,14 @@ def normalized_commit_path(path: str) -> str:
 
 
 def allowed_commit_path(path: str) -> bool:
-    """Return whether Problem Studio may stage the path."""
+    """allowed_commit_path 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (str): 경로 문자열입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     normalized = normalized_commit_path(path)
     lowered = normalized.lower()
     if normalized in ALLOWED_COMMIT_FILES:
@@ -331,13 +503,27 @@ def allowed_commit_path(path: str) -> bool:
 
 
 def dirty_paths(workspace: Path) -> list[str]:
-    """Return dirty paths from porcelain status."""
+    """dirty_paths 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     output = git_stdout(workspace, ["status", "--porcelain=v1"])
     return [item["path"] for item in parse_status_paths(output)]
 
 
 def staged_paths(workspace: Path) -> list[str]:
-    """Return currently staged paths."""
+    """staged_paths 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     output = git_stdout(workspace, ["diff", "--cached", "--name-only"])
     return [line for line in output.splitlines() if line]
 
@@ -347,7 +533,16 @@ def commit_changes(
     message: str,
     files: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Stage allowed problem files and commit them."""
+    """commit_changes 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        message (str): 메시지입니다.
+        files (list[str] | None): 파일 목록입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     ensure_git_repository(workspace)
     ensure_problem_repository_remote(workspace)
     message = message.strip()
@@ -373,7 +568,14 @@ def commit_changes(
 
 
 def fetch_repository(workspace: Path) -> dict[str, Any]:
-    """Fetch remote changes for the workspace."""
+    """fetch_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     ensure_git_repository(workspace)
     ensure_problem_repository_remote(workspace)
     run_git(workspace, ["fetch", "--prune"], timeout_seconds=120)
@@ -381,7 +583,14 @@ def fetch_repository(workspace: Path) -> dict[str, Any]:
 
 
 def pull_repository(workspace: Path) -> dict[str, Any]:
-    """Fast-forward pull the current branch."""
+    """pull_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     ensure_git_repository(workspace)
     ensure_problem_repository_remote(workspace)
     run_git(workspace, ["pull", "--ff-only"], timeout_seconds=120)
@@ -389,7 +598,14 @@ def pull_repository(workspace: Path) -> dict[str, Any]:
 
 
 def push_repository(workspace: Path) -> dict[str, Any]:
-    """Push the current branch after safety checks."""
+    """push_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     ensure_git_repository(workspace)
     ensure_problem_repository_remote(workspace)
     status = git_status(workspace)

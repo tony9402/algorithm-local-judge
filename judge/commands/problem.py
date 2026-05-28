@@ -1,3 +1,11 @@
+"""problem 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import argparse
@@ -9,7 +17,14 @@ from judge.core.remote import install_problem_source
 
 
 def print_installed_problem_source(result: dict) -> None:
-    """Print a concise success message for a problem install result."""
+    """print_installed_problem_source 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        result (dict): `result` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     install_type = result.get("installType") or "pack"
     label = "source package" if install_type == "source" else "problem pack"
     print(f"Installed {label}: {result.get('label') or result.get('installedPath')}")
@@ -41,7 +56,14 @@ def print_installed_problem_source(result: dict) -> None:
 
 
 def handle(args: argparse.Namespace) -> int:
-    """Handle easy `judge problem ...` commands."""
+    """handle 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        args (argparse.Namespace): `args` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     if args.problem_command == "install":
         result = install_problem_source(
             args.source,

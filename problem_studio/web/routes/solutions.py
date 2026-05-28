@@ -1,3 +1,11 @@
+"""solutions 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from typing import Annotated
@@ -41,7 +49,15 @@ ARTIFACT_PREVIEW_LIMIT = 12000
 
 
 def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dict:
-    """Return display-safe artifact preview text and truncation metadata."""
+    """preview_artifact_text 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        text (str): `text` 값입니다.
+        limit (int): `limit` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     if len(text) <= limit:
         return {"text": text, "truncated": False, "omittedChars": 0}
     omitted = len(text) - limit
@@ -52,7 +68,15 @@ def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dic
 
 @router.get("")
 def api_solutions(request: Request, problem_id: str) -> dict:
-    """Return expected-result solution files."""
+    """api_solutions 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     return route_result(
         lambda: {"solutions": list_solutions(workspace_from_request(request), problem_id)}
     )
@@ -64,7 +88,16 @@ async def api_solutions_upload(
     problem_id: str,
     files: Annotated[list[UploadFile], File(...)],
 ) -> dict:
-    """Upload one or more expected-result solution files."""
+    """api_solutions_upload 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        files (Annotated[list[UploadFile], File(...)]): 파일 목록입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "solution upload")
         workspace = workspace_from_request(request)
@@ -89,9 +122,26 @@ async def api_solutions_upload(
 
 @router.post("/create")
 def api_solutions_create(request: Request, problem_id: str, body: SolutionCreateRequest) -> dict:
-    """Create a new expected-result solution source file."""
+    """api_solutions_create 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (SolutionCreateRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_local_write_allowed(request, "solution creation")
         workspace = workspace_from_request(request)
         created = create_solution_file(
@@ -112,9 +162,26 @@ def api_solutions_create(request: Request, problem_id: str, body: SolutionCreate
 
 @router.patch("/rename")
 def api_solutions_rename(request: Request, problem_id: str, body: SolutionRenameRequest) -> dict:
-    """Rename an existing expected-result solution source file."""
+    """api_solutions_rename 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (SolutionRenameRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_local_write_allowed(request, "solution rename")
         workspace = workspace_from_request(request)
         renamed = rename_solution_file(
@@ -139,7 +206,16 @@ def api_solutions_rename(request: Request, problem_id: str, body: SolutionRename
 def api_solutions_verify_stream(
     request: Request, problem_id: str, body: SolutionVerifyRequest
 ) -> StreamingResponse:
-    """Verify expected-result solutions with progress events."""
+    """api_solutions_verify_stream 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (SolutionVerifyRequest): `body` 값입니다.
+    
+    Returns:
+        StreamingResponse: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "solution verification")
         workspace = workspace_from_request(request)
@@ -147,6 +223,14 @@ def api_solutions_verify_stream(
         raise to_http_error(exc) from exc
 
     def operation(progress):
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        progress (Any): `progress` 값입니다.
+    
+    Returns:
+        Any: 처리 결과를 반환합니다.
+    """
         progress(f"Verifying solutions for {problem_id} on profile {body.profile}.")
         result = verify_solutions(
             workspace,
@@ -170,13 +254,31 @@ def api_solutions_verify_stream(
 def api_solutions_verify_job(
     request: Request, problem_id: str, body: SolutionVerifyRequest
 ) -> dict:
-    """Queue expected-result solution verification."""
+    """api_solutions_verify_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (SolutionVerifyRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "solution verification")
         workspace = workspace_from_request(request)
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+            progress (Any): `progress` 값입니다.
+        
+        Returns:
+            Any: 처리 결과를 반환합니다.
+        """
             progress(f"Verifying solutions for {problem_id} on profile {body.profile}.")
             result = verify_solutions(
                 workspace,
@@ -217,13 +319,31 @@ def api_solutions_verify_job(
 def api_solutions_stress_job(
     request: Request, problem_id: str, body: SolutionStressRequest
 ) -> dict:
-    """Queue randomized stress testing for expected-result solutions."""
+    """api_solutions_stress_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (SolutionStressRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "solution stress test")
         workspace = workspace_from_request(request)
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+            progress (Any): `progress` 값입니다.
+        
+        Returns:
+            Any: 처리 결과를 반환합니다.
+        """
             result = stress_test_solutions(
                 workspace,
                 problem_id,
@@ -267,7 +387,17 @@ def api_solution_wrong_case(
     run_id: str,
     case_id: str,
 ) -> dict:
-    """Return wrong-answer artifacts for a solution verification run."""
+    """api_solution_wrong_case 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         workspace = workspace_from_request(request)
         raw_data = wrong_artifacts(run_id, case_id, workspace)
@@ -297,7 +427,18 @@ def api_solution_stress_mismatch(
     case_id: str,
     solution_key: str,
 ) -> dict:
-    """Return stress mismatch artifacts for review."""
+    """api_solution_stress_mismatch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+        solution_key (str): `solution_key` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         workspace = workspace_from_request(request)
         result = stress_mismatch_preview(
@@ -321,7 +462,19 @@ def api_solution_stress_append(
     solution_key: str,
     body: StressAppendRequest,
 ) -> dict:
-    """Append a reviewed stress mismatch to cases.yml."""
+    """api_solution_stress_append 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+        solution_key (str): `solution_key` 값입니다.
+        body (StressAppendRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_write_allowed(request, "append stress case")
         workspace = workspace_from_request(request)

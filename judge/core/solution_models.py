@@ -1,3 +1,11 @@
+"""solution_models 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,7 +17,14 @@ from judge.core.paths import rel
 
 @dataclass(frozen=True)
 class SolutionExpectation:
-    """One solution source file and the status it is expected to produce."""
+    """SolutionExpectation 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     path: Path
     token: str
@@ -18,7 +33,14 @@ class SolutionExpectation:
 
 @dataclass(frozen=True)
 class SolutionCheckResult:
-    """Observed result for one expected solution run."""
+    """SolutionCheckResult 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     source: Path
     expected_status: str
@@ -30,7 +52,15 @@ class SolutionCheckResult:
     metrics: dict[str, Any] | None = None
 
     def to_dict(self, root: Path | None = None) -> dict[str, object]:
-        """Return a compact serializable representation for CLI/reporting."""
+        """to_dict 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+            root (Path | None): `root` 값입니다.
+        
+        Returns:
+            dict[str, object]: 처리 결과를 반환합니다.
+        """
         return {
             "source": rel(self.source, root),
             "expectedStatus": self.expected_status,
@@ -45,7 +75,14 @@ class SolutionCheckResult:
 
 @dataclass(frozen=True)
 class SolutionVerificationResult:
-    """Aggregate result for solution expectation verification."""
+    """SolutionVerificationResult 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     problem_id: str
     profile: str
@@ -54,11 +91,26 @@ class SolutionVerificationResult:
 
     @property
     def passed(self) -> bool:
-        """Return whether every discovered solution matched its expected status."""
+        """passed 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        
+        Returns:
+            bool: 처리 결과를 반환합니다.
+        """
         return all(check.passed for check in self.checks)
 
     def to_dict(self, root: Path | None = None) -> dict[str, object]:
-        """Return a compact serializable representation for pack build output."""
+        """to_dict 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+            root (Path | None): `root` 값입니다.
+        
+        Returns:
+            dict[str, object]: 처리 결과를 반환합니다.
+        """
         total = self.total_count if self.total_count is not None else len(self.checks)
         return {
             "problemId": self.problem_id,

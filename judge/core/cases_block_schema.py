@@ -1,3 +1,11 @@
+"""cases_block_schema 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,7 +26,18 @@ def validate_case_block(
     case: Any,
     case_index: int,
 ) -> list[CaseCompileDiagnostic]:
-    """Validate a top-level case DSL block before expansion."""
+    """validate_case_block 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        lines (list[str]): `lines` 값입니다.
+        profile (str): `profile` 값입니다.
+        case (Any): `case` 값입니다.
+        case_index (int): `case_index` 값입니다.
+    
+    Returns:
+        list[CaseCompileDiagnostic]: 처리 결과를 반환합니다.
+    """
     line = find_case_line(lines, profile, case_index)
     location = f"cases[{case_index}]"
     if not isinstance(case, dict):

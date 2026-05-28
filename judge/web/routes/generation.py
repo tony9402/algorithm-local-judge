@@ -1,3 +1,11 @@
+"""generation 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -13,7 +21,15 @@ router = APIRouter(prefix="/api", tags=["generation"])
 
 @router.post("/generate")
 def api_generate(http_request: Request, request: GenerateRequest) -> dict:
-    """Generate test data for one problem/profile."""
+    """api_generate 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        http_request (Request): `http_request` 값입니다.
+        request (GenerateRequest): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(http_request)
         return services.generate_problem(request.problem_id, request.profile, request.force)
@@ -23,7 +39,15 @@ def api_generate(http_request: Request, request: GenerateRequest) -> dict:
 
 @router.post("/generate/stream")
 def api_generate_stream(http_request: Request, request: GenerateRequest) -> StreamingResponse:
-    """Generate test data while streaming progress events."""
+    """api_generate_stream 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        http_request (Request): `http_request` 값입니다.
+        request (GenerateRequest): HTTP 요청 객체입니다.
+    
+    Returns:
+        StreamingResponse: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(http_request)
         return StreamingResponse(
@@ -40,12 +64,29 @@ def api_generate_stream(http_request: Request, request: GenerateRequest) -> Stre
 
 @router.post("/generate/jobs")
 def api_generate_job(http_request: Request, request: GenerateRequest) -> dict:
-    """Queue test data generation for one problem/profile."""
+    """api_generate_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        http_request (Request): `http_request` 값입니다.
+        request (GenerateRequest): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(http_request)
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+            progress (Any): `progress` 값입니다.
+        
+        Returns:
+            Any: 처리 결과를 반환합니다.
+        """
             progress(
                 f"Generating {request.profile or 'default'} data for {request.problem_id}.",
                 label="Data generation",
@@ -80,7 +121,14 @@ def api_generate_job(http_request: Request, request: GenerateRequest) -> dict:
 
 @router.post("/cases/compile")
 def api_cases_compile(request: CasesCompileRequest) -> dict:
-    """Compile cases.yml and return diagnostics for one problem/profile."""
+    """api_cases_compile 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (CasesCompileRequest): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         return services.compile_problem_cases_result(request.problem_id, request.profile)
     except Exception as exc:
@@ -89,12 +137,29 @@ def api_cases_compile(request: CasesCompileRequest) -> dict:
 
 @router.post("/cases/jobs")
 def api_cases_compile_job(http_request: Request, request: CasesCompileRequest) -> dict:
-    """Queue cases.yml compilation for one problem/profile."""
+    """api_cases_compile_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        http_request (Request): `http_request` 값입니다.
+        request (CasesCompileRequest): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(http_request)
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+            progress (Any): `progress` 값입니다.
+        
+        Returns:
+            Any: 처리 결과를 반환합니다.
+        """
             progress(f"Compiling cases.yml for {request.problem_id}.", label="Cases compile")
             cancel_token.check()
             return services.compile_problem_cases_result(request.problem_id, request.profile)

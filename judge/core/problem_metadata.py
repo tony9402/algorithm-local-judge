@@ -1,3 +1,11 @@
+"""problem_metadata 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,7 +20,14 @@ from judge.utils.fs import read_json
 
 
 def forbidden_metadata_keys(metadata: dict[str, Any]) -> set[str]:
-    """Return metadata keys that look like external platform identifiers."""
+    """forbidden_metadata_keys 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        metadata (dict[str, Any]): `metadata` 값입니다.
+    
+    Returns:
+        set[str]: 처리 결과를 반환합니다.
+    """
     forbidden = set()
     for key in metadata:
         lowered = key.lower()
@@ -26,7 +41,15 @@ def forbidden_metadata_keys(metadata: dict[str, Any]) -> set[str]:
 
 
 def load_problem(problem_id: str, root: Path | None = None) -> tuple[Path, Path, dict[str, Any]]:
-    """Load and validate a problem metadata file."""
+    """load_problem 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        tuple[Path, Path, dict[str, Any]]: 처리 결과를 반환합니다.
+    """
     validate_safe_id("problem id", problem_id)
     problem_dir = find_problem_dir(problem_id, root)
     display_root = root or repo_root()
@@ -44,7 +67,14 @@ def load_problem(problem_id: str, root: Path | None = None) -> tuple[Path, Path,
 
 
 def is_precompiled_problem(metadata: dict[str, Any]) -> bool:
-    """Return whether problem tools are already compiled in the problem metadata."""
+    """is_precompiled_problem 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        metadata (dict[str, Any]): `metadata` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     tools = metadata.get("tools", {})
     return tools.get("mode") == PRECOMPILED_TOOL_MODE
 
@@ -52,7 +82,15 @@ def is_precompiled_problem(metadata: dict[str, Any]) -> bool:
 def tool_paths(
     problem_id: str, root: Path | None = None
 ) -> tuple[Path, Path, dict[str, Any], dict[str, Path]]:
-    """Resolve and validate all tool paths declared by a problem."""
+    """tool_paths 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        tuple[Path, Path, dict[str, Any], dict[str, Path]]: 처리 결과를 반환합니다.
+    """
     display_root = root or repo_root()
     problem_dir, metadata_path, metadata = load_problem(problem_id, root)
     tools = metadata.get("tools", {})
@@ -76,5 +114,14 @@ def tool_paths(
 
 
 def tool_output_path(problem_id: str, name: str, root: Path | None = None) -> Path:
-    """Return the compiled binary path for a named problem tool."""
+    """tool_output_path 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        name (str): 이름입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     return build_root(root) / "tools" / problem_id / name

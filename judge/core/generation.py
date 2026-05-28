@@ -1,3 +1,11 @@
+"""generation 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import os
@@ -18,7 +26,16 @@ from judge.utils.fs import write_json
 
 
 def cache_dir_for(problem_id: str, key: str, root: Path | None = None) -> Path:
-    """Return the cache directory for a problem and generation key."""
+    """cache_dir_for 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        key (str): `key` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     return cache_root(root) / "problems" / problem_id / key
 
 
@@ -29,7 +46,18 @@ def acquire_generation_lock(
     root: Path | None = None,
     timeout_seconds: int = 30,
 ) -> Path:
-    """Acquire a filesystem lock for one generation job."""
+    """acquire_generation_lock 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str): `profile` 값입니다.
+        key (str): `key` 값입니다.
+        root (Path | None): `root` 값입니다.
+        timeout_seconds (int): `timeout_seconds` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     display_root = root or repo_root()
     locks_dir = cache_root(root) / "locks"
     locks_dir.mkdir(parents=True, exist_ok=True)
@@ -55,9 +83,29 @@ def generate(
     verbose: bool = False,
     progress: Callable[[str], None] | None = None,
 ) -> Path:
-    """Generate or reuse test data for a problem/profile pair."""
+    """generate 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        force (bool): `force` 값입니다.
+        root (Path | None): `root` 값입니다.
+        verbose (bool): `verbose` 값입니다.
+        progress (Callable[[str], None] | None): `progress` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
 
     def emit(message: str) -> None:
+    """emit 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        message (str): 메시지입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         if progress is not None:
             progress(message)
 

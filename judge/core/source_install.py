@@ -1,3 +1,11 @@
+"""source_install 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import re
@@ -18,25 +26,55 @@ DEFAULT_SOURCE_REF = "default"
 
 
 def safe_source_component(value: str | None, fallback: str) -> str:
-    """Return a filesystem-safe path component for installed source packages."""
+    """safe_source_component 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        value (str | None): 값입니다.
+        fallback (str): `fallback` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     component = SAFE_SOURCE_COMPONENT_RE.sub("_", value or fallback).strip("_")
     return component or fallback
 
 
 def reject_symlinks(path: Path) -> None:
-    """Reject symlinks before copying source packages into the install area."""
+    """reject_symlinks 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     for item in path.rglob("*"):
         if item.is_symlink():
             raise JudgeError(f"refusing to install source package with symlink: {item}")
 
 
 def source_problem_count(package_root: Path) -> int:
-    """Return the number of problems in one source package root."""
+    """source_problem_count 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        package_root (Path): `package_root` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     return len(list((package_root / "problems").glob("*/problem.json")))
 
 
 def copy_testlib_if_needed(package_root: Path, target: Path) -> None:
-    """Copy testlib.h into locations expected by source problem tools."""
+    """copy_testlib_if_needed 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        package_root (Path): `package_root` 값입니다.
+        target (Path): `target` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     root_testlib = package_root / "testlib.h"
     problems_testlib = package_root / "problems" / "testlib.h"
     if root_testlib.exists() and root_testlib.is_file():
@@ -55,7 +93,17 @@ def install_problem_source_package(
     ref: str | None = None,
     commit_sha: str | None = None,
 ) -> dict[str, Any]:
-    """Install a source problem package that contains a problems directory."""
+    """install_problem_source_package 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        package_root (Path): `package_root` 값입니다.
+        repository (str | None): `repository` 값입니다.
+        ref (str | None): `ref` 값입니다.
+        commit_sha (str | None): `commit_sha` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     package_root = package_root.resolve()
     problems_dir = package_root / "problems"
     if not problems_dir.is_dir():
@@ -118,7 +166,17 @@ def install_problem_source_archive(
     ref: str | None = None,
     commit_sha: str | None = None,
 ) -> dict[str, Any]:
-    """Install a source problem package from a GitHub zip archive."""
+    """install_problem_source_archive 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        archive_path (Path): `archive_path` 값입니다.
+        repository (str | None): `repository` 값입니다.
+        ref (str | None): `ref` 값입니다.
+        commit_sha (str | None): `commit_sha` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     with tempfile.TemporaryDirectory(prefix="alj-source-extract-") as tmp:
         extracted_dir = Path(tmp)
         safe_extract_zip(archive_path, extracted_dir)

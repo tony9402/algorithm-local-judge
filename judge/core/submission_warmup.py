@@ -1,3 +1,11 @@
+"""submission_warmup 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -18,7 +26,20 @@ def warm_up_submission(
     emit: Callable[[str], None],
     command_runner: Callable[..., CommandResult] = run_command_result,
 ) -> dict[str, Any] | None:
-    """Run the prepared submission once on the first case of a warmup profile."""
+    """warm_up_submission 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        command (list[str]): `command` 값입니다.
+        data_dir (Path): `data_dir` 값입니다.
+        run_dir (Path): `run_dir` 값입니다.
+        timeout_ms (int): `timeout_ms` 값입니다.
+        profile (str): `profile` 값입니다.
+        emit (Callable[[str], None]): `emit` 값입니다.
+        command_runner (Callable[..., CommandResult]): `command_runner` 값입니다.
+    
+    Returns:
+        dict[str, Any] | None: 처리 결과를 반환합니다.
+    """
     manifest = read_json(data_dir / "manifest.json")
     cases = list(manifest.get("cases") or [])
     if not cases:

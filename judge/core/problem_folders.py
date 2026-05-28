@@ -1,3 +1,11 @@
+"""problem_folders 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import json
@@ -12,7 +20,14 @@ MAX_FOLDER_LENGTH = 80
 
 
 def normalize_problem_folder(folder: str | None) -> str:
-    """Return a display folder value safe to persist in problem metadata."""
+    """normalize_problem_folder 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        folder (str | None): `folder` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     value = (folder or "").strip()
     if len(value) > MAX_FOLDER_LENGTH:
         raise JudgeError(f"problem folder is too long (max {MAX_FOLDER_LENGTH} characters)")
@@ -22,7 +37,14 @@ def normalize_problem_folder(folder: str | None) -> str:
 
 
 def problem_folder_editable(problem_dir: Path) -> bool:
-    """Return whether the problem metadata can be edited by the Judge web UI."""
+    """problem_folder_editable 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_dir (Path): `problem_dir` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     resolved = problem_dir.resolve()
     packs = problem_pack_root().resolve()
     if resolved == packs or packs in resolved.parents:
@@ -32,7 +54,15 @@ def problem_folder_editable(problem_dir: Path) -> bool:
 
 
 def problem_folder_payload(metadata: dict[str, Any], problem_dir: Path) -> dict[str, Any]:
-    """Return folder fields used by the web problem list."""
+    """problem_folder_payload 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        metadata (dict[str, Any]): `metadata` 값입니다.
+        problem_dir (Path): `problem_dir` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     folder = metadata.get("folder")
     return {
         "folder": folder if isinstance(folder, str) else "",
@@ -41,7 +71,15 @@ def problem_folder_payload(metadata: dict[str, Any], problem_dir: Path) -> dict[
 
 
 def update_problem_folder(problem_id: str, folder: str | None) -> dict[str, Any]:
-    """Update the display folder in a problem metadata file."""
+    """update_problem_folder 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        folder (str | None): `folder` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     problem_dir, metadata_path, metadata = load_problem(problem_id)
     if not problem_folder_editable(problem_dir):
         raise SecurityPolicyError(

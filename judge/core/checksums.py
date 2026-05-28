@@ -1,3 +1,11 @@
+"""checksums 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import re
@@ -10,12 +18,27 @@ SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 def checksum_sidecar_path(artifact_path: Path) -> Path:
-    """Return the SHA-256 sidecar path for a release artifact."""
+    """checksum_sidecar_path 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        artifact_path (Path): `artifact_path` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     return artifact_path.with_name(f"{artifact_path.name}.sha256")
 
 
 def parse_sha256_checksum(text: str, artifact_name: str) -> str:
-    """Return the expected SHA-256 digest for an artifact from checksum text."""
+    """parse_sha256_checksum 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        text (str): `text` 값입니다.
+        artifact_name (str): `artifact_name` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     fallback_hash: str | None = None
     for line in text.splitlines():
         stripped = line.strip()
@@ -37,7 +60,14 @@ def parse_sha256_checksum(text: str, artifact_name: str) -> str:
 
 
 def write_sha256_sidecar(artifact_path: Path) -> Path:
-    """Write the standard sidecar SHA-256 checksum for an artifact."""
+    """write_sha256_sidecar 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        artifact_path (Path): `artifact_path` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     checksum_path = checksum_sidecar_path(artifact_path)
     checksum_path.write_text(
         f"{sha256_file(artifact_path)}  {artifact_path.name}\n",
@@ -47,7 +77,15 @@ def write_sha256_sidecar(artifact_path: Path) -> Path:
 
 
 def verify_sha256_text(artifact_path: Path, checksum_text: str) -> str:
-    """Validate a file against checksum text and return the matched digest."""
+    """verify_sha256_text 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        artifact_path (Path): `artifact_path` 값입니다.
+        checksum_text (str): `checksum_text` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     expected = parse_sha256_checksum(checksum_text, artifact_path.name)
     actual = sha256_file(artifact_path)
     if actual.lower() != expected.lower():
@@ -58,7 +96,14 @@ def verify_sha256_text(artifact_path: Path, checksum_text: str) -> str:
 
 
 def verify_sha256_sidecar(artifact_path: Path) -> str:
-    """Validate a file against its standard sidecar checksum."""
+    """verify_sha256_sidecar 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        artifact_path (Path): `artifact_path` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     checksum_path = checksum_sidecar_path(artifact_path)
     if not checksum_path.exists():
         raise JudgeError(f"missing checksum sidecar: {checksum_path.name}")

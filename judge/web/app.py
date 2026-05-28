@@ -1,3 +1,11 @@
+"""app 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import sys
@@ -17,7 +25,14 @@ INDEX_PATH = STATIC_ROOT / "index.html"
 
 
 def register_api_routes(app: FastAPI) -> None:
-    """Register all web API routers."""
+    """register_api_routes 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        app (FastAPI): `app` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     for router in API_ROUTERS:
         app.include_router(router)
 
@@ -28,7 +43,16 @@ def create_app(
     remote_warning: bool = False,
     allow_remote_run: bool = False,
 ) -> FastAPI:
-    """Create the FastAPI application for the local judge UI."""
+    """create_app 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        local_binding (bool): `local_binding` 값입니다.
+        remote_warning (bool): `remote_warning` 값입니다.
+        allow_remote_run (bool): `allow_remote_run` 값입니다.
+    
+    Returns:
+        FastAPI: 처리 결과를 반환합니다.
+    """
     app = FastAPI(title="Algorithm Local Judge", docs_url=None, redoc_url=None)
     app.state.local_binding = local_binding
     app.state.remote_warning = remote_warning
@@ -38,7 +62,14 @@ def create_app(
 
     @app.get("/")
     def index() -> FileResponse:
-        """Serve the single-page web UI."""
+        """index 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            없음
+        
+        Returns:
+            FileResponse: 처리 결과를 반환합니다.
+        """
         return FileResponse(
             INDEX_PATH,
             headers={"Cache-Control": "no-store"},
@@ -46,7 +77,14 @@ def create_app(
 
     @app.get("/static/{file_path:path}")
     def static_file(file_path: str) -> FileResponse:
-        """Serve web UI assets without browser cache reuse during local development."""
+        """static_file 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            file_path (str): `file_path` 값입니다.
+        
+        Returns:
+            FileResponse: 처리 결과를 반환합니다.
+        """
         root = STATIC_ROOT.resolve()
         path = (root / file_path).resolve()
         if root not in path.parents and path != root:

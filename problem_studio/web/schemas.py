@@ -1,3 +1,11 @@
+"""schemas 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -6,13 +14,27 @@ from pydantic import BaseModel, Field
 
 
 class WorkspaceOpenRequest(BaseModel):
-    """Request body for switching the active workspace."""
+    """WorkspaceOpenRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     path: str = Field(min_length=1)
 
 
 class GitCloneRequest(BaseModel):
-    """Request body for cloning a Git workspace."""
+    """GitCloneRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     url: str = Field(min_length=1)
     path: str = Field(min_length=1)
@@ -20,20 +42,41 @@ class GitCloneRequest(BaseModel):
 
 
 class GitCommitRequest(BaseModel):
-    """Request body for creating a Git commit from allowed workspace files."""
+    """GitCommitRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     message: str = Field(min_length=1)
     files: list[str] | None = None
 
 
 class RepositorySelectRequest(BaseModel):
-    """Request body for selecting a nested problem repository."""
+    """RepositorySelectRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     repo_name: str = Field(min_length=1)
 
 
 class RepositoryCloneRequest(BaseModel):
-    """Request body for cloning a nested problem repository."""
+    """RepositoryCloneRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     url: str = Field(min_length=1)
     branch: str | None = None
@@ -41,13 +84,27 @@ class RepositoryCloneRequest(BaseModel):
 
 
 class RepositoryRegisterRequest(BaseModel):
-    """Request body for opening an existing nested problem repository."""
+    """RepositoryRegisterRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     repo_name: str = Field(min_length=1)
 
 
 class ProblemCreateRequest(BaseModel):
-    """Request body for creating a new problem."""
+    """ProblemCreateRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     problem_id: str = Field(min_length=1)
     title: str = "Untitled Problem"
@@ -58,63 +115,133 @@ class ProblemCreateRequest(BaseModel):
 
 
 class ProblemDeleteRequest(BaseModel):
-    """Request body for deleting a problem."""
+    """ProblemDeleteRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     confirm_phrase: str = Field(min_length=1)
 
 
 class ProblemRenameRequest(BaseModel):
-    """Request body for changing a problem id."""
+    """ProblemRenameRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     problem_id: str = Field(min_length=1)
 
 
 class MetadataPatchRequest(BaseModel):
-    """Request body for patching problem metadata."""
+    """MetadataPatchRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     metadata: dict[str, Any]
 
 
 class FileWriteRequest(BaseModel):
-    """Request body for writing a problem file."""
+    """FileWriteRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     content: str
 
 
 class CasesCompileRequest(BaseModel):
-    """Request body for cases.yml compilation."""
+    """CasesCompileRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     profile: str | None = None
 
 
 class GenerateRequest(BaseModel):
-    """Request body for generating problem data."""
+    """GenerateRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     profile: str = "hidden"
     force: bool = False
 
 
 class DataValidateRequest(BaseModel):
-    """Request body for generating and validating every cases.yml profile."""
+    """DataValidateRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     force: bool = True
 
 
 class ToolCompileRequest(BaseModel):
-    """Request body for compiling all tools or one selected tool."""
+    """ToolCompileRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     tool: str | None = None
 
 
 class SolutionVerifyRequest(BaseModel):
-    """Request body for solution expectation verification."""
+    """SolutionVerifyRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     profile: str = "hidden"
     solutions: list[str] | None = None
 
 
 class SolutionStressRequest(BaseModel):
-    """Request body for randomized expected-solution stress testing."""
+    """SolutionStressRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     profile: str = "hidden"
     duration_seconds: int = Field(default=60, ge=1)
@@ -124,7 +251,14 @@ class SolutionStressRequest(BaseModel):
 
 
 class StressAppendRequest(BaseModel):
-    """Request body for adding a stress mismatch to cases.yml."""
+    """StressAppendRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     profile: str = "hidden"
     mode: str = Field(default="fixed", pattern="^(fixed|generator)$")
@@ -132,7 +266,14 @@ class StressAppendRequest(BaseModel):
 
 
 class SolutionCreateRequest(BaseModel):
-    """Request body for creating an expected-result solution file."""
+    """SolutionCreateRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     name: str = Field(min_length=1)
     expected: str = "wa"
@@ -140,7 +281,14 @@ class SolutionCreateRequest(BaseModel):
 
 
 class SolutionRenameRequest(BaseModel):
-    """Request body for renaming an expected-result solution file."""
+    """SolutionRenameRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     path: str = Field(min_length=1)
     name: str = Field(min_length=1)
@@ -149,7 +297,14 @@ class SolutionRenameRequest(BaseModel):
 
 
 class PackBuildRequest(BaseModel):
-    """Request body for building a source-free problem pack."""
+    """PackBuildRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     pack_id: str = Field(min_length=1)
     platform_id: str | None = None
@@ -157,7 +312,14 @@ class PackBuildRequest(BaseModel):
 
 
 class BulkPackBuildRequest(BaseModel):
-    """Request body for testing selected problems and building one pack."""
+    """BulkPackBuildRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     pack_id: str = Field(min_length=1)
     platform_id: str | None = None

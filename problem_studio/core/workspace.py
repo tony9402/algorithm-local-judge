@@ -1,3 +1,11 @@
+"""workspace 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import os
@@ -15,7 +23,14 @@ DELETE_CONFIRM_PHRASE = "확인했습니다"
 
 
 def resolve_workspace(path: Path | str | None = None) -> Path:
-    """Return a normalized workspace root for a problem repository."""
+    """resolve_workspace 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path | str | None): 경로 문자열입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     workspace = Path(path or ".").expanduser().resolve()
     if workspace.name == "problems":
         workspace = workspace.parent
@@ -25,19 +40,41 @@ def resolve_workspace(path: Path | str | None = None) -> Path:
 
 
 def problems_dir(workspace: Path) -> Path:
-    """Return the problems directory for a workspace."""
+    """problems_dir 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     return workspace / "problems"
 
 
 def problem_dir(workspace: Path, problem_id: str) -> Path:
-    """Return a validated problem directory path."""
+    """problem_dir 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     validate_safe_id("problem id", problem_id)
     path = problems_dir(workspace) / problem_id
     return ensure_inside(path, problems_dir(workspace))
 
 
 def discover_workspace_problem_ids(workspace: Path) -> list[str]:
-    """Discover problem ids directly owned by one Problem Studio workspace."""
+    """discover_workspace_problem_ids 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     root = problems_dir(workspace)
     if not root.exists():
         return []
@@ -48,7 +85,14 @@ def discover_workspace_problem_ids(workspace: Path) -> list[str]:
 
 
 def discover_source_root(workspace: Path) -> Path:
-    """Return the common judge source root used for testlib.h and core commands."""
+    """discover_source_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     configured = os.environ.get("JUDGE_SOURCE_ROOT")
     if configured:
         return Path(configured).expanduser().resolve()
@@ -64,7 +108,14 @@ def discover_source_root(workspace: Path) -> Path:
 
 
 def testlib_status(workspace: Path) -> dict[str, Any]:
-    """Return whether testlib.h is visible from the problem workspace."""
+    """testlib_status 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     source_root = discover_source_root(workspace)
     source = source_root / "testlib.h"
     workspace_link = problems_dir(workspace) / "testlib.h"
@@ -79,7 +130,14 @@ def testlib_status(workspace: Path) -> dict[str, Any]:
 
 
 def link_testlib(workspace: Path) -> dict[str, Any]:
-    """Expose the common testlib.h under problems/testlib.h as a symlink."""
+    """link_testlib 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     source = discover_source_root(workspace) / "testlib.h"
     if not source.exists():
         raise JudgeError(f"testlib.h not found: {source}")
@@ -93,7 +151,14 @@ def link_testlib(workspace: Path) -> dict[str, Any]:
 
 
 def list_problem_metadata(workspace: Path) -> list[dict[str, Any]]:
-    """Return discovered problem metadata for the studio UI."""
+    """list_problem_metadata 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        list[dict[str, Any]]: 처리 결과를 반환합니다.
+    """
     problems = []
     for problem_id in discover_workspace_problem_ids(workspace):
         _, metadata_path, metadata = load_problem(problem_id, workspace)
@@ -112,7 +177,14 @@ def list_problem_metadata(workspace: Path) -> list[dict[str, Any]]:
 
 
 def problem_folders(problems: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Return folder summaries for the problem sidebar."""
+    """problem_folders 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problems (list[dict[str, Any]]): `problems` 값입니다.
+    
+    Returns:
+        list[dict[str, Any]]: 처리 결과를 반환합니다.
+    """
     counts: dict[str, int] = {}
     for problem in problems:
         folder = str(problem.get("folder") or "").strip()
@@ -132,7 +204,16 @@ def delete_problem(
     problem_id: str,
     confirm_phrase: str,
 ) -> dict[str, Any]:
-    """Delete a problem directory only after the exact confirmation phrase."""
+    """delete_problem 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        confirm_phrase (str): `confirm_phrase` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     if confirm_phrase != DELETE_CONFIRM_PHRASE:
         raise JudgeError(f'문제를 삭제하려면 "{DELETE_CONFIRM_PHRASE}"를 정확히 입력하세요.')
     target = problem_dir(workspace, problem_id)
@@ -153,7 +234,16 @@ def rename_problem(
     problem_id: str,
     new_problem_id: str,
 ) -> dict[str, Any]:
-    """Rename a problem directory and keep problem.json in sync."""
+    """rename_problem 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        new_problem_id (str): `new_problem_id` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     validate_safe_id("problem id", new_problem_id)
     if problem_id == new_problem_id:
         _, metadata_path, metadata = load_problem(problem_id, workspace)
@@ -194,7 +284,14 @@ def rename_problem(
 
 
 def workspace_status(workspace: Path) -> dict[str, Any]:
-    """Return a structured summary of the current problem authoring workspace."""
+    """workspace_status 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     problem_ids = discover_workspace_problem_ids(workspace)
     problems = list_problem_metadata(workspace)
     return {

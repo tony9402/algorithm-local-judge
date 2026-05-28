@@ -1,3 +1,11 @@
+"""service_catalog 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -12,7 +20,14 @@ from judge.web.service_common import FULL_PROFILE, SAMPLE_PROFILE, web_debug_ena
 
 
 def problem_profiles(problem_id: str) -> list[str]:
-    """Return profile names declared by a problem generator config."""
+    """problem_profiles 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     try:
         _, _, _, paths = tool_paths(problem_id)
         config = load_config(paths["generatorConfig"])
@@ -26,7 +41,14 @@ def problem_profiles(problem_id: str) -> list[str]:
 
 
 def list_problems() -> list[dict[str, Any]]:
-    """Return problem metadata for the web UI."""
+    """list_problems 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        list[dict[str, Any]]: 처리 결과를 반환합니다.
+    """
     problems = []
     for problem_id in discover_problem_ids():
         problem_dir, _, metadata = load_problem(problem_id)
@@ -44,12 +66,26 @@ def list_problems() -> list[dict[str, Any]]:
 
 
 def list_packs() -> list[dict[str, Any]]:
-    """Return installed problem pack metadata."""
+    """list_packs 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        list[dict[str, Any]]: 처리 결과를 반환합니다.
+    """
     return installed_packs()
 
 
 def current_web_config() -> dict[str, Any]:
-    """Return web configuration values that the UI should display."""
+    """current_web_config 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     return {
         "officialRepository": official_pack_repository(),
         "sampleProfile": SAMPLE_PROFILE,
@@ -59,7 +95,14 @@ def current_web_config() -> dict[str, Any]:
 
 
 def dashboard_status() -> dict[str, Any]:
-    """Return the initial dashboard status for the web UI."""
+    """dashboard_status 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     return {
         "problems": list_problems(),
         "packs": list_packs(),

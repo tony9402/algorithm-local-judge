@@ -1,3 +1,11 @@
+"""problem_discovery 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,7 +22,14 @@ from judge.core.paths import (
 
 
 def installed_problem_roots() -> list[Path]:
-    """Return all problem directories contributed by installed problem packs."""
+    """installed_problem_roots 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        list[Path]: 처리 결과를 반환합니다.
+    """
     packs_root = problem_pack_root()
     if not packs_root.exists():
         return []
@@ -26,7 +41,14 @@ def installed_problem_roots() -> list[Path]:
 
 
 def installed_source_problem_roots() -> list[Path]:
-    """Return all problem directories contributed by installed source packages."""
+    """installed_source_problem_roots 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        list[Path]: 처리 결과를 반환합니다.
+    """
     sources_root = problem_source_root()
     if not sources_root.exists():
         return []
@@ -38,7 +60,14 @@ def installed_source_problem_roots() -> list[Path]:
 
 
 def workspace_problem_roots(root: Path) -> list[Path]:
-    """Return problem roots for both flat and nested workspace layouts."""
+    """workspace_problem_roots 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        root (Path): `root` 값입니다.
+    
+    Returns:
+        list[Path]: 처리 결과를 반환합니다.
+    """
     container = root / "problems"
     roots = []
     if container.exists():
@@ -52,7 +81,14 @@ def workspace_problem_roots(root: Path) -> list[Path]:
 
 
 def problem_roots(root: Path | None = None) -> list[Path]:
-    """Return candidate roots that may contain problem directories."""
+    """problem_roots 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        list[Path]: 처리 결과를 반환합니다.
+    """
     if root is not None:
         return workspace_problem_roots(root)
     roots = []
@@ -63,7 +99,15 @@ def problem_roots(root: Path | None = None) -> list[Path]:
 
 
 def problem_workspace_root(problem_dir: Path, root: Path | None = None) -> Path:
-    """Return the workspace root that owns one problem directory."""
+    """problem_workspace_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_dir (Path): `problem_dir` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if root is not None:
         return root
     if problem_dir.parent.name == "problems":
@@ -72,7 +116,15 @@ def problem_workspace_root(problem_dir: Path, root: Path | None = None) -> Path:
 
 
 def find_problem_dir(problem_id: str, root: Path | None = None) -> Path:
-    """Find the directory for a problem in development roots or installed packs."""
+    """find_problem_dir 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     validate_safe_id("problem id", problem_id)
     base = root or repo_root()
     direct_problem_dir = base / "problems" / problem_id
@@ -86,14 +138,28 @@ def find_problem_dir(problem_id: str, root: Path | None = None) -> Path:
 
 
 def problem_sort_key(problem_id: str) -> tuple[Any, ...]:
-    """Sort numeric problem ids naturally before non-numeric ids."""
+    """problem_sort_key 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        tuple[Any, ...]: 처리 결과를 반환합니다.
+    """
     if problem_id.isdigit():
         return (0, int(problem_id), problem_id)
     return (1, problem_id)
 
 
 def discover_problem_ids(root: Path | None = None) -> list[str]:
-    """Discover problem ids from `problems/*/problem.json`."""
+    """discover_problem_ids 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     problem_ids = set()
     for problems_dir in problem_roots(root):
         if not problems_dir.exists():
@@ -103,7 +169,14 @@ def discover_problem_ids(root: Path | None = None) -> list[str]:
 
 
 def validate_problem_sequence(problem_ids: list[str]) -> list[str]:
-    """Validate that numeric problem ids start at 1 and have no gaps."""
+    """validate_problem_sequence 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_ids (list[str]): `problem_ids` 값입니다.
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     errors = []
     if not problem_ids:
         return ["no problems found"]

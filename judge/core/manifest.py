@@ -1,3 +1,11 @@
+"""manifest 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import json
@@ -15,7 +23,14 @@ FILE_HASH_CACHE: dict[Path, tuple[int, int, str]] = {}
 
 
 def cached_sha256_file(path: Path) -> str:
-    """Hash a file, reusing the digest while mtime and size stay unchanged."""
+    """cached_sha256_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     resolved = path.resolve()
     stat = resolved.stat()
     cached = FILE_HASH_CACHE.get(resolved)
@@ -27,7 +42,15 @@ def cached_sha256_file(path: Path) -> str:
 
 
 def source_hashes(problem_id: str, root: Path | None = None) -> dict[str, str]:
-    """Hash every source file that affects generated test data."""
+    """source_hashes 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        dict[str, str]: 처리 결과를 반환합니다.
+    """
     _, metadata_path, _, paths = tool_paths(problem_id, root)
     project_root = root or repo_root()
     hashes = {
@@ -48,7 +71,16 @@ def source_hashes(problem_id: str, root: Path | None = None) -> dict[str, str]:
 
 
 def generation_key(problem_id: str, profile: str, root: Path | None = None) -> str:
-    """Return the cache key for a problem/profile generation request."""
+    """generation_key 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str): `profile` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     _, _, metadata = load_problem(problem_id, root)
     payload = {
         "protocolVersion": PROTOCOL_VERSION,
@@ -64,7 +96,17 @@ def generation_key(problem_id: str, profile: str, root: Path | None = None) -> s
 
 
 def validate_manifest(cache_dir: Path, problem_id: str, profile: str, key: str) -> bool:
-    """Check whether a cached dataset manifest still matches its files."""
+    """validate_manifest 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        cache_dir (Path): `cache_dir` 값입니다.
+        problem_id (str): 문제 ID입니다.
+        profile (str): `profile` 값입니다.
+        key (str): `key` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     manifest_path = cache_dir / "manifest.json"
     if not manifest_path.exists():
         return False
@@ -91,7 +133,17 @@ def validate_manifest(cache_dir: Path, problem_id: str, profile: str, key: str) 
 
 
 def validate_manifest_fast(cache_dir: Path, problem_id: str, profile: str, key: str) -> bool:
-    """Lightweight manifest check for read-only UI previews."""
+    """validate_manifest_fast 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        cache_dir (Path): `cache_dir` 값입니다.
+        problem_id (str): 문제 ID입니다.
+        profile (str): `profile` 값입니다.
+        key (str): `key` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     manifest_path = cache_dir / "manifest.json"
     if not manifest_path.exists():
         return False
@@ -122,7 +174,20 @@ def build_manifest(
     final_dir: Path,
     root: Path | None = None,
 ) -> dict[str, Any]:
-    """Build the manifest JSON object for a freshly generated dataset."""
+    """build_manifest 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str): `profile` 값입니다.
+        key (str): `key` 값입니다.
+        source_hashes_data (dict[str, str]): `source_hashes_data` 값입니다.
+        case_summaries (list[dict[str, Any]]): `case_summaries` 값입니다.
+        final_dir (Path): `final_dir` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     _, _, metadata = load_problem(problem_id, root)
     cases = []
     for case in case_summaries:

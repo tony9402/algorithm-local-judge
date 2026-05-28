@@ -1,3 +1,11 @@
+"""service_cache 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -8,7 +16,14 @@ from judge.utils.text import format_size
 
 
 def cache_status() -> dict[str, Any]:
-    """Return cache status data with formatted sizes."""
+    """cache_status 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     data = cache_status_data()
     data["totalSizeLabel"] = format_size(int(data["totalSize"]))
     runs = data["runs"]
@@ -29,7 +44,18 @@ def cache_clear(
     all_entries: bool,
     dry_run: bool,
 ) -> dict[str, Any]:
-    """Preview or apply a cache deletion request."""
+    """cache_clear 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem (str | None): `problem` 값입니다.
+        profile (str | None): `profile` 값입니다.
+        runs (bool): `runs` 값입니다.
+        all_entries (bool): `all_entries` 값입니다.
+        dry_run (bool): `dry_run` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     plan = build_cache_clear_plan(problem, profile, runs, all_entries)
     targets = [
         {

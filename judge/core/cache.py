@@ -1,3 +1,11 @@
+"""cache 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import json
@@ -13,7 +21,14 @@ from judge.utils.text import format_size
 
 @dataclass
 class CacheClearPlan:
-    """Deletion plan for cache clear commands."""
+    """CacheClearPlan 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     root: Path
     targets: list[Path]
@@ -22,7 +37,14 @@ class CacheClearPlan:
 
 
 def cache_status_data(root: Path | None = None) -> dict[str, object]:
-    """Return a structured summary of generated datasets and run artifacts."""
+    """cache_status_data 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        dict[str, object]: 처리 결과를 반환합니다.
+    """
     base = cache_root(root)
     problems = base / "problems"
     runs = base / "runs"
@@ -53,7 +75,14 @@ def cache_status_data(root: Path | None = None) -> dict[str, object]:
 
 
 def cache_status(root: Path | None = None) -> None:
-    """Print a summary of generated datasets and run artifacts."""
+    """cache_status 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     base = cache_root(root)
     display_root = root or repo_root()
     problems = base / "problems"
@@ -91,7 +120,18 @@ def clear_targets(
     all_entries: bool = False,
     root: Path | None = None,
 ) -> list[Path]:
-    """Resolve cache paths selected by clear command options."""
+    """clear_targets 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem (str | None): `problem` 값입니다.
+        profile (str | None): `profile` 값입니다.
+        runs (bool): `runs` 값입니다.
+        all_entries (bool): `all_entries` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        list[Path]: 처리 결과를 반환합니다.
+    """
     base = cache_root(root)
     targets = []
     if problem:
@@ -129,7 +169,18 @@ def build_cache_clear_plan(
     all_entries: bool = False,
     root: Path | None = None,
 ) -> CacheClearPlan:
-    """Build a dry-run friendly plan for deleting cache paths."""
+    """build_cache_clear_plan 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem (str | None): `problem` 값입니다.
+        profile (str | None): `profile` 값입니다.
+        runs (bool): `runs` 값입니다.
+        all_entries (bool): `all_entries` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        CacheClearPlan: 처리 결과를 반환합니다.
+    """
     targets = clear_targets(problem, profile, runs, all_entries, root)
     return CacheClearPlan(
         root=cache_root(root),
@@ -140,7 +191,15 @@ def build_cache_clear_plan(
 
 
 def delete_cache_targets(targets: list[Path], root: Path | None = None) -> None:
-    """Delete cache targets after validating they stay inside the cache root."""
+    """delete_cache_targets 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        targets (list[Path]): `targets` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     base = cache_root(root)
     display_root = root or repo_root()
     lock = base / ".lock"

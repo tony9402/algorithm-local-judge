@@ -1,3 +1,11 @@
+"""validation 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import re
@@ -15,7 +23,16 @@ CASE_PROGRESS_RE = re.compile(r"Validating generated case .+ \((\d+)/(\d+)\)\.")
 
 
 def compile_cases(workspace: Path, problem_id: str, profile: str | None = None) -> dict[str, Any]:
-    """Compile one problem's cases.yml and return structured diagnostics."""
+    """compile_cases 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     return compile_problem_cases(problem_id, profile, workspace).to_dict()
 
 
@@ -26,7 +43,18 @@ def generate_profile_data(
     force: bool = False,
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
-    """Generate and validate data for one problem profile."""
+    """generate_profile_data 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        profile (str): `profile` 값입니다.
+        force (bool): `force` 값입니다.
+        progress (Callable[[str], None] | None): `progress` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     data_dir = generate(
         problem_id,
         profile,
@@ -54,7 +82,20 @@ def validate_all_data(
     prefix_profile_logs: bool = False,
     include_labels: bool = False,
 ) -> dict[str, Any]:
-    """Generate and validate every cases.yml profile for one problem."""
+    """validate_all_data 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        force (bool): `force` 값입니다.
+        progress (Callable[[str], None]): `progress` 값입니다.
+        cases_result (Any | None): `cases_result` 값입니다.
+        prefix_profile_logs (bool): `prefix_profile_logs` 값입니다.
+        include_labels (bool): `include_labels` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     if cases_result is None:
         progress("Compiling cases.yml for every profile.")
         cases_result = compile_problem_cases(problem_id, None, workspace)
@@ -79,6 +120,16 @@ def validate_all_data(
             profile_name: str = profile.name,
             completed_before: int = completed_before_profile,
         ) -> None:
+        """profile_progress 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            message (str): 메시지입니다.
+            profile_name (str): `profile_name` 값입니다.
+            completed_before (int): `completed_before` 값입니다.
+        
+        Returns:
+            None: 처리 결과를 반환합니다.
+        """
             if not prefix_profile_logs:
                 progress(message)
                 return
@@ -121,7 +172,16 @@ def validate_all_data(
 
 
 def sample_cases(workspace: Path, problem_id: str, force: bool = False) -> dict[str, Any]:
-    """Generate and return sample cases for authoring preview."""
+    """sample_cases 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path): 작업 공간 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        force (bool): `force` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     data_dir = generate(problem_id, "sample", force=force, root=workspace)
     manifest = read_json(data_dir / "manifest.json")
     cases = []

@@ -1,3 +1,11 @@
+"""source_history_metadata 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import contextlib
@@ -18,7 +26,17 @@ def source_history_metadata(
     problem_id: str,
     source_mode: str,
 ) -> dict[str, Any]:
-    """Build metadata for one cached source history entry."""
+    """source_history_metadata 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_id (str): 소스 ID입니다.
+        target (Path): `target` 값입니다.
+        problem_id (str): 문제 ID입니다.
+        source_mode (str): `source_mode` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     stat = target.stat()
     saved_at = stat.st_mtime
     return {
@@ -41,14 +59,31 @@ def write_source_history_metadata(
     problem_id: str,
     source_mode: str,
 ) -> dict[str, Any]:
-    """Persist metadata next to one cached source file."""
+    """write_source_history_metadata 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_id (str): 소스 ID입니다.
+        target (Path): `target` 값입니다.
+        problem_id (str): 문제 ID입니다.
+        source_mode (str): `source_mode` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     metadata = source_history_metadata(source_id, target, problem_id, source_mode)
     write_json(target.parent / "metadata.json", metadata)
     return metadata
 
 
 def source_history_run_summary(result: dict[str, Any]) -> dict[str, Any]:
-    """Return a compact run summary suitable for source history metadata."""
+    """source_history_run_summary 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        result (dict[str, Any]): `result` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     cases = result.get("cases") if isinstance(result.get("cases"), list) else []
     return {
         "runId": result.get("runId"),
@@ -65,7 +100,15 @@ def source_history_run_summary(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def source_file_for_entry(entry_dir: Path, metadata: dict[str, Any] | None) -> Path | None:
-    """Return the source file path for a cached source history directory."""
+    """source_file_for_entry 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        entry_dir (Path): `entry_dir` 값입니다.
+        metadata (dict[str, Any] | None): `metadata` 값입니다.
+    
+    Returns:
+        Path | None: 처리 결과를 반환합니다.
+    """
     if metadata:
         filename = Path(str(metadata.get("filename", ""))).name
         if filename:
@@ -79,7 +122,14 @@ def source_file_for_entry(entry_dir: Path, metadata: dict[str, Any] | None) -> P
 
 
 def source_entry_metadata(entry_dir: Path) -> dict[str, Any] | None:
-    """Return display metadata for one cached source history entry."""
+    """source_entry_metadata 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        entry_dir (Path): `entry_dir` 값입니다.
+    
+    Returns:
+        dict[str, Any] | None: 처리 결과를 반환합니다.
+    """
     source_id = entry_dir.name
     metadata_path = entry_dir / "metadata.json"
     metadata = None

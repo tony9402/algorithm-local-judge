@@ -1,3 +1,11 @@
+"""cases_models 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,7 +15,14 @@ from typing import Any
 
 @dataclass(frozen=True)
 class CaseCompileDiagnostic:
-    """One cases.yml compile diagnostic."""
+    """CaseCompileDiagnostic 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     severity: str
     path: str
@@ -18,7 +33,14 @@ class CaseCompileDiagnostic:
     hint: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-serializable diagnostic."""
+        """to_dict 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        
+        Returns:
+            dict[str, Any]: 처리 결과를 반환합니다.
+        """
         return {
             "severity": self.severity,
             "path": self.path,
@@ -32,7 +54,14 @@ class CaseCompileDiagnostic:
 
 @dataclass(frozen=True)
 class CompiledCase:
-    """One expanded case definition summary."""
+    """CompiledCase 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     index: int
     name: str
@@ -40,7 +69,14 @@ class CompiledCase:
     seed: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-serializable case summary."""
+        """to_dict 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        
+        Returns:
+            dict[str, Any]: 처리 결과를 반환합니다.
+        """
         return {
             "index": self.index,
             "name": self.name,
@@ -51,13 +87,27 @@ class CompiledCase:
 
 @dataclass(frozen=True)
 class CompiledProfile:
-    """Expanded case definitions for one profile."""
+    """CompiledProfile 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     name: str
     cases: list[CompiledCase] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-serializable profile summary."""
+        """to_dict 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        
+        Returns:
+            dict[str, Any]: 처리 결과를 반환합니다.
+        """
         return {
             "name": self.name,
             "caseCount": len(self.cases),
@@ -67,7 +117,14 @@ class CompiledProfile:
 
 @dataclass(frozen=True)
 class CaseCompileResult:
-    """Result of compiling a cases.yml file."""
+    """CaseCompileResult 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     path: Path
     profiles: list[CompiledProfile] = field(default_factory=list)
@@ -75,11 +132,25 @@ class CaseCompileResult:
 
     @property
     def valid(self) -> bool:
-        """Return whether the compile produced no error diagnostics."""
+        """valid 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        
+        Returns:
+            bool: 처리 결과를 반환합니다.
+        """
         return not any(diagnostic.severity == "error" for diagnostic in self.diagnostics)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-serializable compile result."""
+        """to_dict 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            self (Any): 현재 인스턴스를 나타내는 객체입니다.
+        
+        Returns:
+            dict[str, Any]: 처리 결과를 반환합니다.
+        """
         return {
             "valid": self.valid,
             "path": str(self.path),

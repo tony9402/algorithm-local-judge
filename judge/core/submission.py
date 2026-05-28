@@ -1,3 +1,11 @@
+"""submission 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -28,15 +36,44 @@ def run_submission(
     stop_on_first_failure: bool = True,
     warmup_profile: str | None = None,
 ) -> Path:
-    """Compile, run, check, and record artifacts for one submission."""
+    """run_submission 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source (str | Path): `source` 값입니다.
+        problem_id (str | None): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        root (Path | None): `root` 값입니다.
+        progress (Callable[[str], None] | None): `progress` 값입니다.
+        stop_on_first_failure (bool): `stop_on_first_failure` 값입니다.
+        warmup_profile (str | None): `warmup_profile` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
 
     def emit(message: str) -> None:
+    """emit 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        message (str): 메시지입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         if progress is not None:
             progress(message)
 
     data_dirs: dict[str, Path] = {}
 
     def profile_data_dir(target_profile: str) -> Path:
+    """profile_data_dir 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        target_profile (str): `target_profile` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
         cached_data_dir = latest_cache_for(problem_id, target_profile, root)
         if cached_data_dir is None:
             emit(f"No valid cached data for profile {target_profile}; generating test data.")

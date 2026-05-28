@@ -1,3 +1,11 @@
+"""submission_paths 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -11,7 +19,14 @@ from judge.core.problem_discovery import problem_roots
 
 
 def new_run_dir(root: Path | None = None) -> tuple[str, Path]:
-    """Create and return a unique run artifact directory."""
+    """new_run_dir 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        tuple[str, Path]: 처리 결과를 반환합니다.
+    """
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     candidate = cache_root(root) / "runs" / run_id
     suffix = 1
@@ -25,7 +40,16 @@ def new_run_dir(root: Path | None = None) -> tuple[str, Path]:
 def infer_problem_id(
     source: Path, explicit_problem: str | None = None, root: Path | None = None
 ) -> str:
-    """Infer a problem id from source path, cwd, or an explicit option."""
+    """infer_problem_id 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source (Path): `source` 값입니다.
+        explicit_problem (str | None): `explicit_problem` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     root = root or repo_root()
     source = source.resolve()
     inferred = None
@@ -68,7 +92,16 @@ def infer_problem_id(
 
 
 def latest_cache_for(problem_id: str, profile: str, root: Path | None = None) -> Path | None:
-    """Return the current valid cache directory for a problem/profile."""
+    """latest_cache_for 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str): `profile` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        Path | None: 처리 결과를 반환합니다.
+    """
     key = generation_key(problem_id, profile, root)
     candidate = cache_dir_for(problem_id, key, root)
     if validate_manifest(candidate, problem_id, profile, key):

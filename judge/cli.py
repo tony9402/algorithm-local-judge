@@ -1,3 +1,11 @@
+"""cli 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import sys
@@ -28,7 +36,14 @@ __all__ = [
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """CLI entrypoint returning a process exit code."""
+    """main 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        argv (Sequence[str] | None): `argv` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     parser = build_parser()
     explicit_argv = sys.argv[1:] if argv is None else argv
     try:

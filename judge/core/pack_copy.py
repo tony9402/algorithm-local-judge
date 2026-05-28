@@ -1,3 +1,11 @@
+"""pack_copy 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import shutil
@@ -17,7 +25,17 @@ def copy_problem_into_pack(
     platform_id: str,
     root: Path | None = None,
 ) -> None:
-    """Copy one development problem into a staged source-free pack directory."""
+    """copy_problem_into_pack 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        pack_problem_dir (Path): `pack_problem_dir` 값입니다.
+        platform_id (str): `platform_id` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     problem_dir, _, metadata, paths = tool_paths(problem_id, root)
     tools = compile_problem_tools(problem_id, root)
     suffix = executable_suffix()

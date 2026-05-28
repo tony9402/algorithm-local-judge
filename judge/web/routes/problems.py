@@ -1,3 +1,11 @@
+"""problems 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Query, Request
@@ -14,7 +22,14 @@ router = APIRouter(prefix="/api", tags=["problems"])
 
 @router.get("/problems")
 def api_problems() -> list[dict]:
-    """Return discovered problems."""
+    """api_problems 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        list[dict]: 처리 결과를 반환합니다.
+    """
     try:
         return services.list_problems()
     except Exception as exc:
@@ -27,7 +42,16 @@ def api_problem_folder_update(
     problem_id: str,
     body: ProblemFolderUpdateRequest,
 ) -> dict:
-    """Change a problem's display folder when the problem source is editable."""
+    """api_problem_folder_update 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (ProblemFolderUpdateRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_web_action_allowed(request, "problem folder editing")
         return update_problem_folder(problem_id, body.folder)
@@ -41,7 +65,16 @@ def api_problem_samples(
     problem_id: str,
     force: bool = Query(default=False),
 ) -> Response:
-    """Return sample input and expected output for a problem."""
+    """api_problem_samples 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        force (bool): `force` 값입니다.
+    
+    Returns:
+        Response: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(request)
         result = services.sample_cases(problem_id, force)

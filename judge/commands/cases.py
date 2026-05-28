@@ -1,3 +1,11 @@
+"""cases 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import argparse
@@ -13,7 +21,14 @@ from judge.core.errors import JudgeError
 
 
 def handle_compile(args: argparse.Namespace) -> int:
-    """Compile and validate a cases.yml file."""
+    """handle_compile 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        args (argparse.Namespace): `args` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     has_problem = args.problem is not None
     has_file = args.file is not None
     if has_problem == has_file:
@@ -34,7 +49,14 @@ def handle_compile(args: argparse.Namespace) -> int:
 
 
 def handle(args: argparse.Namespace) -> int:
-    """Handle `judge cases ...` subcommands."""
+    """handle 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        args (argparse.Namespace): `args` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     if args.cases_command == "compile":
         return handle_compile(args)
     raise JudgeError(f"unknown cases command: {args.cases_command}")

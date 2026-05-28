@@ -1,3 +1,11 @@
+"""cases_expansion 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,7 +26,17 @@ def expand_profile_cases(
     profile: str,
     cases: list[Any],
 ) -> tuple[list[dict[str, Any]], list[CaseCompileDiagnostic]]:
-    """Expand top-level case blocks and keep errors tied to the failing block."""
+    """expand_profile_cases 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        lines (list[str]): `lines` 값입니다.
+        profile (str): `profile` 값입니다.
+        cases (list[Any]): `cases` 값입니다.
+    
+    Returns:
+        tuple[list[dict[str, Any]], list[CaseCompileDiagnostic]]: 처리 결과를 반환합니다.
+    """
     expanded: list[dict[str, Any]] = []
     diagnostics: list[CaseCompileDiagnostic] = []
     for index, case in enumerate(cases):

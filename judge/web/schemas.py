@@ -1,16 +1,38 @@
+"""schemas 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 
 class PackInstallRequest(BaseModel):
-    """Request body for installing a local problem pack."""
+    """PackInstallRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     archive_path: str = Field(min_length=1)
 
 
 class PackDownloadRequest(BaseModel):
-    """Request body for downloading an official problem pack."""
+    """PackDownloadRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     repository: str | None = None
     asset_name: str | None = None
@@ -18,7 +40,14 @@ class PackDownloadRequest(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    """Request body for generating test data."""
+    """GenerateRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     problem_id: str = Field(min_length=1)
     profile: str | None = None
@@ -26,20 +55,41 @@ class GenerateRequest(BaseModel):
 
 
 class CasesCompileRequest(BaseModel):
-    """Request body for compiling a cases.yml profile."""
+    """CasesCompileRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     problem_id: str = Field(min_length=1)
     profile: str | None = None
 
 
 class ProblemFolderUpdateRequest(BaseModel):
-    """Request body for changing a problem display folder."""
+    """ProblemFolderUpdateRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     folder: str = ""
 
 
 class RunRequest(BaseModel):
-    """Request body for judging a local path or pasted source code."""
+    """RunRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     problem_id: str = Field(min_length=1)
     profile: str | None = None
@@ -50,7 +100,14 @@ class RunRequest(BaseModel):
 
 
 class CacheClearRequest(BaseModel):
-    """Request body for previewing or applying cache deletion."""
+    """CacheClearRequest 클래스를 정의하고 동작을 설명합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
 
     problem: str | None = None
     profile: str | None = None

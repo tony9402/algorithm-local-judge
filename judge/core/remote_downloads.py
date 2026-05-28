@@ -1,3 +1,11 @@
+"""remote_downloads 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,7 +33,14 @@ from judge.core.source_install import (
 
 
 def install_downloaded_problem_pack(target: Path) -> dict[str, Any]:
-    """Install a downloaded problem pack and return display metadata."""
+    """install_downloaded_problem_pack 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        target (Path): `target` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     installed = install_pack(target)
     return {
         "installedPath": str(installed),
@@ -40,7 +55,16 @@ def download_problem_pack_from_github(
     asset_name: str | None = None,
     ref: str | None = None,
 ) -> dict[str, Any]:
-    """Download and install problems from a public GitHub repository."""
+    """download_problem_pack_from_github 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str | None): `repository` 값입니다.
+        asset_name (str | None): `asset_name` 값입니다.
+        ref (str | None): `ref` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     repo = official_pack_repository(repository)
     if not ref:
         try:
@@ -88,7 +112,14 @@ def download_problem_pack_from_github(
 
 
 def download_problem_pack_from_url(source_url: str) -> dict[str, Any]:
-    """Download and install a problem pack from a direct HTTP(S) .aljpack URL."""
+    """download_problem_pack_from_url 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_url (str): `source_url` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     parsed = urlparse(source_url)
     if parsed.scheme not in {"http", "https"} or not parsed.path.endswith(".aljpack"):
         raise JudgeError("direct problem pack URL must be an HTTP(S) .aljpack URL")

@@ -1,3 +1,11 @@
+"""cli 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import argparse
@@ -10,7 +18,14 @@ from problem_studio.commands.web import handle as handle_web
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the problem-studio CLI parser."""
+    """build_parser 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        argparse.ArgumentParser: 처리 결과를 반환합니다.
+    """
     parser = argparse.ArgumentParser(prog="problem-studio", allow_abbrev=False)
     subparsers = parser.add_subparsers(dest="command")
 
@@ -30,7 +45,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    """Dispatch the parsed problem-studio command."""
+    """dispatch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        args (argparse.Namespace): `args` 값입니다.
+        parser (argparse.ArgumentParser): `parser` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     if args.command is None:
         parser.print_help()
         return 1
@@ -41,7 +64,14 @@ def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """CLI entrypoint returning a process exit code."""
+    """main 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        argv (Sequence[str] | None): `argv` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     parser = build_parser()
     explicit_argv = sys.argv[1:] if argv is None else argv
     try:

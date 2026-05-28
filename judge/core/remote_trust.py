@@ -1,3 +1,11 @@
+"""remote_trust 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import json
@@ -13,12 +21,26 @@ TRUST_CONFIG_FILE = "trusted_repositories.json"
 
 
 def trusted_repository_config_path() -> Path:
-    """Return the user-managed trusted repository allowlist path."""
+    """trusted_repository_config_path 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     return user_data_root() / TRUST_CONFIG_DIR / TRUST_CONFIG_FILE
 
 
 def normalize_trusted_repository(repository: str) -> str:
-    """Normalize a GitHub repository string for trust policy checks."""
+    """normalize_trusted_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str): `repository` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     parsed = github_repository_from_source(repository)
     if parsed is None:
         raise JudgeError("trusted repository must look like owner/name or a GitHub URL")
@@ -26,17 +48,38 @@ def normalize_trusted_repository(repository: str) -> str:
 
 
 def default_trusted_repositories() -> list[str]:
-    """Return built-in trusted repositories."""
+    """default_trusted_repositories 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     return sorted(DEFAULT_TRUSTED_REPOSITORIES)
 
 
 def default_trusted_owner_patterns() -> list[str]:
-    """Return built-in trusted repositories for legacy callers."""
+    """default_trusted_owner_patterns 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     return default_trusted_repositories()
 
 
 def load_user_trusted_repositories(path: Path | None = None) -> list[str]:
-    """Load user-managed trusted repositories."""
+    """load_user_trusted_repositories 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path | None): 경로 문자열입니다.
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     config_path = path or trusted_repository_config_path()
     if not config_path.exists():
         return []
@@ -63,7 +106,15 @@ def save_user_trusted_repositories(
     repositories: list[str],
     path: Path | None = None,
 ) -> None:
-    """Persist user-managed trusted repositories."""
+    """save_user_trusted_repositories 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repositories (list[str]): `repositories` 값입니다.
+        path (Path | None): 경로 문자열입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     config_path = path or trusted_repository_config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
     normalized = sorted({normalize_trusted_repository(repository) for repository in repositories})
@@ -74,13 +125,27 @@ def save_user_trusted_repositories(
 
 
 def is_default_trusted_repository(repository: str) -> bool:
-    """Return whether a repository is trusted by the built-in repository allowlist."""
+    """is_default_trusted_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str): `repository` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     normalized = normalize_trusted_repository(repository)
     return normalized in DEFAULT_TRUSTED_REPOSITORIES
 
 
 def is_trusted_repository(repository: str) -> bool:
-    """Return whether a repository is trusted by default or user policy."""
+    """is_trusted_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str): `repository` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     normalized = normalize_trusted_repository(repository)
     if is_default_trusted_repository(normalized):
         return True
@@ -88,7 +153,14 @@ def is_trusted_repository(repository: str) -> bool:
 
 
 def ensure_trusted_repository(repository: str) -> str:
-    """Return the normalized repository or raise if it is not trusted."""
+    """ensure_trusted_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str): `repository` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     normalized = normalize_trusted_repository(repository)
     if not is_trusted_repository(normalized):
         raise JudgeError(
@@ -99,7 +171,14 @@ def ensure_trusted_repository(repository: str) -> str:
 
 
 def add_user_trusted_repository(repository: str) -> str:
-    """Add a user-managed trusted repository and return the normalized value."""
+    """add_user_trusted_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str): `repository` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     normalized = normalize_trusted_repository(repository)
     repositories = load_user_trusted_repositories()
     if normalized not in repositories:
@@ -109,7 +188,14 @@ def add_user_trusted_repository(repository: str) -> str:
 
 
 def remove_user_trusted_repository(repository: str) -> str:
-    """Remove a user-managed trusted repository and return the normalized value."""
+    """remove_user_trusted_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str): `repository` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     normalized = normalize_trusted_repository(repository)
     repositories = [item for item in load_user_trusted_repositories() if item != normalized]
     save_user_trusted_repositories(repositories)

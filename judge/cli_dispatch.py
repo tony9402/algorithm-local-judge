@@ -1,3 +1,11 @@
+"""cli_dispatch 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import argparse
@@ -33,7 +41,15 @@ COMMAND_HANDLERS = {
 
 
 def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    """Dispatch parsed arguments to the selected command handler."""
+    """dispatch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        args (argparse.Namespace): `args` 값입니다.
+        parser (argparse.ArgumentParser): `parser` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     if args.command is None:
         parser.print_help()
         return 1

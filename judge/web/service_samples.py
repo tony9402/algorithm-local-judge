@@ -1,3 +1,11 @@
+"""service_samples 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import contextlib
@@ -18,7 +26,15 @@ SAMPLE_RESPONSE_CACHE_LOCK = threading.Lock()
 
 
 def cached_data_dir(problem_id: str, profile: str) -> Path | None:
-    """Return a valid generated data cache without invoking generator tools."""
+    """cached_data_dir 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str): `profile` 값입니다.
+    
+    Returns:
+        Path | None: 처리 결과를 반환합니다.
+    """
     key = generation_key(problem_id, profile)
     data_dir = cache_dir_for(problem_id, key)
     if validate_manifest_fast(data_dir, problem_id, profile, key):
@@ -27,14 +43,29 @@ def cached_data_dir(problem_id: str, profile: str) -> Path | None:
 
 
 def sample_response_cache_key(data_dir: Path) -> str:
-    """Return a cache key for sample response payloads."""
+    """sample_response_cache_key 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        data_dir (Path): `data_dir` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     manifest = data_dir / "manifest.json"
     stat = manifest.stat()
     return f"{data_dir}:{stat.st_mtime_ns}:{stat.st_size}"
 
 
 def sample_response_etag(data_dir: Path, manifest: dict[str, Any]) -> str:
-    """Return an HTTP validator for a generated sample dataset."""
+    """sample_response_etag 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        data_dir (Path): `data_dir` 값입니다.
+        manifest (dict[str, Any]): `manifest` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     manifest_path = data_dir / "manifest.json"
     stat = manifest_path.stat()
     parts = [
@@ -49,14 +80,30 @@ def sample_response_etag(data_dir: Path, manifest: dict[str, Any]) -> str:
 
 
 def copy_sample_response(payload: dict[str, Any]) -> dict[str, Any]:
-    """Return a mutable copy of a cached sample response."""
+    """copy_sample_response 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        payload (dict[str, Any]): 요청 본문 데이터입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     copied = payload.copy()
     copied["cases"] = [case.copy() for case in payload.get("cases", [])]
     return copied
 
 
 def build_sample_cases_result(data_dir: Path, message: str, cached: bool) -> dict[str, Any]:
-    """Build visible sample input/answer data from a generated data directory."""
+    """build_sample_cases_result 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        data_dir (Path): `data_dir` 값입니다.
+        message (str): 메시지입니다.
+        cached (bool): `cached` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     cache_key = sample_response_cache_key(data_dir)
     with SAMPLE_RESPONSE_CACHE_LOCK:
         cached_payload = SAMPLE_RESPONSE_CACHE.get(cache_key)
@@ -99,7 +146,15 @@ def build_sample_cases_result(data_dir: Path, message: str, cached: bool) -> dic
 
 
 def sample_cases(problem_id: str, force: bool = False) -> dict[str, Any]:
-    """Return visible sample input/answer text, generating only on the first miss."""
+    """sample_cases 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        force (bool): `force` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     output = io.StringIO()
     cached = False
     data_dir = None if force else cached_data_dir(problem_id, SAMPLE_PROFILE)

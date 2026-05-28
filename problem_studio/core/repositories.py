@@ -1,3 +1,11 @@
+"""repositories 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import re
@@ -23,7 +31,14 @@ REPOSITORY_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 def repository_name_from_source(source: str) -> str:
-    """Return the default local directory name for a Git repository source."""
+    """repository_name_from_source 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source (str): `source` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     github_repository = github_repository_from_remote(source)
     if github_repository:
         return github_repository.split("/", 1)[1].removesuffix(".git")
@@ -35,7 +50,14 @@ def repository_name_from_source(source: str) -> str:
 
 
 def validate_repository_name(value: str) -> str:
-    """Validate and normalize a local repository directory name."""
+    """validate_repository_name 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        value (str): 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     name = value.strip().removesuffix(".git")
     if not name or not REPOSITORY_NAME_RE.fullmatch(name):
         raise JudgeError(f"invalid repository name: {value}")
@@ -45,14 +67,30 @@ def validate_repository_name(value: str) -> str:
 
 
 def repository_root(workspace_root: Path, repo_name: str) -> Path:
-    """Return the nested repository root under workspace_root/problems."""
+    """repository_root 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace_root (Path): `workspace_root` 값입니다.
+        repo_name (str): `repo_name` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     name = validate_repository_name(repo_name)
     base = problems_dir(workspace_root)
     return ensure_inside(base / name, base)
 
 
 def repository_mode_workspace(workspace_root: Path, active_repository: str | None) -> Path:
-    """Return the active Problem Studio workspace for a selected repository."""
+    """repository_mode_workspace 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace_root (Path): `workspace_root` 값입니다.
+        active_repository (str | None): `active_repository` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if active_repository is None:
         return workspace_root
     root = repository_root(workspace_root, active_repository)
@@ -62,7 +100,14 @@ def repository_mode_workspace(workspace_root: Path, active_repository: str | Non
 
 
 def repository_problem_count(path: Path) -> int:
-    """Return the number of problems in a repository workspace."""
+    """repository_problem_count 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     try:
         return len(discover_workspace_problem_ids(path))
     except Exception:
@@ -70,7 +115,15 @@ def repository_problem_count(path: Path) -> int:
 
 
 def repository_summary(workspace_root: Path, repo_name: str) -> dict[str, Any]:
-    """Return display metadata for one nested problem repository."""
+    """repository_summary 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace_root (Path): `workspace_root` 값입니다.
+        repo_name (str): `repo_name` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     root = repository_root(workspace_root, repo_name)
     branch = None
     remote = None
@@ -96,7 +149,14 @@ def repository_summary(workspace_root: Path, repo_name: str) -> dict[str, Any]:
 
 
 def list_repositories(workspace_root: Path) -> list[dict[str, Any]]:
-    """List nested Git problem repositories under workspace_root/problems."""
+    """list_repositories 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace_root (Path): `workspace_root` 값입니다.
+    
+    Returns:
+        list[dict[str, Any]]: 처리 결과를 반환합니다.
+    """
     base = problems_dir(workspace_root)
     if not base.exists():
         return []
@@ -108,7 +168,15 @@ def list_repositories(workspace_root: Path) -> list[dict[str, Any]]:
 
 
 def same_repository_source(existing_remote: str | None, requested_source: str) -> bool:
-    """Return whether an existing remote appears to point to the requested source."""
+    """same_repository_source 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        existing_remote (str | None): `existing_remote` 값입니다.
+        requested_source (str): `requested_source` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     if not existing_remote:
         return False
     existing_github = github_repository_from_remote(existing_remote)
@@ -129,7 +197,17 @@ def clone_problem_repository(
     branch: str | None = None,
     repo_name: str | None = None,
 ) -> dict[str, Any]:
-    """Clone a problem repository into workspace_root/problems/{repo_name}."""
+    """clone_problem_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace_root (Path): `workspace_root` 값입니다.
+        source (str): `source` 값입니다.
+        branch (str | None): `branch` 값입니다.
+        repo_name (str | None): `repo_name` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     workspace_root = resolve_workspace(workspace_root)
     name = validate_repository_name(repo_name or repository_name_from_source(source))
     target = repository_root(workspace_root, name)
@@ -154,7 +232,15 @@ def initialize_problem_repository_workspace(
     workspace: Path | str | None,
     active_repository: str | None = None,
 ) -> tuple[Path, str | None, Path]:
-    """Resolve root, active repository name, and active problem workspace."""
+    """initialize_problem_repository_workspace 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace (Path | str | None): 작업 공간 객체입니다.
+        active_repository (str | None): `active_repository` 값입니다.
+    
+    Returns:
+        tuple[Path, str | None, Path]: 처리 결과를 반환합니다.
+    """
     workspace_root = resolve_workspace(workspace)
     active = validate_repository_name(active_repository) if active_repository else None
     if active is None:
@@ -166,7 +252,15 @@ def repository_context(
     workspace_root: Path,
     active_repository: str | None,
 ) -> dict[str, Any]:
-    """Return repository metadata attached to workspace responses."""
+    """repository_context 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        workspace_root (Path): `workspace_root` 값입니다.
+        active_repository (str | None): `active_repository` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     repositories = list_repositories(workspace_root)
     return {
         "workspaceRoot": str(workspace_root),

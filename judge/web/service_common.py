@@ -1,3 +1,11 @@
+"""service_common 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import json
@@ -15,7 +23,14 @@ SSE_DONE = object()
 
 
 def language_from_filename(filename: str) -> str:
-    """Return a display language from a source filename."""
+    """language_from_filename 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        filename (str): `filename` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     suffix = Path(filename).suffix.lower()
     if suffix in {".cpp", ".cc", ".cxx"}:
         return "C++"
@@ -27,18 +42,40 @@ def language_from_filename(filename: str) -> str:
 
 
 def web_debug_enabled() -> bool:
-    """Return whether the web UI should expose debug logs."""
+    """web_debug_enabled 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     value = os.environ.get(WEB_DEBUG_ENV, "")
     return value.lower() in {"1", "true", "yes", "on"}
 
 
 def format_duration(milliseconds: int) -> str:
-    """Format a millisecond duration for web status summaries."""
+    """format_duration 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        milliseconds (int): `milliseconds` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     if milliseconds < 1000:
         return f"{milliseconds} ms"
     return f"{milliseconds / 1000:.2f} s"
 
 
 def sse(event: str, data: dict[str, Any]) -> str:
-    """Format one Server-Sent Events block."""
+    """sse 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        event (str): 발생한 이벤트입니다.
+        data (dict[str, Any]): 처리할 데이터입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"

@@ -1,3 +1,11 @@
+"""workspace 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -16,15 +24,38 @@ router = APIRouter(prefix="/api/workspace", tags=["workspace"])
 
 @router.get("")
 def api_workspace(request: Request) -> dict:
-    """Return active workspace status."""
+    """api_workspace 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     return route_result(lambda: workspace_status_from_request(request))
 
 
 @router.post("/open")
 def api_workspace_open(request: Request, body: WorkspaceOpenRequest) -> dict:
-    """Switch the active workspace for this local server process."""
+    """api_workspace_open 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        body (WorkspaceOpenRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_local_write_allowed(request, "workspace switching")
         request.app.state.workspace_root = resolve_workspace(body.path)
         request.app.state.active_repository = None
@@ -36,9 +67,24 @@ def api_workspace_open(request: Request, body: WorkspaceOpenRequest) -> dict:
 
 @router.post("/testlib-link")
 def api_testlib_link(request: Request) -> dict:
-    """Create or refresh problems/testlib.h symlink."""
+    """api_testlib_link 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_local_write_allowed(request, "testlib linking")
         return link_testlib(workspace_from_request(request))
 

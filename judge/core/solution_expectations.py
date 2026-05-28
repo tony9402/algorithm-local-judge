@@ -1,3 +1,11 @@
+"""solution_expectations 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,7 +26,14 @@ EXPECTED_STATUS_BY_TOKEN = {
 
 
 def expected_status_from_solution_name(path: Path) -> tuple[str, str]:
-    """Return the expectation token and judge status encoded in a solution filename."""
+    """expected_status_from_solution_name 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+    
+    Returns:
+        tuple[str, str]: 처리 결과를 반환합니다.
+    """
     parts = path.name.split(".")
     if len(parts) < 3:
         raise JudgeError(
@@ -36,7 +51,14 @@ def expected_status_from_solution_name(path: Path) -> tuple[str, str]:
 
 
 def discover_solution_expectations(problem_dir: Path) -> list[SolutionExpectation]:
-    """Discover all supported solution source files and their expected statuses."""
+    """discover_solution_expectations 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_dir (Path): `problem_dir` 값입니다.
+    
+    Returns:
+        list[SolutionExpectation]: 처리 결과를 반환합니다.
+    """
     solutions_dir = problem_dir / "solutions"
     if not solutions_dir.exists():
         raise JudgeError(f"solutions directory not found: {solutions_dir}")
@@ -52,7 +74,15 @@ def discover_solution_expectations(problem_dir: Path) -> list[SolutionExpectatio
 
 
 def ensure_reference_solution(problem_id: str, root: Path | None = None) -> Path:
-    """Ensure answer data is generated from solutions/main_solution.ac.cpp."""
+    """ensure_reference_solution 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     problem_dir, _, _, paths = tool_paths(problem_id, root)
     reference = problem_dir / "solutions" / REFERENCE_SOLUTION
     if not reference.exists():
@@ -66,7 +96,14 @@ def ensure_reference_solution(problem_id: str, root: Path | None = None) -> Path
 
 
 def solution_path_key(path: Path | str) -> str:
-    """Normalize a solution path request for matching discovered files."""
+    """solution_path_key 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path | str): 경로 문자열입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     raw = str(path).replace("\\", "/").strip().lstrip("./")
     parts = [part for part in raw.split("/") if part and part != "."]
     if "solutions" in parts:
@@ -81,7 +118,16 @@ def filter_solution_expectations(
     problem_dir: Path,
     requested_paths: list[str] | None,
 ) -> list[SolutionExpectation]:
-    """Return only requested solution expectations, preserving discovery order."""
+    """filter_solution_expectations 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        expectations (list[SolutionExpectation]): `expectations` 값입니다.
+        problem_dir (Path): `problem_dir` 값입니다.
+        requested_paths (list[str] | None): `requested_paths` 값입니다.
+    
+    Returns:
+        list[SolutionExpectation]: 처리 결과를 반환합니다.
+    """
     if not requested_paths:
         return expectations
     requested = {solution_path_key(path) for path in requested_paths if str(path).strip()}

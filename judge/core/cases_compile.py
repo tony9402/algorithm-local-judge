@@ -1,3 +1,11 @@
+"""cases_compile 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -36,7 +44,15 @@ from judge.core.problem import tool_paths
 
 
 def compile_cases_file(path: Path, profile: str | None = None) -> CaseCompileResult:
-    """Compile a cases.yml file into expanded case summaries and diagnostics."""
+    """compile_cases_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        profile (str | None): `profile` 값입니다.
+    
+    Returns:
+        CaseCompileResult: 처리 결과를 반환합니다.
+    """
     path = path.resolve()
     data, diagnostics, lines = load_yaml(path)
     if diagnostics:
@@ -69,7 +85,16 @@ def compile_problem_cases(
     profile: str | None = None,
     root: Path | None = None,
 ) -> CaseCompileResult:
-    """Compile the generator cases.yml file for one problem."""
+    """compile_problem_cases 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        CaseCompileResult: 처리 결과를 반환합니다.
+    """
     _, _, _, paths = tool_paths(problem_id, root)
     return compile_cases_file(paths["generatorConfig"], profile)
 
@@ -79,7 +104,16 @@ def ensure_cases_compiled(
     profile: str | None = None,
     root: Path | None = None,
 ) -> CaseCompileResult:
-    """Compile cases.yml and raise a JudgeError if diagnostics contain errors."""
+    """ensure_cases_compiled 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        root (Path | None): `root` 값입니다.
+    
+    Returns:
+        CaseCompileResult: 처리 결과를 반환합니다.
+    """
     result = compile_problem_cases(problem_id, profile, root)
     if not result.valid:
         raise JudgeError("cases.yml compile failed\n\n" + format_compile_result(result))

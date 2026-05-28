@@ -1,3 +1,11 @@
+"""cases_concrete_schema 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import re
@@ -20,7 +28,18 @@ def validate_concrete_case(
     index: int,
     seen_names: set[str],
 ) -> tuple[CompiledCase | None, list[CaseCompileDiagnostic]]:
-    """Validate one expanded case and return its summary."""
+    """validate_concrete_case 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        profile (str): `profile` 값입니다.
+        case (Any): `case` 값입니다.
+        index (int): `index` 값입니다.
+        seen_names (set[str]): `seen_names` 값입니다.
+    
+    Returns:
+        tuple[CompiledCase | None, list[CaseCompileDiagnostic]]: 처리 결과를 반환합니다.
+    """
     location = f"expanded[{index - 1}]"
     if not isinstance(case, dict):
         return None, [
@@ -93,6 +112,19 @@ def _validate_fixed_case(
     location: str,
     diagnostics: list[CaseCompileDiagnostic],
 ) -> None:
+"""_validate_fixed_case 함수를 실행하고 결과를 반환합니다.
+
+Args:
+    path (Path): 경로 문자열입니다.
+    profile (str): `profile` 값입니다.
+    case (dict[str, Any]): `case` 값입니다.
+    case_type (Any): `case_type` 값입니다.
+    location (str): `location` 값입니다.
+    diagnostics (list[CaseCompileDiagnostic]): `diagnostics` 값입니다.
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
     if case_type != "fixed":
         return
     if "content" not in case:
@@ -123,6 +155,19 @@ def _validate_generator_case(
     location: str,
     diagnostics: list[CaseCompileDiagnostic],
 ) -> None:
+"""_validate_generator_case 함수를 실행하고 결과를 반환합니다.
+
+Args:
+    path (Path): 경로 문자열입니다.
+    profile (str): `profile` 값입니다.
+    case (dict[str, Any]): `case` 값입니다.
+    case_type (Any): `case_type` 값입니다.
+    location (str): `location` 값입니다.
+    diagnostics (list[CaseCompileDiagnostic]): `diagnostics` 값입니다.
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
     if case_type != "generator":
         return
     seed = case.get("seed")
@@ -154,6 +199,19 @@ def _validate_template_case(
     location: str,
     diagnostics: list[CaseCompileDiagnostic],
 ) -> None:
+"""_validate_template_case 함수를 실행하고 결과를 반환합니다.
+
+Args:
+    path (Path): 경로 문자열입니다.
+    profile (str): `profile` 값입니다.
+    case (dict[str, Any]): `case` 값입니다.
+    case_type (Any): `case_type` 값입니다.
+    location (str): `location` 값입니다.
+    diagnostics (list[CaseCompileDiagnostic]): `diagnostics` 값입니다.
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
     if case_type != "template":
         return
     template = case.get("template")

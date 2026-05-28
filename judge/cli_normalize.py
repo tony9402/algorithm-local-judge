@@ -1,3 +1,11 @@
+"""cli_normalize 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -9,7 +17,14 @@ RUN_GLOBAL_OPTIONS_WITH_VALUES = {"--problem", "--profile"}
 
 
 def run_global_option_name(token: str) -> str | None:
-    """Return the run-global option name represented by a token."""
+    """run_global_option_name 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        token (str): `token` 값입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     if token in RUN_GLOBAL_OPTIONS_WITH_VALUES:
         return token
     for option in RUN_GLOBAL_OPTIONS_WITH_VALUES:
@@ -19,7 +34,15 @@ def run_global_option_name(token: str) -> str | None:
 
 
 def run_global_command_error(option: str, command: str) -> JudgeError:
-    """Build a clear error for run-only options before other commands."""
+    """run_global_command_error 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        option (str): 옵션입니다.
+        command (str): `command` 값입니다.
+    
+    Returns:
+        JudgeError: 처리 결과를 반환합니다.
+    """
     hint = {
         "generate": "judge generate <problem> --profile <profile>",
         "cache": "judge cache clear --problem <problem> --dry-run",
@@ -28,7 +51,14 @@ def run_global_command_error(option: str, command: str) -> JudgeError:
 
 
 def normalize_argv(argv: Sequence[str]) -> list[str]:
-    """Insert an explicit `run` command for supported shorthand invocations."""
+    """normalize_argv 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        argv (Sequence[str]): `argv` 값입니다.
+    
+    Returns:
+        list[str]: 처리 결과를 반환합니다.
+    """
     argv = list(argv)
     if not argv:
         return argv

@@ -1,3 +1,11 @@
+"""cases_profile_compile 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,7 +26,17 @@ def compile_profile(
     profile: str,
     profile_config: Any,
 ) -> tuple[CompiledProfile | None, list[CaseCompileDiagnostic]]:
-    """Compile one profile from raw YAML data."""
+    """compile_profile 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+        lines (list[str]): `lines` 값입니다.
+        profile (str): `profile` 값입니다.
+        profile_config (Any): `profile_config` 값입니다.
+    
+    Returns:
+        tuple[CompiledProfile | None, list[CaseCompileDiagnostic]]: 처리 결과를 반환합니다.
+    """
     line = find_profile_line(lines, profile)
     if not isinstance(profile_config, dict):
         return None, [

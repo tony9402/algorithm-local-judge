@@ -1,3 +1,11 @@
+"""list 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import argparse
@@ -9,7 +17,14 @@ from judge.core.problem import discover_problem_ids, load_problem, validate_prob
 
 
 def handle(args: argparse.Namespace) -> int:
-    """List problems and optionally validate numbering."""
+    """handle 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        args (argparse.Namespace): `args` 값입니다.
+    
+    Returns:
+        int: 처리 결과를 반환합니다.
+    """
     problem_ids = discover_problem_ids()
     if not problem_ids:
         print("No problems found.")

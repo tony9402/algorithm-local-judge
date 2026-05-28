@@ -1,3 +1,11 @@
+"""runs 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from typing import Annotated
@@ -15,7 +23,15 @@ router = APIRouter(prefix="/api", tags=["runs"])
 
 @router.post("/run")
 def api_run(http_request: Request, request: RunRequest) -> dict:
-    """Judge a local path or pasted source code."""
+    """api_run 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        http_request (Request): `http_request` 값입니다.
+        request (RunRequest): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(http_request)
         return services.run_problem(
@@ -37,7 +53,17 @@ def api_run_upload(
     file: Annotated[UploadFile, File()],
     profile: Annotated[str | None, Form()] = None,
 ) -> dict:
-    """Judge an uploaded source file and return the final result."""
+    """api_run_upload 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (Annotated[str, Form()]): 문제 ID입니다.
+        file (Annotated[UploadFile, File()]): 파일 경로 또는 파일 객체입니다.
+        profile (Annotated[str | None, Form()]): `profile` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(request)
         return services.run_uploaded_problem(
@@ -60,7 +86,20 @@ def api_run_stream(
     source_text: Annotated[str | None, Form()] = None,
     file: Annotated[UploadFile | None, File()] = None,
 ) -> StreamingResponse:
-    """Judge an uploaded source file or pasted code with live progress events."""
+    """api_run_stream 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (Annotated[str, Form()]): 문제 ID입니다.
+        source_mode (Annotated[str, Form()]): `source_mode` 값입니다.
+        profile (Annotated[str | None, Form()]): `profile` 값입니다.
+        filename (Annotated[str | None, Form()]): `filename` 값입니다.
+        source_text (Annotated[str | None, Form()]): `source_text` 값입니다.
+        file (Annotated[UploadFile | None, File()]): 파일 경로 또는 파일 객체입니다.
+    
+    Returns:
+        StreamingResponse: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(request)
         source = services.save_source_for_stream(
@@ -89,7 +128,20 @@ def api_run_job(
     source_text: Annotated[str | None, Form()] = None,
     file: Annotated[UploadFile | None, File()] = None,
 ) -> dict:
-    """Queue an uploaded or pasted source run."""
+    """api_run_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (Annotated[str, Form()]): 문제 ID입니다.
+        source_mode (Annotated[str, Form()]): `source_mode` 값입니다.
+        profile (Annotated[str | None, Form()]): `profile` 값입니다.
+        filename (Annotated[str | None, Form()]): `filename` 값입니다.
+        source_text (Annotated[str | None, Form()]): `source_text` 값입니다.
+        file (Annotated[UploadFile | None, File()]): 파일 경로 또는 파일 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(request)
         source = services.save_source_for_stream(
@@ -103,6 +155,15 @@ def api_run_job(
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
+        """operation 함수를 실행하고 결과를 반환합니다.
+        
+        Args:
+            cancel_token (Any): `cancel_token` 값입니다.
+            progress (Any): `progress` 값입니다.
+        
+        Returns:
+            Any: 처리 결과를 반환합니다.
+        """
             progress("Starting judge run.", label="Run Tests")
             result = services.run_problem_source_with_progress(
                 problem_id,
@@ -136,7 +197,14 @@ def api_run_job(
 
 @router.get("/runs/{run_id}")
 def api_run_result(run_id: str) -> dict:
-    """Return one saved run result."""
+    """api_run_result 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         return services.run_result(run_id)
     except Exception as exc:
@@ -145,7 +213,15 @@ def api_run_result(run_id: str) -> dict:
 
 @router.get("/runs/{run_id}/wrong/{case_id}")
 def api_wrong_case(run_id: str, case_id: str) -> dict:
-    """Return wrong-answer artifact text and diff."""
+    """api_wrong_case 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         return services.wrong_case(run_id, case_id)
     except Exception as exc:

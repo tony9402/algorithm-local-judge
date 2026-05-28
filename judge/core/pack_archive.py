@@ -1,3 +1,11 @@
+"""pack_archive 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import tarfile
@@ -25,14 +33,28 @@ PACK_SCHEMA_VERSION = 1
 
 
 def reject_forbidden_release_file(path: Path) -> None:
-    """Reject source or debug artifacts that must not be released in packs."""
+    """reject_forbidden_release_file 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        path (Path): 경로 문자열입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     lowered_name = path.name.lower()
     if path.suffix.lower() in FORBIDDEN_PACK_SUFFIXES or lowered_name in FORBIDDEN_PACK_NAMES:
         raise JudgeError(f"forbidden file in problem pack: {path}")
 
 
 def safe_tar_members(archive_path: Path) -> list[tarfile.TarInfo]:
-    """Return tar members after checking archive paths and unsafe entry types."""
+    """safe_tar_members 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        archive_path (Path): `archive_path` 값입니다.
+    
+    Returns:
+        list[tarfile.TarInfo]: 처리 결과를 반환합니다.
+    """
     with tarfile.open(archive_path, "r:*") as archive:
         members = archive.getmembers()
     if len(members) > security_limits.MAX_ARCHIVE_MEMBERS:
@@ -65,7 +87,15 @@ def safe_tar_members(archive_path: Path) -> list[tarfile.TarInfo]:
 
 
 def safe_extract_tar(archive_path: Path, target_dir: Path) -> None:
-    """Extract a tar archive after validating member paths."""
+    """safe_extract_tar 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        archive_path (Path): `archive_path` 값입니다.
+        target_dir (Path): `target_dir` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     members = safe_tar_members(archive_path)
     target_dir.mkdir(parents=True, exist_ok=True)
     with tarfile.open(archive_path, "r:*") as archive:
@@ -76,7 +106,14 @@ def safe_extract_tar(archive_path: Path, target_dir: Path) -> None:
 
 
 def single_pack_dir(extracted_dir: Path) -> Path:
-    """Return the single top-level pack directory from an extracted archive."""
+    """single_pack_dir 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        extracted_dir (Path): `extracted_dir` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     candidates = [path for path in extracted_dir.iterdir() if path.is_dir()]
     if len(candidates) != 1:
         raise JudgeError("pack archive must contain exactly one top-level directory")

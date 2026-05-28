@@ -1,3 +1,11 @@
+"""service_runs 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import contextlib
@@ -36,7 +44,17 @@ def enrich_run_result(
     source: Path | None = None,
     message: str | None = None,
 ) -> dict[str, Any]:
-    """Add web-facing display fields to a saved run result."""
+    """enrich_run_result 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        result (dict[str, Any]): `result` 값입니다.
+        run_dir (Path | None): `run_dir` 값입니다.
+        source (Path | None): `source` 값입니다.
+        message (str | None): 메시지입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     result = dict(result)
     first_failed = next((case for case in result.get("cases", []) if case["status"] != "ok"), None)
     metrics = result.get("metrics") or {}
@@ -61,7 +79,16 @@ def enrich_run_result(
 
 
 def build_run_result(run_dir: Path, source: Path, message: str) -> dict[str, Any]:
-    """Build a web response from a completed run directory."""
+    """build_run_result 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_dir (Path): `run_dir` 값입니다.
+        source (Path): `source` 값입니다.
+        message (str): 메시지입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     result = enrich_run_result(read_json(run_dir / "result.json"), run_dir, source, message)
     source_id = attach_run_to_source(source, result)
     if source_id is not None:
@@ -70,7 +97,14 @@ def build_run_result(run_dir: Path, source: Path, message: str) -> dict[str, Any
 
 
 def resolve_run_profile(profile: str | None) -> str:
-    """Return the Web run profile, defaulting to the full test set."""
+    """resolve_run_profile 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        profile (str | None): `profile` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     normalized = (profile or "").strip()
     return normalized or FULL_PROFILE
 
@@ -83,7 +117,19 @@ def run_problem(
     source_text: str | None,
     filename: str | None,
 ) -> dict[str, Any]:
-    """Judge a source path or pasted source text and return run result data."""
+    """run_problem 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        source_mode (str): `source_mode` 값입니다.
+        source_path (str | None): `source_path` 값입니다.
+        source_text (str | None): `source_text` 값입니다.
+        filename (str | None): `filename` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     source = source_path_from_request(problem_id, source_mode, source_path, source_text, filename)
     run_profile = resolve_run_profile(profile)
     output = io.StringIO()
@@ -98,7 +144,17 @@ def run_problem_source_with_progress(
     source: Path,
     progress,
 ) -> dict[str, Any]:
-    """Judge a saved source path with a queue progress callback."""
+    """run_problem_source_with_progress 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        source (Path): `source` 값입니다.
+        progress (Any): `progress` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     run_profile = resolve_run_profile(profile)
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
@@ -112,7 +168,17 @@ def run_uploaded_problem(
     file_obj: BinaryIO,
     filename: str | None,
 ) -> dict[str, Any]:
-    """Judge an uploaded source file and return run result data."""
+    """run_uploaded_problem 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        file_obj (BinaryIO): `file_obj` 값입니다.
+        filename (str | None): `filename` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     source = save_uploaded_source(file_obj, filename, problem_id)
     return run_problem(problem_id, profile, "upload", str(source), None, None)
 
@@ -122,13 +188,38 @@ def run_problem_events(
     profile: str | None,
     source: Path,
 ) -> Iterator[str]:
-    """Stream run progress and final result as Server-Sent Events."""
+    """run_problem_events 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        problem_id (str): 문제 ID입니다.
+        profile (str | None): `profile` 값입니다.
+        source (Path): `source` 값입니다.
+    
+    Returns:
+        Iterator[str]: 처리 결과를 반환합니다.
+    """
     events: queue.Queue[dict[str, Any] | object] = queue.Queue()
 
     def progress(message: str) -> None:
+    """progress 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        message (str): 메시지입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         events.put({"event": "log", "data": {"message": message}})
 
     def worker() -> None:
+    """worker 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
         output = io.StringIO()
         try:
             run_profile = resolve_run_profile(profile)
@@ -159,7 +250,19 @@ def save_source_for_stream(
     text_filename: str | None,
     problem_id: str,
 ) -> Path:
-    """Persist the submitted source for a streaming run request."""
+    """save_source_for_stream 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_mode (str): `source_mode` 값입니다.
+        file_obj (BinaryIO | None): `file_obj` 값입니다.
+        upload_filename (str | None): `upload_filename` 값입니다.
+        source_text (str | None): `source_text` 값입니다.
+        text_filename (str | None): `text_filename` 값입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     if source_mode == "upload":
         if file_obj is None:
             raise JudgeError("source file upload is required")
@@ -172,7 +275,14 @@ def save_source_for_stream(
 
 
 def run_result(run_id: str) -> dict[str, Any]:
-    """Return a saved run result JSON object."""
+    """run_result 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     validate_safe_id("run id", run_id)
     run_dir = cache_root() / "runs" / run_id
     result_path = run_dir / "result.json"
@@ -182,7 +292,15 @@ def run_result(run_id: str) -> dict[str, Any]:
 
 
 def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dict[str, Any]:
-    """Return a display-safe artifact preview and truncation metadata."""
+    """preview_artifact_text 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        text (str): `text` 값입니다.
+        limit (int): `limit` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     if len(text) <= limit:
         return {"text": text, "truncated": False, "omittedChars": 0}
     omitted = len(text) - limit
@@ -192,7 +310,15 @@ def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dic
 
 
 def wrong_case(run_id: str, case_id: str) -> dict[str, Any]:
-    """Return wrong-answer artifacts for one run case."""
+    """wrong_case 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        run_id (str): `run_id` 값입니다.
+        case_id (str): `case_id` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     raw_data = wrong_artifacts(run_id, case_id)
     raw_data["diff"] = wrong_diff_text(run_id, case_id)
     result: dict[str, Any] = {"previewLimit": ARTIFACT_PREVIEW_LIMIT, "truncation": {}}

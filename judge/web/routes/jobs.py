@@ -1,3 +1,11 @@
+"""jobs 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
@@ -11,14 +19,28 @@ router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
 @router.get("")
 def api_jobs(request: Request) -> dict:
-    """Return retained Judge jobs."""
+    """api_jobs 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     jobs = jobs_from_request(request)
     return {"jobs": [jobs.job_dict(job) for job in jobs.list()]}
 
 
 @router.delete("/completed")
 def api_jobs_clear_completed(request: Request) -> dict:
-    """Dismiss every completed job."""
+    """api_jobs_clear_completed 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_web_action_allowed(request, "job cleanup")
     except Exception as exc:
@@ -29,7 +51,15 @@ def api_jobs_clear_completed(request: Request) -> dict:
 
 @router.get("/{job_id}")
 def api_job(request: Request, job_id: str) -> dict:
-    """Return one retained Judge job."""
+    """api_job 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
     if job is None:
@@ -39,7 +69,15 @@ def api_job(request: Request, job_id: str) -> dict:
 
 @router.post("/{job_id}/cancel")
 def api_job_cancel(request: Request, job_id: str) -> dict:
-    """Cancel a queued job or request cancellation for a running job."""
+    """api_job_cancel 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_remote_run_allowed(request)
     except Exception as exc:
@@ -55,7 +93,15 @@ def api_job_cancel(request: Request, job_id: str) -> dict:
 
 @router.delete("/{job_id}")
 def api_job_dismiss(request: Request, job_id: str) -> dict:
-    """Dismiss a retained Judge job."""
+    """api_job_dismiss 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        job_id (str): 작업 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         ensure_local_web_action_allowed(request, "job dismiss")
     except Exception as exc:

@@ -1,3 +1,11 @@
+"""remote_github 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import json
@@ -24,7 +32,15 @@ GITHUB_SSH_RE = re.compile(r"^git@github\.com:([^/]+)/(.+)$")
 
 
 def normalize_repository_name(owner: str, repo: str) -> str:
-    """Return a normalized GitHub `owner/name` repository string."""
+    """normalize_repository_name 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        owner (str): `owner` 값입니다.
+        repo (str): 저장소 경로 또는 식별자입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     repo = repo.removesuffix(".git")
     candidate = f"{owner}/{repo}"
     if not GITHUB_REPOSITORY_RE.fullmatch(candidate):
@@ -33,7 +49,14 @@ def normalize_repository_name(owner: str, repo: str) -> str:
 
 
 def github_repository_from_source(source: str) -> str | None:
-    """Parse GitHub repository information from owner/name, HTTPS, or SSH forms."""
+    """github_repository_from_source 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source (str): `source` 값입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     source = source.strip()
     if GITHUB_REPOSITORY_RE.fullmatch(source):
         owner, repo = source.split("/", 1)
@@ -55,7 +78,14 @@ def github_repository_from_source(source: str) -> str | None:
 
 
 def official_pack_repository(repository: str | None = None) -> str:
-    """Return the configured official problem pack repository."""
+    """official_pack_repository 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str | None): `repository` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     raw_repository = (
         repository
         or os.environ.get("ALJ_OFFICIAL_PACK_REPOSITORY")
@@ -68,17 +98,38 @@ def official_pack_repository(repository: str | None = None) -> str:
 
 
 def ca_bundle_path() -> str:
-    """Return the CA bundle path used for HTTPS downloads."""
+    """ca_bundle_path 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     return os.environ.get(ENV_CA_BUNDLE) or certifi.where()
 
 
 def https_ssl_context() -> ssl.SSLContext:
-    """Build a verifying SSL context for GitHub and release asset downloads."""
+    """https_ssl_context 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        ssl.SSLContext: 처리 결과를 반환합니다.
+    """
     return ssl.create_default_context(cafile=ca_bundle_path())
 
 
 def certificate_verification_failed(exc: BaseException) -> bool:
-    """Return whether an exception represents a TLS certificate verification failure."""
+    """certificate_verification_failed 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        exc (BaseException): `exc` 값입니다.
+    
+    Returns:
+        bool: 처리 결과를 반환합니다.
+    """
     reason = getattr(exc, "reason", exc)
     return (
         isinstance(reason, ssl.SSLCertVerificationError)
@@ -89,7 +140,14 @@ def certificate_verification_failed(exc: BaseException) -> bool:
 
 
 def certificate_failure_message(prefix: str) -> str:
-    """Return a user-facing certificate failure message."""
+    """certificate_failure_message 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        prefix (str): `prefix` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     return (
         f"{prefix}: SSL certificate verification failed. "
         "The judge uses HTTPS download, not git. Update your system certificates "
@@ -98,7 +156,14 @@ def certificate_failure_message(prefix: str) -> str:
 
 
 def github_json(url: str) -> dict[str, Any]:
-    """Fetch a GitHub JSON document using the standard library."""
+    """github_json 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        url (str): `url` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     request = Request(
         url,
         headers={
@@ -118,7 +183,14 @@ def github_json(url: str) -> dict[str, Any]:
 
 
 def github_default_branch(repository: str) -> str:
-    """Return the default branch for a GitHub repository."""
+    """github_default_branch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str): `repository` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     data = github_json(f"https://api.github.com/repos/{repository}")
     default_branch = data.get("default_branch")
     if not isinstance(default_branch, str) or not default_branch:
@@ -127,7 +199,15 @@ def github_default_branch(repository: str) -> str:
 
 
 def github_commit_sha(repository: str, ref: str) -> str | None:
-    """Return a commit SHA for a GitHub ref when GitHub exposes it."""
+    """github_commit_sha 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str): `repository` 값입니다.
+        ref (str): `ref` 값입니다.
+    
+    Returns:
+        str | None: 처리 결과를 반환합니다.
+    """
     try:
         data = github_json(f"https://api.github.com/repos/{repository}/commits/{ref}")
     except JudgeError:
@@ -137,7 +217,15 @@ def github_commit_sha(repository: str, ref: str) -> str | None:
 
 
 def select_pack_asset(assets: list[dict[str, Any]], asset_name: str | None) -> dict[str, Any]:
-    """Select a .aljpack release asset, preferring the current platform."""
+    """select_pack_asset 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        assets (list[dict[str, Any]]): `assets` 값입니다.
+        asset_name (str | None): `asset_name` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     candidates = [
         asset
         for asset in assets
@@ -160,7 +248,15 @@ def select_pack_asset(assets: list[dict[str, Any]], asset_name: str | None) -> d
 def select_checksum_asset(
     assets: list[dict[str, Any]], pack_asset: dict[str, Any]
 ) -> dict[str, Any]:
-    """Select the checksum asset associated with a release pack asset."""
+    """select_checksum_asset 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        assets (list[dict[str, Any]]): `assets` 값입니다.
+        pack_asset (dict[str, Any]): `pack_asset` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     asset_name = pack_asset.get("name")
     if not isinstance(asset_name, str) or not asset_name.endswith(".aljpack"):
         raise JudgeError("problem pack asset has no valid name")
@@ -184,7 +280,16 @@ def download_asset(
     *,
     limit_bytes: int = security_limits.MAX_REMOTE_DOWNLOAD_BYTES,
 ) -> None:
-    """Download one release asset to a local file."""
+    """download_asset 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        url (str): `url` 값입니다.
+        target (Path): `target` 값입니다.
+        limit_bytes (int): `limit_bytes` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     request = Request(url, headers={"User-Agent": "algorithm-local-judge"})
     try:
         with urlopen(request, timeout=60, context=https_ssl_context()) as response:

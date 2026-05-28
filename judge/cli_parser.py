@@ -1,3 +1,11 @@
+"""cli_parser 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import argparse
@@ -6,18 +14,40 @@ from judge.core.paths import current_platform_id
 
 
 def add_parser(subparsers: argparse._SubParsersAction, name: str) -> argparse.ArgumentParser:
-    """Add a subparser with option abbreviation disabled."""
+    """add_parser 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        subparsers (argparse._SubParsersAction): `subparsers` 값입니다.
+        name (str): 이름입니다.
+    
+    Returns:
+        argparse.ArgumentParser: 처리 결과를 반환합니다.
+    """
     return subparsers.add_parser(name, allow_abbrev=False)
 
 
 def add_common_run_args(parser: argparse.ArgumentParser) -> None:
-    """Register options shared by explicit run commands."""
+    """add_common_run_args 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        parser (argparse.ArgumentParser): `parser` 값입니다.
+    
+    Returns:
+        None: 처리 결과를 반환합니다.
+    """
     parser.add_argument("--problem", dest="run_problem")
     parser.add_argument("--profile", dest="run_profile")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the top-level CLI parser and all subcommands."""
+    """build_parser 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        argparse.ArgumentParser: 처리 결과를 반환합니다.
+    """
     parser = argparse.ArgumentParser(prog="judge", allow_abbrev=False)
     parser.add_argument("--problem")
     parser.add_argument("--profile")

@@ -1,3 +1,11 @@
+"""problems 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -29,15 +37,38 @@ router = APIRouter(prefix="/api/problems", tags=["problems"])
 
 @router.get("")
 def api_problems(request: Request) -> list[dict]:
-    """Return problem summaries."""
+    """api_problems 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+    
+    Returns:
+        list[dict]: 처리 결과를 반환합니다.
+    """
     return route_result(lambda: list_problem_metadata(workspace_from_request(request)))
 
 
 @router.post("")
 def api_problem_create(request: Request, body: ProblemCreateRequest) -> dict:
-    """Create a new problem from templates."""
+    """api_problem_create 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        body (ProblemCreateRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_local_write_allowed(request, "problem creation")
         workspace = workspace_from_request(request)
         result = create_problem(
@@ -57,9 +88,25 @@ def api_problem_create(request: Request, body: ProblemCreateRequest) -> dict:
 
 @router.get("/{problem_id}")
 def api_problem_detail(request: Request, problem_id: str) -> dict:
-    """Return metadata and editable files for one problem."""
+    """api_problem_detail 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         workspace = workspace_from_request(request)
         problem_dir, metadata_path, metadata = load_problem(problem_id, workspace)
         return {
@@ -77,7 +124,16 @@ def api_problem_detail(request: Request, problem_id: str) -> dict:
 def api_problem_metadata_patch(
     request: Request, problem_id: str, body: MetadataPatchRequest
 ) -> dict:
-    """Patch problem.json metadata."""
+    """api_problem_metadata_patch 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (MetadataPatchRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     return route_result(
         lambda: (
             ensure_local_write_allowed(request, "problem metadata update")
@@ -88,9 +144,26 @@ def api_problem_metadata_patch(
 
 @router.patch("/{problem_id}/id")
 def api_problem_rename(request: Request, problem_id: str, body: ProblemRenameRequest) -> dict:
-    """Change a problem id and rename its directory."""
+    """api_problem_rename 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (ProblemRenameRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_local_write_allowed(request, "problem rename")
         result = rename_problem(workspace_from_request(request), problem_id, body.problem_id)
         result["workspace"] = add_workspace_warning(request, result["workspace"])
@@ -101,9 +174,26 @@ def api_problem_rename(request: Request, problem_id: str, body: ProblemRenameReq
 
 @router.delete("/{problem_id}")
 def api_problem_delete(request: Request, problem_id: str, body: ProblemDeleteRequest) -> dict:
-    """Delete a problem after exact confirmation."""
+    """api_problem_delete 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        request (Request): HTTP 요청 객체입니다.
+        problem_id (str): 문제 ID입니다.
+        body (ProblemDeleteRequest): `body` 값입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
 
     def operation() -> dict:
+    """operation 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
         ensure_local_write_allowed(request, "problem delete")
         result = delete_problem(
             workspace_from_request(request),

@@ -1,3 +1,11 @@
+"""cache 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -12,7 +20,14 @@ router = APIRouter(prefix="/api/cache", tags=["cache"])
 
 @router.get("")
 def api_cache() -> dict:
-    """Return cache status."""
+    """api_cache 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         return services.cache_status()
     except Exception as exc:
@@ -21,7 +36,15 @@ def api_cache() -> dict:
 
 @router.post("/clear")
 def api_cache_clear(http_request: Request, request: CacheClearRequest) -> dict:
-    """Preview or apply a cache clear request."""
+    """api_cache_clear 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        http_request (Request): `http_request` 값입니다.
+        request (CacheClearRequest): HTTP 요청 객체입니다.
+    
+    Returns:
+        dict: 처리 결과를 반환합니다.
+    """
     try:
         if not request.dry_run:
             ensure_local_web_action_allowed(http_request, "cache clear")

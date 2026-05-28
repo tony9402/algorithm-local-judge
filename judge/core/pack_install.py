@@ -1,3 +1,11 @@
+"""pack_install 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 import shutil
@@ -13,7 +21,14 @@ from judge.utils.fs import read_json
 
 
 def install_pack(archive_path: Path) -> Path:
-    """Install a verified problem pack into the user data directory."""
+    """install_pack 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        archive_path (Path): `archive_path` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     archive_path = archive_path.resolve()
     with tempfile.TemporaryDirectory(prefix="alj-pack-install-") as tmp:
         extracted_dir = Path(tmp)
@@ -35,7 +50,14 @@ def install_pack(archive_path: Path) -> Path:
 
 
 def installed_packs() -> list[dict[str, Any]]:
-    """Return metadata for installed problem packs."""
+    """installed_packs 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        없음
+    
+    Returns:
+        list[dict[str, Any]]: 처리 결과를 반환합니다.
+    """
     root = problem_pack_root()
     if not root.exists():
         return []
@@ -50,7 +72,14 @@ def installed_packs() -> list[dict[str, Any]]:
 
 
 def remove_pack(pack_id: str) -> Path:
-    """Remove an installed problem pack by id."""
+    """remove_pack 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        pack_id (str): `pack_id` 값입니다.
+    
+    Returns:
+        Path: 처리 결과를 반환합니다.
+    """
     validate_safe_id("pack id", pack_id)
     target = problem_pack_root() / pack_id
     if not target.exists():

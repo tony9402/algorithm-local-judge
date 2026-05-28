@@ -1,3 +1,11 @@
+"""remote_install 모듈의 공개 동작을 설명합니다.
+
+Args:
+    없음
+
+Returns:
+    None: 처리 결과를 반환합니다.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -33,7 +41,16 @@ def download_problem_pack_from_github(
     asset_name: str | None = None,
     ref: str | None = None,
 ) -> dict[str, Any]:
-    """Download and install problems from a public GitHub repository."""
+    """download_problem_pack_from_github 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        repository (str | None): `repository` 값입니다.
+        asset_name (str | None): `asset_name` 값입니다.
+        ref (str | None): `ref` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     repo = ensure_trusted_repository(official_pack_repository(repository))
     if not ref:
         try:
@@ -98,7 +115,15 @@ def download_problem_pack_from_github(
 
 
 def direct_pack_checksum_url(source_url: str, checksum_url: str | None) -> str:
-    """Return the checksum sidecar URL to use for a direct pack URL."""
+    """direct_pack_checksum_url 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_url (str): `source_url` 값입니다.
+        checksum_url (str | None): `checksum_url` 값입니다.
+    
+    Returns:
+        str: 처리 결과를 반환합니다.
+    """
     if checksum_url:
         parsed = urlparse(checksum_url)
         if parsed.scheme not in {"http", "https"}:
@@ -113,7 +138,16 @@ def download_problem_pack_from_url(
     checksum: str | None = None,
     checksum_url: str | None = None,
 ) -> dict[str, Any]:
-    """Download and install a problem pack from a direct HTTP(S) .aljpack URL."""
+    """download_problem_pack_from_url 함수를 실행하고 결과를 반환합니다.
+    
+    Args:
+        source_url (str): `source_url` 값입니다.
+        checksum (str | None): `checksum` 값입니다.
+        checksum_url (str | None): `checksum_url` 값입니다.
+    
+    Returns:
+        dict[str, Any]: 처리 결과를 반환합니다.
+    """
     parsed = urlparse(source_url)
     if parsed.scheme not in {"http", "https"} or not parsed.path.endswith(".aljpack"):
         raise JudgeError("direct problem pack URL must be an HTTP(S) .aljpack URL")
