@@ -26,6 +26,43 @@ tar -xzf algorithm-local-judge-0.1.0-linux-amd64.tar.gz
 
 브라우저가 자동으로 열리지 않으면 `http://127.0.0.1:8765`로 접속하세요. 화면에서 문제를 고르고, 소스 파일을 올리거나 코드를 붙여넣은 뒤 `Run Tests`를 누르면 됩니다.
 
+## Docker로 실행하기
+
+Ubuntu 기반 Docker 이미지로도 실행할 수 있습니다. 이미지에는 `judge`, `problem-studio`, C++/Java/Python 제출 실행 도구가 함께 들어갑니다.
+
+```bash
+docker build -t algorithm-local-judge .
+docker run --rm -it \
+  -p 127.0.0.1:8765:8765 \
+  -v alj-data:/data \
+  algorithm-local-judge
+```
+
+브라우저에서 `http://127.0.0.1:8765`로 접속합니다. Docker 컨테이너는 외부 접속을 위해 내부에서 `0.0.0.0`에 bind하므로, host port는 위 예시처럼 `127.0.0.1`에만 publish하는 것을 권장합니다.
+
+CLI만 실행할 수도 있습니다.
+
+```bash
+docker run --rm -it -v alj-data:/data algorithm-local-judge judge doctor
+docker run --rm -it -v alj-data:/data algorithm-local-judge judge problem install tony9402/algorithm-package
+```
+
+로컬 제출 파일을 채점하려면 현재 폴더를 `/workspace`로 mount합니다.
+
+```bash
+docker run --rm -it \
+  -v alj-data:/data \
+  -v "$PWD:/workspace" \
+  algorithm-local-judge \
+  judge --problem <problem-id> --profile sample main.cpp
+```
+
+Docker 이미지와 공식 문제 패키지 전체 데이터 생성 흐름을 검증하려면 다음 통합 테스트를 실행합니다.
+
+```bash
+make e2e-docker
+```
+
 ## 다운로드
 
 프로젝트 release 페이지에서 내 OS에 맞는 standalone 압축 파일을 받습니다.
