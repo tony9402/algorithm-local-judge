@@ -12,6 +12,11 @@ from judge.core.cases_compile import compile_problem_cases, format_compile_resul
 from judge.core.compiler import compile_problem_tools
 from judge.core.errors import JudgeError
 from judge.core.paths import validate_safe_id
+from problem_studio.core.diagnostics import (
+    exception_failure_payload,
+    infer_failure_stage,
+    verification_failure_payload,
+)
 from problem_studio.core.packflow import build_problem_pack_bundle, verify_solutions
 from problem_studio.core.validation import validate_all_data
 from problem_studio.core.workspace import (
@@ -90,6 +95,7 @@ def run_problem_full_test(
         f"{validation['caseCount']}개 데이터 검증 · "
         f"{len(verification.get('checks', []))}개 솔루션 검증"
     )
+    failure_payload = verification_failure_payload(verification)
     return {
         "problemId": problem_id,
         "passed": not failed_checks,
@@ -100,6 +106,7 @@ def run_problem_full_test(
         "toolCount": len(tools),
         "validation": validation,
         "solutionVerification": verification,
+        **failure_payload,
     }
 
 
@@ -155,6 +162,14 @@ def build_all_problem_packs(
             progress(f"[{index}/{len(selected_problem_ids)}] Problem {problem_id}: {message}")
 
     def run_one(index: int, problem_id: str) -> dict[str, Any]:
+        current_stage: dict[str, str | None] = {"key": None}
+
+        def progress_for_problem(message: str) -> None:
+            inferred = infer_failure_stage(message)
+            if inferred:
+                current_stage["key"] = inferred
+            emit(index, problem_id, message)
+
         try:
             check_cancel(cancel_token)
             emit(index, problem_id, "Starting full test.")
@@ -163,11 +178,19 @@ def build_all_problem_packs(
                 problem_id,
                 verify_profile,
                 force,
-                lambda message, i=index, pid=problem_id: emit(i, pid, message),
+                progress_for_problem,
                 cancel_token=cancel_token,
             )
             check_cancel(cancel_token)
             if not test_result["passed"]:
+                if not test_result.get("failureStage"):
+                    test_result = {
+                        **test_result,
+                        **exception_failure_payload(
+                            test_result.get("summary", "full test failed"),
+                            current_stage["key"],
+                        ),
+                    }
                 emit(index, problem_id, f"Full test failed: {test_result['summary']}")
                 return {**test_result, "pack": None}
 
@@ -177,11 +200,13 @@ def build_all_problem_packs(
             if cancellation_requested(cancel_token):
                 check_cancel(cancel_token)
             emit(index, problem_id, f"Failed: {exc}")
+            failure_payload = exception_failure_payload(exc, current_stage["key"])
             return {
                 "problemId": problem_id,
                 "passed": False,
                 "summary": str(exc),
                 "pack": None,
+                **failure_payload,
             }
 
     if progress:

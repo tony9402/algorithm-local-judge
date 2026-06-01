@@ -407,6 +407,24 @@ def fake_bulk_build_partial(
                 "problemId": problem_id,
                 "passed": index == 0,
                 "summary": "ok" if index == 0 else "forced failure",
+                "failureStage": "" if index == 0 else "solutions",
+                "failureStageLabel": "" if index == 0 else "솔루션 기대 결과",
+                "failureDetails": (
+                    []
+                    if index == 0
+                    else [
+                        {
+                            "type": "solution",
+                            "label": "솔루션 기대 결과",
+                            "source": f"solutions/{problem_id}.wa.cpp",
+                            "expectedStatus": "accepted",
+                            "actualStatus": "wrong_answer",
+                            "runId": "bulk-e2e-run",
+                            "caseCount": 2,
+                            "message": "forced mismatch",
+                        }
+                    ]
+                ),
                 "pack": (
                     {"archiveLabel": f"dist/packs/{pack_id}-{problem_id}.aljpack"}
                     if index == 0

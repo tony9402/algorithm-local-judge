@@ -109,6 +109,9 @@ function persistBulkProblemResult(item, checkedAt) {
     summary: item.summary || "",
     checkedAt,
     profile: "all",
+    failureStage: item.failureStage || "",
+    failureStageLabel: item.failureStageLabel || "",
+    failureDetails: item.failureDetails || [],
   };
   const patch = {
     fullTest,
@@ -124,6 +127,7 @@ function persistBulkProblemResult(item, checkedAt) {
   persistProblemLastResult(patch, problemId);
 }
 function applyBulkBuildResult(result) {
+  state.lastBulkBuildResult = result;
   const checkedAt = Date.now();
   for (const item of result.problems || []) {
     persistBulkProblemResult(item, checkedAt);
@@ -142,7 +146,10 @@ function bulkBuildSummary(result) {
   const failedProblems = (result.problems || [])
     .filter((item) => !item.passed)
     .slice(0, 4)
-    .map((item) => `${item.problemId}: ${item.summary || "실패"}`)
+    .map((item) => {
+      const stage = item.failureStageLabel || item.failureStage || "검증";
+      return `${item.problemId} · ${stage}: ${item.summary || "실패"}`;
+    })
     .join("\n");
   const remaining = failed > 4 ? `\n외 ${failed - 4}개 문제 실패` : "";
   const packSummary = packs ? `${packs}개 팩 생성` : "팩 생성 안 함";

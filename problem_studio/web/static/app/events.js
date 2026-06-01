@@ -156,6 +156,7 @@ export function bindAppEvents(actions) {
     "metadataGenerationTimeout",
     "metadataSolutionTimeout",
     "metadataUserTimeout",
+    "metadataUserMemoryLimit",
     "metadataToolGenerator",
     "metadataToolGeneratorConfig",
     "metadataToolValidator",

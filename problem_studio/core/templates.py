@@ -111,6 +111,7 @@ def create_problem(
         "generationTimeoutMs": 5000,
         "solutionTimeoutMs": 2000,
         "userTimeoutMs": 2000,
+        "userMemoryLimitMb": 2048,
     }
     files = {
         "generator/generator.cpp": GENERATOR_CPP,

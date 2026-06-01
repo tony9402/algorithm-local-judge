@@ -32,6 +32,12 @@ METADATA_TIMEOUT_FIELDS = {
     "solutionTimeoutMs",
     "userTimeoutMs",
 }
+METADATA_MEMORY_FIELDS = {
+    "userMemoryLimitBytes",
+    "memoryLimitBytes",
+    "userMemoryLimitMb",
+    "memoryLimitMb",
+}
 
 
 def safe_problem_file(workspace: Path, problem_id: str, raw_path: str) -> Path:
@@ -263,6 +269,10 @@ def validate_problem_metadata_patch(metadata: dict[str, Any]) -> None:
             raise JudgeError("metadata limits must be an object")
         for name, value in limits.items():
             if name in METADATA_TIMEOUT_FIELDS and (
+                not isinstance(value, int) or isinstance(value, bool) or value < 1
+            ):
+                raise JudgeError(f"{name} must be a positive integer")
+            if name in METADATA_MEMORY_FIELDS and (
                 not isinstance(value, int) or isinstance(value, bool) or value < 1
             ):
                 raise JudgeError(f"{name} must be a positive integer")

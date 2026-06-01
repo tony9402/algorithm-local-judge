@@ -85,3 +85,173 @@
 .build-dashboard-grid .download-link {
   margin-top: 2px;
 }
+
+.build-diagnostics {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #f0b6b2;
+  border-radius: 8px;
+  background: #fffafa;
+  padding: 12px;
+}
+
+.build-diagnostics-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.build-diagnostics-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.build-diagnostics-heading span,
+.build-diagnostic-title small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.build-diagnostics-heading strong {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.build-diagnostics-count,
+.build-diagnostic-status {
+  flex: 0 0 auto;
+  border: 1px solid #f0b6b2;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--bad);
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.build-diagnostic-list {
+  display: grid;
+  gap: 8px;
+}
+
+.build-diagnostic-problem {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.build-diagnostic-problem summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.build-diagnostic-index {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.build-diagnostic-title {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.build-diagnostic-title strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.build-diagnostic-summary {
+  border-top: 1px solid var(--line);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 9px 10px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.build-diagnostic-details {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 9px 10px 10px;
+  list-style: none;
+}
+
+.build-diagnostic-detail {
+  display: grid;
+  gap: 3px;
+  border-left: 3px solid #f0b6b2;
+  background: var(--panel-soft);
+  padding: 8px 9px;
+}
+
+.build-diagnostic-detail strong,
+.build-diagnostic-detail span,
+.build-diagnostic-detail p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.build-diagnostic-detail strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.build-diagnostic-detail span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.build-diagnostic-detail p {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .build-diagnostics-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .build-diagnostics-count {
+    width: fit-content;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .build-diagnostic-problem summary {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .build-diagnostic-status {
+    grid-column: 2;
+    width: fit-content;
+  }
+}

@@ -130,7 +130,7 @@
             <div class="metadata-card-heading">
               <div>
                 <strong>실행 제한</strong>
-                <p>컴파일, 데이터 생성, 기준 정답, 사용자 코드 실행 시간을 밀리초로 관리합니다.</p>
+                <p>컴파일, 데이터 생성, 기준 정답, 사용자 코드 실행 시간과 메모리를 관리합니다.</p>
               </div>
             </div>
             <div class="metadata-limit-grid">
@@ -160,6 +160,13 @@
                 <span class="number-with-unit">
                   <input id="metadataUserTimeout" type="number" min="100" step="100" />
                   <span>ms</span>
+                </span>
+              </label>
+              <label>
+                사용자 메모리
+                <span class="number-with-unit">
+                  <input id="metadataUserMemoryLimit" type="number" min="1" step="64" />
+                  <span>MB</span>
                 </span>
               </label>
             </div>
@@ -279,6 +286,12 @@
               <a id="buildDashboardDownloadLink" class="download-link hidden" href="#" download>다운로드</a>
             </section>
           </div>
+          <section
+            id="buildDiagnostics"
+            class="build-diagnostics hidden"
+            aria-live="polite"
+            aria-label="검증 팩 문제 진단"
+          ></section>
         </div>
         <div class="panel-heading">
           <div>

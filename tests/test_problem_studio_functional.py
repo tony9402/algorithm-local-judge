@@ -149,6 +149,7 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             json={"problem_id": "alpha", "title": "Original", "folder": "Basics"},
         )
         self.assertEqual(created.status_code, 200, created.text)
+        self.assertEqual(created.json()["metadata"]["limits"]["userMemoryLimitMb"], 2048)
 
         patched = client.patch(
             "/api/problems/alpha/metadata",
@@ -219,6 +220,16 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertIn(
             "userTimeoutMs must be a positive integer",
             rejected_timeout.json()["detail"],
+        )
+
+        rejected_memory = client.patch(
+            "/api/problems/alpha/metadata",
+            json={"metadata": {"limits": {"userMemoryLimitMb": 0}}},
+        )
+        self.assertEqual(rejected_memory.status_code, 400, rejected_memory.text)
+        self.assertIn(
+            "userMemoryLimitMb must be a positive integer",
+            rejected_memory.json()["detail"],
         )
 
         after = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -549,6 +560,10 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertEqual(result["packCount"], 0)
         self.assertEqual(result["failedCount"], 1)
+        failed_problem = result["problems"][0]
+        self.assertEqual(failed_problem["failureStage"], "solutions")
+        self.assertEqual(failed_problem["failureStageLabel"], "솔루션 기대 결과")
+        self.assertIn("expected mismatch", failed_problem["failureDetails"][0]["message"])
         mocked_pack.assert_not_called()
 
     def test_bulk_build_deduplicates_ids_and_forwards_solution_checks(self) -> None:

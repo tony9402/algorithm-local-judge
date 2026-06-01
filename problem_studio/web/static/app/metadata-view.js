@@ -4,6 +4,7 @@
 
 import { $, escapeHtml, optional, setText } from "./dom.js";
 import {
+  METADATA_MEMORY_FIELDS,
   METADATA_TIMEOUT_FIELDS,
   METADATA_TOOL_FIELDS,
   SAFE_PROBLEM_ID,
@@ -29,6 +30,22 @@ export function textInputValue(id, fallback = "") {
   return $(id).value.trim() || fallback;
 }
 
+function memoryLimitMb(limits = {}) {
+  if (Number.isInteger(limits.userMemoryLimitMb) && limits.userMemoryLimitMb > 0) {
+    return limits.userMemoryLimitMb;
+  }
+  if (Number.isInteger(limits.memoryLimitMb) && limits.memoryLimitMb > 0) {
+    return limits.memoryLimitMb;
+  }
+  if (Number.isInteger(limits.userMemoryLimitBytes) && limits.userMemoryLimitBytes > 0) {
+    return Math.ceil(limits.userMemoryLimitBytes / 1024 / 1024);
+  }
+  if (Number.isInteger(limits.memoryLimitBytes) && limits.memoryLimitBytes > 0) {
+    return Math.ceil(limits.memoryLimitBytes / 1024 / 1024);
+  }
+  return 2048;
+}
+
 function safeMetadataPath(value) {
   const path = String(value || "").trim();
   return path && !path.startsWith("/") && !path.split("/").includes("..");
@@ -48,6 +65,12 @@ export function metadataFormIssues() {
     const value = Number.parseInt($(id).value, 10);
     if (!Number.isFinite(value) || value < 1) {
       issues.push(`${label}은 1ms 이상의 숫자여야 합니다.`);
+    }
+  }
+  for (const [id, _key, label] of METADATA_MEMORY_FIELDS) {
+    const value = Number.parseInt($(id).value, 10);
+    if (!Number.isFinite(value) || value < 1) {
+      issues.push(`${label}은 1MB 이상의 숫자여야 합니다.`);
     }
   }
   for (const [id, _key, label] of METADATA_TOOL_FIELDS) {
@@ -83,30 +106,38 @@ export function currentMetadataDraft() {
   const existing = state.detail?.metadata || {};
   const existingLimits = existing.limits || {};
   const existingTools = existing.tools || {};
+  const limits = {
+    ...existingLimits,
+    compileTimeoutMs: positiveIntegerInput(
+      "metadataCompileTimeout",
+      existingLimits.compileTimeoutMs || 5000
+    ),
+    generationTimeoutMs: positiveIntegerInput(
+      "metadataGenerationTimeout",
+      existingLimits.generationTimeoutMs || 5000
+    ),
+    solutionTimeoutMs: positiveIntegerInput(
+      "metadataSolutionTimeout",
+      existingLimits.solutionTimeoutMs || 2000
+    ),
+    userTimeoutMs: positiveIntegerInput(
+      "metadataUserTimeout",
+      existingLimits.userTimeoutMs || 2000
+    ),
+    userMemoryLimitMb: positiveIntegerInput(
+      "metadataUserMemoryLimit",
+      memoryLimitMb(existingLimits)
+    ),
+  };
+  delete limits.userMemoryLimitBytes;
+  delete limits.memoryLimitBytes;
+  delete limits.memoryLimitMb;
   return {
     title: textInputValue("metadataTitle", "Untitled Problem"),
     folder: textInputValue("metadataFolder"),
     version: positiveIntegerInput("metadataVersion", existing.version || 1),
     defaultProfile: textInputValue("metadataDefaultProfile", "hidden"),
-    limits: {
-      ...existingLimits,
-      compileTimeoutMs: positiveIntegerInput(
-        "metadataCompileTimeout",
-        existingLimits.compileTimeoutMs || 5000
-      ),
-      generationTimeoutMs: positiveIntegerInput(
-        "metadataGenerationTimeout",
-        existingLimits.generationTimeoutMs || 5000
-      ),
-      solutionTimeoutMs: positiveIntegerInput(
-        "metadataSolutionTimeout",
-        existingLimits.solutionTimeoutMs || 2000
-      ),
-      userTimeoutMs: positiveIntegerInput(
-        "metadataUserTimeout",
-        existingLimits.userTimeoutMs || 2000
-      ),
-    },
+    limits,
     tools: {
       ...existingTools,
       generator: textInputValue("metadataToolGenerator", "generator/generator.cpp"),
@@ -181,6 +212,7 @@ export function populateMetadataForm(metadata) {
   $("metadataGenerationTimeout").value = limits.generationTimeoutMs ?? 5000;
   $("metadataSolutionTimeout").value = limits.solutionTimeoutMs ?? 2000;
   $("metadataUserTimeout").value = limits.userTimeoutMs ?? 2000;
+  $("metadataUserMemoryLimit").value = memoryLimitMb(limits);
   $("metadataToolGenerator").value = tools.generator || "generator/generator.cpp";
   $("metadataToolGeneratorConfig").value = tools.generatorConfig || "generator/cases.yml";
   $("metadataToolValidator").value = tools.validator || "validator/validator.cpp";

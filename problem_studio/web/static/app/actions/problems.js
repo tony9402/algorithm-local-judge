@@ -258,6 +258,7 @@ export async function createProblem() {
     generationTimeoutMs: positiveIntegerInput("newProblemGenerationTimeout", 5000),
     solutionTimeoutMs: positiveIntegerInput("newProblemSolutionTimeout", 2000),
     userTimeoutMs: positiveIntegerInput("newProblemUserTimeout", 2000),
+    userMemoryLimitMb: positiveIntegerInput("newProblemUserMemoryLimit", 2048),
   };
   await api("/api/problems", {
     method: "POST",

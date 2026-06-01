@@ -21,6 +21,7 @@ export const state = {
   lastSolutionStress: null,
   lastFullTest: null,
   lastPackResult: null,
+  lastBulkBuildResult: null,
   lastRun: null,
   dirtySolutionPaths: [],
   lastStreamDetail: "",
@@ -200,6 +201,9 @@ export const METADATA_TIMEOUT_FIELDS = [
   ["metadataGenerationTimeout", "generationTimeoutMs", "데이터 생성 제한"],
   ["metadataSolutionTimeout", "solutionTimeoutMs", "기준 정답 제한"],
   ["metadataUserTimeout", "userTimeoutMs", "사용자 코드 제한"],
+];
+export const METADATA_MEMORY_FIELDS = [
+  ["metadataUserMemoryLimit", "userMemoryLimitMb", "사용자 코드 메모리 제한"],
 ];
 export const METADATA_TOOL_FIELDS = [
   ["metadataToolGenerator", "generator", "Generator"],

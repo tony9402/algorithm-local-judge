@@ -2,17 +2,138 @@
  * build 화면 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
  */
 
-import { optional, setText } from "./dom.js";
+import { escapeHtml, optional, setText } from "./dom.js";
 import { currentProblemResult, hasFreshFullTest } from "./results.js";
-import { PACK_OUTPUT_DIR, state } from "./state.js";
+import { PACK_OUTPUT_DIR, STATUS_LABELS, state } from "./state.js";
 import { updateEditorPanelMode } from "./tabs-view.js";
 
 const buildCallbacks = {
   formatTime: () => "",
   packJobSummary: () => "",
 };
+const STAGE_LABELS = {
+  cases: "cases.yml 검사",
+  tools: "도구 컴파일",
+  validation: "데이터 생성+검증",
+  solutions: "솔루션 기대 결과",
+  pack: "팩 생성",
+  unknown: "검증",
+};
 export function configureBuildView(callbacks = {}) {
   Object.assign(buildCallbacks, callbacks);
+}
+function statusLabel(status) {
+  return STATUS_LABELS[status] || status || "-";
+}
+function problemDisplayName(problemId) {
+  const problem = (state.problems || []).find((item) => item.problemId === problemId);
+  return [problemId, problem?.title].filter(Boolean).join(" · ");
+}
+function failureStageLabel(item) {
+  return item?.failureStageLabel || STAGE_LABELS[item?.failureStage] || item?.failureStage || "검증";
+}
+function failureDetails(item) {
+  return Array.isArray(item?.failureDetails) ? item.failureDetails : [];
+}
+function detailTitle(detail) {
+  if (detail.source) return detail.source;
+  if (detail.target) return detail.target;
+  return detail.label || "실패 상세";
+}
+function detailMeta(detail) {
+  const chunks = [];
+  if (detail.expectedStatus || detail.actualStatus) {
+    chunks.push(`기대 ${statusLabel(detail.expectedStatus)} · 실제 ${statusLabel(detail.actualStatus)}`);
+  }
+  if (detail.runId) chunks.push(`run ${detail.runId}`);
+  if (detail.caseCount) chunks.push(`${detail.caseCount}개 case`);
+  return chunks.join(" · ");
+}
+function renderDetail(detail) {
+  const meta = detailMeta(detail);
+  return `
+    <li class="build-diagnostic-detail">
+      <strong>${escapeHtml(detailTitle(detail))}</strong>
+      ${meta ? `<span>${escapeHtml(meta)}</span>` : ""}
+      ${detail.message ? `<p>${escapeHtml(detail.message)}</p>` : ""}
+    </li>
+  `;
+}
+function renderProblemDiagnostic(item, index) {
+  const details = failureDetails(item);
+  const problemId = item.problemId || state.selectedProblem || "-";
+  const stage = failureStageLabel(item);
+  return `
+    <details class="build-diagnostic-problem" open>
+      <summary>
+        <span class="build-diagnostic-index">${index + 1}</span>
+        <span class="build-diagnostic-title">
+          <strong>${escapeHtml(problemDisplayName(problemId))}</strong>
+          <small>${escapeHtml(stage)}에서 확인 필요</small>
+        </span>
+        <span class="build-diagnostic-status">실패</span>
+      </summary>
+      <p class="build-diagnostic-summary">${escapeHtml(item.summary || "실패한 검증 항목을 확인하세요.")}</p>
+      ${
+        details.length
+          ? `<ul class="build-diagnostic-details">${details.map(renderDetail).join("")}</ul>`
+          : ""
+      }
+    </details>
+  `;
+}
+function selectedProblemDiagnostic(fullTest) {
+  if (!fullTest || fullTest.passed) return null;
+  return {
+    problemId: state.selectedProblem,
+    passed: false,
+    summary: fullTest.summary || "전체 테스트가 실패했습니다.",
+    failureStage: fullTest.failureStage || "unknown",
+    failureStageLabel: fullTest.failureStageLabel || "",
+    failureDetails: fullTest.failureDetails || [],
+  };
+}
+function renderBuildDiagnostics(fullTest) {
+  const panel = optional("buildDiagnostics");
+  if (!panel) return;
+  if (state.selectedTab !== "build") {
+    panel.classList.add("hidden");
+    return;
+  }
+
+  const bulkResult = state.lastBulkBuildResult;
+  let problems = [];
+  let summary = "";
+  if (bulkResult?.problems?.length) {
+    problems = bulkResult.problems.filter((item) => !item.passed);
+    summary = `${bulkResult.problemCount || bulkResult.problems.length}개 중 ${problems.length}개 문제 실패`;
+  }
+  if (!problems.length) {
+    const current = selectedProblemDiagnostic(fullTest);
+    if (current) {
+      problems = [current];
+      summary = "현재 문제 전체 테스트 실패";
+    }
+  }
+  if (!problems.length) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+
+  panel.classList.remove("hidden");
+  panel.innerHTML = `
+    <div class="build-diagnostics-heading">
+      <div>
+        <span>문제별 진단</span>
+        <strong>어느 문제의 어느 단계가 실패했는지 확인하세요.</strong>
+      </div>
+      <span class="build-diagnostics-count">${escapeHtml(summary)}</span>
+    </div>
+    <div class="build-diagnostic-list">
+      ${problems.map(renderProblemDiagnostic).join("")}
+    </div>
+  `;
 }
 /**
  * 다운로드 link 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
@@ -84,6 +205,7 @@ export function updateBuildDashboard() {
     state.activePackJob ? buildCallbacks.packJobSummary(state.activePackJob) : pack?.archiveLabel || "아직 없음"
   );
   updateDownloadLink(optional("buildDashboardDownloadLink"), pack, "팩 파일");
+  renderBuildDiagnostics(fullTest);
 }
 /**
  * build panel 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.

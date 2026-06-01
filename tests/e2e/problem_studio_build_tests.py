@@ -860,4 +860,8 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     page.locator("#workspaceBuildStartButton").click()
                     wait_for_text(page, "#lastRunTitle", "전체 문제 테스트/팩 빌드 실패")
                     wait_for_text(page, "#alertStack", "1개 문제 실패")
+                    page.locator('[data-tab="build"]').click()
+                    wait_for_text(page, "#buildDiagnostics", "Beta Bulk")
+                    wait_for_text(page, "#buildDiagnostics", "솔루션 기대 결과")
+                    wait_for_text(page, "#buildDiagnostics", "solutions/beta.wa.cpp")
                     self.assert_no_browser_errors()

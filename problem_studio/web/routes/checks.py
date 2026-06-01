@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from judge.core.compiler import compile_problem_tools
+from problem_studio.core.diagnostics import verification_failure_payload
 from problem_studio.core.packflow import verify_solutions
 from problem_studio.core.validation import compile_cases, validate_all_data
 from problem_studio.web.routes.common import (
@@ -78,6 +79,7 @@ def api_run_all_checks_job(
                 raise_on_failure=False,
             )
             cancel_token.check()
+            failure_payload = verification_failure_payload(verification)
             return {
                 "problemId": problem_id,
                 "passed": bool(verification.get("passed")),
@@ -85,6 +87,7 @@ def api_run_all_checks_job(
                 "tools": {"labels": {name: str(path) for name, path in tools.items()}},
                 "validation": validation,
                 "verification": verification,
+                **failure_payload,
             }
 
         job = enqueue_background_job(

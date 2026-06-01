@@ -115,6 +115,9 @@ async function runAllChecks() {
         summary,
         checkedAt: Date.now(),
         profile: "all",
+        failureStage: "",
+        failureStageLabel: "",
+        failureDetails: [],
       };
       persistProblemLastResult({
         fullTest: state.lastFullTest,
@@ -130,6 +133,9 @@ async function runAllChecks() {
         summary: solutionFailureSummary,
         checkedAt: Date.now(),
         profile: "all",
+        failureStage: result.failureStage || "solutions",
+        failureStageLabel: result.failureStageLabel || "솔루션 기대 결과",
+        failureDetails: result.failureDetails || [],
       };
       persistProblemLastResult({
         fullTest: state.lastFullTest,
@@ -162,6 +168,28 @@ async function runAllChecks() {
       ]),
       "error"
     );
+    state.lastFullTest = {
+      passed: false,
+      summary: detail || "전체 테스트가 실패했습니다.",
+      checkedAt: Date.now(),
+      profile: "all",
+      failureStage: "unknown",
+      failureStageLabel: failedStep || "검증",
+      failureDetails: [
+        {
+          label: failedStep || "검증",
+          target: "cases.yml, generator, validator, checker, solutions",
+          message: detail || "실패한 단계를 확인한 뒤 다시 실행하세요.",
+        },
+      ],
+    };
+    persistProblemLastResult({
+      fullTest: state.lastFullTest,
+      dirtyAfterFullTest: true,
+      dirtyReason: detail || "전체 테스트가 실패했습니다.",
+    });
+    updateBuildPanel();
+    renderTabFiles();
     throw error;
   }
 }
