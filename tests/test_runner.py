@@ -14,12 +14,18 @@ from judge.core.compiler import PreparedSubmission
 from judge.core.errors import JudgeError
 from judge.core.runner import validator_check
 from judge.core.submission import run_submission
+from judge.core.submission_status import DEFAULT_USER_MEMORY_LIMIT_BYTES, user_memory_limit_bytes
 from judge.utils.fs import read_json, write_json
 from judge.utils.process import CommandResult
 
 
 class RunnerErrorMessageTest(unittest.TestCase):
     """실행기 오류 메시지 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+
+    def test_user_memory_limit_defaults_to_2048_mb(self) -> None:
+        """문제 메타데이터에 메모리 제한이 없으면 기본 2048MB 제한을 사용합니다."""
+        self.assertEqual(user_memory_limit_bytes({}), DEFAULT_USER_MEMORY_LIMIT_BYTES)
+        self.assertEqual(user_memory_limit_bytes({"userMemoryLimitMb": 512}), 512 * 1024 * 1024)
 
     def test_validator_error_includes_context_and_input_preview(self) -> None:
         """검증기 오류 포함 맥락 및 입력 미리보기 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""

@@ -130,6 +130,44 @@ class ProblemInstallTest(unittest.TestCase):
                 self.assertTrue((installed / "source.json").exists())
                 self.assertTrue((installed / "problems" / "testlib.h").exists())
 
+    def test_install_source_package_uses_bundled_testlib_when_package_omits_it(self) -> None:
+        """소스 패키지가 testlib.h를 생략하면 애플리케이션의 공통 헤더를 설치합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-source-install-testlib-test-") as tmp:
+            tmp_path = Path(tmp)
+            app_root = tmp_path / "app"
+            package = tmp_path / "package"
+            problem = package / "problems" / "alpha"
+            problem.mkdir(parents=True)
+            app_root.mkdir()
+            (app_root / "testlib.h").write_text("// bundled testlib\n", encoding="utf-8")
+            (problem / "problem.json").write_text(
+                '{"problemId":"alpha","title":"Alpha"}',
+                encoding="utf-8",
+            )
+            env = {
+                **os.environ,
+                "ALJ_PROJECT_ROOT": str(app_root),
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+            }
+
+            with patch.dict(os.environ, env, clear=True):
+                result = install_problem_source_package(
+                    package,
+                    repository="tony9402/algorithm-package",
+                    ref="main",
+                    commit_sha="abc123",
+                )
+
+            installed = Path(result["installedPath"])
+            self.assertEqual(
+                (installed / "testlib.h").read_text(encoding="utf-8"),
+                "// bundled testlib\n",
+            )
+            self.assertEqual(
+                (installed / "problems" / "testlib.h").read_text(encoding="utf-8"),
+                "// bundled testlib\n",
+            )
+
     def test_source_archive_rejects_unsafe_member_paths(self) -> None:
         """소스 아카이브 거부 안전하지 않은 멤버 경로 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-source-archive-test-") as tmp:

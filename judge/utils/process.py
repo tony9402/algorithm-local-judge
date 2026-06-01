@@ -30,6 +30,8 @@ class CommandResult:
 
 DEFAULT_CAPTURE_LIMIT_BYTES = 1024 * 1024
 DEFAULT_FILE_OUTPUT_LIMIT_BYTES = 10 * 1024 * 1024
+DEFAULT_CHILD_STACK_LIMIT_BYTES = 2048 * 1024 * 1024
+DEFAULT_CHILD_STACK_LIMIT_KB = DEFAULT_CHILD_STACK_LIMIT_BYTES // 1024
 PROCESS_GROUP_KILL_GRACE_SECONDS = 0.2
 
 
@@ -127,6 +129,23 @@ def append_stderr_note(stderr: bytes, note: str, limit: int) -> tuple[bytes, boo
     return truncated_bytes(stderr + suffix, limit, "stderr")
 
 
+def command_with_child_limits(command: Sequence[str]) -> list[str]:
+    if os.name == "nt":
+        return list(command)
+    script = (
+        f"target={DEFAULT_CHILD_STACK_LIMIT_KB}; "
+        'hard="$(ulimit -Hs 2>/dev/null || printf %s "$target")"; '
+        'case "$hard" in '
+        "unlimited) ;; "
+        "*[!0-9]*|'') ;; "
+        '*) if [ "$hard" -lt "$target" ]; then target="$hard"; fi ;; '
+        "esac; "
+        'ulimit -s "$target" 2>/dev/null || true; '
+        'exec "$@"'
+    )
+    return ["/bin/sh", "-c", script, "alj-run-command", *command]
+
+
 def truncate_output_file(path: Path, limit: int) -> bool:
     """truncate 출력 파일 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
@@ -216,8 +235,9 @@ def run_command_result(
             output_path.parent.mkdir(parents=True, exist_ok=True)
             stdout = output_path.open("wb")
 
+        popen_command = command_with_child_limits(command)
         process = subprocess.Popen(
-            command,
+            popen_command,
             cwd=cwd,
             stdin=stdin,
             stdout=stdout,

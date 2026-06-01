@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from judge.core.errors import JudgeError
-from judge.core.paths import problem_source_root, rel
+from judge.core.paths import problem_source_root, rel, repo_root
 from judge.core.problem_install_policy import SOURCE_INSTALL_TRUST_WARNING
 from judge.core.remote_archive import find_source_package_root, safe_extract_zip
 from judge.utils.fs import write_json
@@ -35,21 +35,30 @@ def source_problem_count(package_root: Path) -> int:
 
 
 def copy_testlib_if_needed(package_root: Path, target: Path) -> None:
-    """testlib if needed 파일을 정책이 허용하는 대상 경로로 복사합니다.
+    """소스 패키지나 애플리케이션에 포함된 testlib.h를 설치된 문제 루트에 배치합니다.
 
     Args:
-        package_root (Path): testlib if needed을 계산하거나 검증할 때 필요한 package root 입력입니다.
-        target (Path): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
+        package_root (Path): 원격 또는 로컬에서 가져온 문제 소스 패키지의 루트 디렉터리입니다.
+        target (Path): 설치된 source package를 staging하는 디렉터리입니다. 문제 도구의 상대 include
+            경로가 동작하도록 testlib.h를 이 디렉터리와 `problems/` 아래에 복사합니다.
     """
-    root_testlib = package_root / "testlib.h"
-    problems_testlib = package_root / "problems" / "testlib.h"
-    if root_testlib.exists() and root_testlib.is_file():
-        shutil.copy2(root_testlib, target / "testlib.h")
-        target_problem_testlib = target / "problems" / "testlib.h"
-        if not target_problem_testlib.exists():
-            shutil.copy2(root_testlib, target_problem_testlib)
-    elif problems_testlib.exists() and problems_testlib.is_file():
-        shutil.copy2(problems_testlib, target / "problems" / "testlib.h")
+    candidates = [
+        package_root / "testlib.h",
+        package_root / "problems" / "testlib.h",
+        repo_root() / "testlib.h",
+    ]
+    source = next(
+        (candidate for candidate in candidates if candidate.exists() and candidate.is_file()),
+        None,
+    )
+    if source is None:
+        return
+    target_root_testlib = target / "testlib.h"
+    target_problem_testlib = target / "problems" / "testlib.h"
+    if not target_root_testlib.exists():
+        shutil.copy2(source, target_root_testlib)
+    if not target_problem_testlib.exists():
+        shutil.copy2(source, target_problem_testlib)
 
 
 def install_problem_source_package(
@@ -62,13 +71,14 @@ def install_problem_source_package(
     """설치 문제 소스 package 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
     Args:
-        package_root (Path): 설치 문제 소스 package을 계산하거나 검증할 때 필요한 package root 입력입니다.
+        package_root (Path): 설치할 문제 소스 패키지의 루트 디렉터리입니다.
         repository (str | None): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
         ref (str | None): GitHub API나 Git 명령에서 사용할 브랜치, 태그, 커밋 참조입니다.
-        commit_sha (str | None): 설치 문제 소스 package을 계산하거나 검증할 때 필요한 commit SHA 입력입니다.
+        commit_sha (str | None): 설치한 소스 아카이브의 원본 커밋 SHA입니다.
 
     Returns:
-        dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 설치 문제 소스 package 데이터입니다.
+        dict[str, Any]: 설치 위치, 출처, 문제 개수, 신뢰 경고를 담은 source package
+            설치 결과입니다.
     """
     package_root = package_root.resolve()
     problems_dir = package_root / "problems"

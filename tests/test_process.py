@@ -9,7 +9,7 @@ import time
 import unittest
 from pathlib import Path
 
-from judge.utils.process import run_command_result
+from judge.utils.process import DEFAULT_CHILD_STACK_LIMIT_BYTES, run_command_result
 
 
 class ProcessHardeningTest(unittest.TestCase):
@@ -74,6 +74,27 @@ class ProcessHardeningTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 124)
             self.assertFalse(marker.exists())
+
+    @unittest.skipIf(os.name == "nt", "stack resource limits are POSIX-specific")
+    def test_child_process_stack_soft_limit_is_raised(self) -> None:
+        """자식 프로세스 stack soft limit이 가능한 범위 안에서 2048MB까지 올라가는지 검증합니다."""
+        import resource
+
+        script = (
+            "import resource; "
+            "soft, hard = resource.getrlimit(resource.RLIMIT_STACK); "
+            "print(f'{soft} {hard}')"
+        )
+
+        result = run_command_result([sys.executable, "-c", script], timeout_ms=2000)
+
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
+        soft_text, _hard_text = result.stdout.decode("utf-8").strip().split()
+        _parent_soft, parent_hard = resource.getrlimit(resource.RLIMIT_STACK)
+        expected = DEFAULT_CHILD_STACK_LIMIT_BYTES
+        if parent_hard != resource.RLIM_INFINITY:
+            expected = min(expected, parent_hard)
+        self.assertEqual(int(soft_text), expected)
 
 
 if __name__ == "__main__":

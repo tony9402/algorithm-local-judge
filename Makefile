@@ -10,7 +10,7 @@ JUDGE := $(PYTHON) -m judge
 
 .PHONY: help all web test e2e e2e-judge e2e-judge-cli e2e-judge-web \
 	e2e-judge-pack e2e-problem-studio e2e-install lint format-check smoke \
-	package-smoke-problem-studio packaged-web-smoke release-ready cache-status \
+	e2e-docker package-smoke-problem-studio packaged-web-smoke release-ready cache-status \
 	cache-clear cache-clear-dry pack-verify pack-list build-standalone \
 	release-check testlib-check clean
 
@@ -24,6 +24,7 @@ help:
 	@echo "  make e2e-judge-web               Run judge browser E2E tests"
 	@echo "  make e2e-judge-pack              Run judge pack/source install E2E tests"
 	@echo "  make e2e-problem-studio          Run Problem Studio browser E2E tests"
+	@echo "  make e2e-docker                  Build Docker image and validate official problems"
 	@echo "  make e2e-install                 Install Playwright Chromium"
 	@echo "  make lint                        Run ruff lint"
 	@echo "  make format-check                Check ruff formatting"
@@ -74,6 +75,9 @@ e2e-judge-web:
 
 e2e-problem-studio:
 	$(PYTHON) -m unittest tests.e2e.e2e_problem_studio -v
+
+e2e-docker:
+	ALJ_RUN_DOCKER_TESTS=1 $(PYTHON) -m unittest tests.e2e.e2e_docker_remote_package -v
 
 e2e-install:
 	$(PYTHON) -m playwright install chromium

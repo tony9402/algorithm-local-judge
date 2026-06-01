@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from judge.utils.process import CommandResult
 
+DEFAULT_USER_MEMORY_LIMIT_MB = 2048
+DEFAULT_USER_MEMORY_LIMIT_BYTES = DEFAULT_USER_MEMORY_LIMIT_MB * 1024 * 1024
+
 
 def user_memory_limit_bytes(limits: dict[str, object]) -> int | None:
     for key in ("userMemoryLimitBytes", "memoryLimitBytes"):
@@ -14,7 +17,7 @@ def user_memory_limit_bytes(limits: dict[str, object]) -> int | None:
         value = limits.get(key)
         if isinstance(value, int) and value > 0:
             return value * 1024 * 1024
-    return None
+    return DEFAULT_USER_MEMORY_LIMIT_BYTES
 
 
 def command_status(command_result: CommandResult) -> tuple[str, str]:
