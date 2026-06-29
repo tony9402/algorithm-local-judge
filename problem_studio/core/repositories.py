@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from judge.core.errors import JudgeError
-from judge.core.paths import ensure_inside
+from alj_core.errors import JudgeError
+from alj_core.paths import ensure_inside
 from problem_studio.core.git import (
     clone_repository,
     current_branch,

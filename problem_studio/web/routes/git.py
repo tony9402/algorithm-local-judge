@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Request
 
-from judge.core.errors import JudgeError
+from alj_core.errors import JudgeError
 from problem_studio.core.git import (
     clone_repository,
     commit_changes,

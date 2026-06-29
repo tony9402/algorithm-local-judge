@@ -11,7 +11,13 @@ from typing import Any
 from judge.core.paths import rel
 from judge.utils.fs import read_json, write_json
 from judge.utils.text import format_size
-from judge.web.service_common import format_duration, language_from_filename
+from judge.web.service_common import (
+    format_duration,
+    language_display,
+    language_from_filename,
+    language_id_from_filename,
+    normalize_language_id,
+)
 
 
 def source_history_metadata(
@@ -19,15 +25,18 @@ def source_history_metadata(
     target: Path,
     problem_id: str,
     source_mode: str,
+    language: str | None = None,
 ) -> dict[str, Any]:
     stat = target.stat()
     saved_at = stat.st_mtime
+    language_id = normalize_language_id(language) or language_id_from_filename(target.name)
     return {
         "sourceId": source_id,
         "problemId": problem_id,
         "sourceMode": source_mode,
         "filename": target.name,
-        "language": language_from_filename(target.name),
+        "language": language_display(language_id) if language_id else language_from_filename(target.name),
+        "languageId": language_id,
         "savedAt": saved_at,
         "size": stat.st_size,
         "sizeLabel": format_size(stat.st_size),
@@ -41,6 +50,7 @@ def write_source_history_metadata(
     target: Path,
     problem_id: str,
     source_mode: str,
+    language: str | None = None,
 ) -> dict[str, Any]:
     """소스 이력 메타데이터 데이터를 지정된 파일이나 응답 대상에 기록합니다.
 
@@ -53,7 +63,7 @@ def write_source_history_metadata(
     Returns:
         dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 소스 이력 메타데이터 데이터입니다.
     """
-    metadata = source_history_metadata(source_id, target, problem_id, source_mode)
+    metadata = source_history_metadata(source_id, target, problem_id, source_mode, language)
     write_json(target.parent / "metadata.json", metadata)
     return metadata
 
@@ -105,7 +115,10 @@ def source_entry_metadata(entry_dir: Path) -> dict[str, Any] | None:
         metadata = dict(metadata)
         metadata["sourceId"] = source_id
         metadata["filename"] = source_file.name
-        metadata["language"] = metadata.get("language") or language_from_filename(source_file.name)
+        language_id = normalize_language_id(metadata.get("languageId") or metadata.get("language"))
+        language_id = language_id or language_id_from_filename(source_file.name)
+        metadata["languageId"] = language_id
+        metadata["language"] = language_display(language_id) if language_id else language_from_filename(source_file.name)
         metadata["size"] = source_file.stat().st_size
         metadata["sizeLabel"] = format_size(source_file.stat().st_size)
         metadata["sourcePath"] = str(source_file)

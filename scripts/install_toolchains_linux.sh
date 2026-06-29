@@ -8,9 +8,9 @@ if [[ "${1:-}" != "--run" ]]; then
 Dry run: Linux toolchain setup
 
 Install with your distribution package manager:
-- Debian/Ubuntu: sudo apt install build-essential openjdk-17-jdk python3 git
-- Fedora: sudo dnf install gcc-c++ java-17-openjdk-devel python3 git
-- Arch: sudo pacman -S base-devel jdk17-openjdk python git
+- Debian/Ubuntu: sudo apt install build-essential openjdk-17-jdk python3 pypy3 git
+- Fedora: sudo dnf install gcc-c++ java-17-openjdk-devel python3 pypy git
+- Arch: sudo pacman -S base-devel jdk17-openjdk python pypy3 git
 
 This script does not run package-manager commands automatically.
 EOF

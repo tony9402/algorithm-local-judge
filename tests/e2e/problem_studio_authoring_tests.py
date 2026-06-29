@@ -1,4 +1,4 @@
-"""문제 스튜디오의 문제 생성, 메타데이터 편집, 파일 저장, 화면 편집 흐름을 브라우저에서 검증하는 종단 간 테스트 모듈입니다."""
+"""Problem Studio 문제 작성 브라우저 E2E 테스트입니다."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from problem_studio.core.templates import create_problem
 from problem_studio.web.app import create_app
 from tests.e2e.helpers import (
     BrowserE2ETestCase,
+    assert_no_overlap,
     assert_visible_in_viewport,
     click_by_text,
     create_studio_problem,
@@ -19,11 +20,32 @@ from tests.e2e.helpers import (
 )
 
 
+def assert_no_horizontal_overflow(test: BrowserE2ETestCase, page, *, label: str) -> None:
+    """현재 문서가 viewport보다 넓게 밀리지 않는지 확인합니다.
+
+    Args:
+        test (BrowserE2ETestCase): 검증 실패를 보고할 테스트 케이스입니다.
+        page (Any): 브라우저 상호작용을 수행할 Playwright 페이지입니다.
+        label (str): 실패 메시지에 포함할 화면/뷰포트 설명입니다.
+    """
+    overflow = page.evaluate(
+        """() => ({
+            scrollWidth: document.documentElement.scrollWidth,
+            clientWidth: document.documentElement.clientWidth,
+        })"""
+    )
+    test.assertLessEqual(
+        overflow["scrollWidth"],
+        overflow["clientWidth"] + 1,
+        f"{label} overflowed: {overflow}",
+    )
+
+
 class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
-    """문제 스튜디오 문제 작성 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+    """Problem Studio 문제 작성 브라우저 흐름을 검증합니다."""
 
     def test_create_problem_edit_metadata_and_save_file_in_browser(self) -> None:
-        """생성 문제 편집 메타데이터 및 저장 파일 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+        """문제 생성, 메타데이터 편집, 파일 저장 흐름을 검증합니다."""
         with isolated_runtime("alj-problem-studio-e2e-") as (_directory, workspace):
             with run_app(create_app(workspace)) as server:
                 page = self.new_page(server.url)
@@ -75,7 +97,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_tabs_filters_stream_error_and_vim_mode_in_browser(self) -> None:
-        """탭 필터 스트림 오류 및 Vim 모드 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+        """탭, 필터, 스트림 오류, Vim 모드 흐름을 검증합니다."""
         with isolated_runtime("alj-problem-studio-e2e-") as (_directory, workspace):
             with run_app(create_app(workspace)) as server:
                 page = self.new_page(server.url)
@@ -114,7 +136,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_textarea_fallback_editor_saves_without_codemirror(self) -> None:
-        """텍스트 영역 대체 경로 편집기 저장 없이 CodeMirror 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+        """CodeMirror 없이 textarea fallback 저장 흐름을 검증합니다."""
         with isolated_runtime("alj-problem-studio-e2e-") as (_directory, workspace):
             with run_app(create_app(workspace)) as server:
                 page = self.new_page(server.url)
@@ -155,7 +177,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_problem_rename_and_delete_browser_flow(self) -> None:
-        """문제 이름 변경 및 삭제 브라우저 흐름 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+        """문제 이름 변경과 삭제 브라우저 흐름을 검증합니다."""
         with isolated_runtime("alj-problem-studio-rename-delete-e2e-") as (
             _directory,
             workspace,
@@ -188,7 +210,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_textarea_vim_write_undo_and_redo_flow(self) -> None:
-        """텍스트 영역 Vim 쓰기 되돌리기 및 다시 실행 흐름 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+        """textarea Vim write, undo, redo 흐름을 검증합니다."""
         with isolated_runtime("alj-problem-studio-vim-command-e2e-") as (
             _directory,
             workspace,
@@ -233,15 +255,23 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_problem_studio_viewports_keep_core_controls_usable(self) -> None:
-        """문제 스튜디오 뷰포트 유지 핵심 컨트롤 사용 가능 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+        """주요 viewport에서 핵심 컨트롤과 레이아웃을 검증합니다."""
         with isolated_runtime("alj-problem-studio-view-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha View", "E2E")
             with run_app(create_app(workspace)) as server:
-                for width, height in [(1440, 900), (900, 900), (390, 844)]:
+                for width, height in [
+                    (1440, 900),
+                    (1366, 900),
+                    (1280, 900),
+                    (1180, 900),
+                    (1080, 900),
+                    (768, 900),
+                    (390, 844),
+                ]:
                     page = self.new_page(server.url, width=width, height=height)
                     page.goto(server.url)
                     page.locator("#newProblemButton").wait_for(state="visible")
-                    if width <= 900:
+                    if width <= 1380:
                         page.locator("#sidebarToggle").click()
                         page.locator("#newProblemButton").wait_for(state="visible")
                         page.locator("#newProblemButton").click()
@@ -251,6 +281,13 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                         )
                         page.keyboard.press("Escape")
                         page.locator("#newProblemModal").wait_for(state="hidden")
+                        if page.evaluate(
+                            """() => document.body.classList.contains("sidebar-open")"""
+                        ):
+                            page.mouse.click(width - 4, height // 2)
+                            page.wait_for_function(
+                                """() => !document.body.classList.contains("sidebar-open")"""
+                            )
                     else:
                         assert_visible_in_viewport(self, page.locator("#newProblemButton"))
                         page.locator("#newProblemButton").click()
@@ -259,6 +296,37 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                             page.locator("#newProblemModal .modal-content"),
                         )
                         page.keyboard.press("Escape")
+
+                    for tab in ["solutions", "build"]:
+                        page.locator(f'[data-tab="{tab}"]').click()
+                        page.locator(".studio-layout").wait_for(state="visible")
+                        assert_no_horizontal_overflow(self, page, label=f"{tab} at {width}px")
+                        global_status = page.locator("#globalTaskStatus")
+                        if global_status.is_visible():
+                            global_status.scroll_into_view_if_needed()
+                            assert_visible_in_viewport(self, global_status)
+                        page.locator("#jobCenterButton").scroll_into_view_if_needed()
+                        assert_visible_in_viewport(self, page.locator("#jobCenterButton"))
+                        if tab == "solutions":
+                            page.locator(".solution-row").first.wait_for(state="visible")
+                            status = page.locator(".solution-row .resource-status").first
+                            actions = page.locator(".solution-row-actions").first
+                            status.scroll_into_view_if_needed()
+                            actions.scroll_into_view_if_needed()
+                            assert_visible_in_viewport(self, status)
+                            assert_visible_in_viewport(self, actions)
+                            assert_no_overlap(self, status, actions)
+                            assert_visible_in_viewport(
+                                self,
+                                page.locator(
+                                    '[data-solution-test="solutions/main_solution.ac.cpp"]'
+                                ),
+                            )
+                        else:
+                            page.locator("#buildDashboard").scroll_into_view_if_needed()
+                            assert_visible_in_viewport(self, page.locator("#buildDashboard"))
+
+                    page.locator('[data-tab="generator"]').click()
                     page.locator("#saveFileButton").scroll_into_view_if_needed()
                     assert_visible_in_viewport(self, page.locator("#saveFileButton"))
                     page.locator("#codeEditor").scroll_into_view_if_needed()

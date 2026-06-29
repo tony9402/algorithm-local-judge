@@ -4,3 +4,61 @@
 @import url("./status-grid.css?v=20260520-01");
 @import url("./progress.css?v=20260520-01");
 @import url("./artifacts.css?v=20260520-01");
+
+.case-results {
+  display: grid;
+  gap: 10px;
+}
+
+.case-results.hidden {
+  display: none;
+}
+
+.case-results-heading,
+.case-result-row {
+  display: grid;
+  gap: 6px;
+}
+
+.case-results-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.case-result-table {
+  display: grid;
+  gap: 8px;
+}
+
+.case-result-row {
+  grid-template-columns: minmax(70px, 0.8fr) minmax(88px, 1fr) minmax(130px, 1.4fr) auto;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 9px 10px;
+}
+
+.case-result-row.passed {
+  border-color: color-mix(in srgb, var(--good) 32%, var(--line));
+}
+
+.case-result-row.failed {
+  border-color: color-mix(in srgb, var(--bad) 36%, var(--line));
+}
+
+.case-result-row p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .case-result-row {
+    grid-template-columns: 1fr;
+  }
+}

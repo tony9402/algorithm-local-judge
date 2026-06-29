@@ -4,8 +4,9 @@
 
 const state = {
   problems: [],
+  folders: [],
   selectedProblem: null,
-  sourceMode: "upload",
+  sourceMode: "text",
   artifacts: null,
   selectedArtifact: "input",
   artifactExpanded: false,
@@ -18,6 +19,13 @@ const state = {
   generationProgress: { current: 0, total: 0 },
   sampleLoadToken: 0,
   sampleCache: {},
+  submissionCooldowns: {},
+  cooldownTimer: null,
+  jobsPage: 1,
+  jobsPageSize: 5,
+  jobsTotal: 0,
+  jobsTotalPages: 1,
+  jobsServerPaged: false,
   isBusy: false,
   config: {
     sampleProfile: "sample",
@@ -27,6 +35,7 @@ const state = {
 };
 
 const SELECTED_PROBLEM_KEY = "alj:selected-problem:v1";
+const COLLAPSED_FOLDERS_KEY = "alj:collapsed-folders:v1";
 function sampleProfile() {
   return state.config?.sampleProfile || "sample";
 }
@@ -41,6 +50,7 @@ function profileCaseText(count, profile = judgeProfile()) {
 
 window.AljApp = {
   ARTIFACT_PREVIEW_LIMIT: 12000,
+  COLLAPSED_FOLDERS_KEY,
   SELECTED_PROBLEM_KEY,
   judgeProfile,
   profileCaseText,

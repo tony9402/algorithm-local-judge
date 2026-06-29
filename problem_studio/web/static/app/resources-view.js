@@ -24,6 +24,7 @@ import {
 import { rememberView, selectionKey } from "./view-persistence.js";
 
 const resourceCallbacks = {
+  deleteSolution: async () => {},
   openFile: async () => {},
   openSolutionStressModal: () => {},
   openStressMismatchModal: async () => {},
@@ -52,6 +53,14 @@ export function filesForTab(tabId = state.selectedTab) {
 }
 export function solutionParts(path) {
   const filename = (path || "").split("/").pop() || "";
+  const pypyMatch = filename.match(/^(.*)\.pypy\.(ac|wa|tle|mle)\.py$/);
+  if (pypyMatch) {
+    return {
+      name: pypyMatch[1],
+      expected: pypyMatch[2],
+      language: "pypy",
+    };
+  }
   const match = filename.match(/^(.*)\.(ac|wa|tle|mle)(\.[^.]+)$/);
   const extension = match ? match[3] : filename.match(/\.[^.]+$/)?.[0] || ".cpp";
   return {
@@ -61,6 +70,7 @@ export function solutionParts(path) {
   };
 }
 export function roleForFile(path) {
+  if (path && path === state.detail?.metadata?.tools?.solution) return "기준 정답";
   if (FILE_ROLES[path]) return FILE_ROLES[path];
   if (path?.startsWith("solutions/")) {
     const parts = solutionParts(path);
@@ -94,13 +104,14 @@ function solutionRowFacts(file) {
   const actualStatus = check?.actualStatus || "";
   const dirty = dirtySolutionSet().has(normalizedSolutionPath(file.path));
   const status = solutionValidationStatusForFile(file.path);
+  const active = ["verifying", "test-running"].includes(status?.className);
   return {
     check,
     metrics,
     dirty,
     status,
     expected: statusLabelForResult(expectedStatus),
-    actual: dirty ? "재검증" : actualStatus ? statusLabelForResult(actualStatus) : "대기",
+    actual: active ? status.label : dirty ? "재검증" : actualStatus ? statusLabelForResult(actualStatus) : "대기",
     runId: check?.runId || "-",
     message: normalizeErrorDetail(check?.message) || "",
   };
@@ -153,6 +164,7 @@ function renderSolutionResourceItem(list, file) {
         title="${facts.check ? "케이스별 채점 결과 보기" : "테스트 후 결과를 볼 수 있습니다."}"
       >채점 결과</button>
       <button type="button" data-solution-edit="${escapeHtml(file.path)}">소스 편집</button>
+      <button class="danger" type="button" data-solution-delete="${escapeHtml(file.path)}">삭제</button>
     </div>
     ${
       facts.check && (facts.message || facts.runId !== "-")
@@ -184,6 +196,13 @@ function renderSolutionResourceItem(list, file) {
     void resourceCallbacks.withErrors(
       () => resourceCallbacks.openSolutionEditModal(file.path),
       "솔루션 편집창을 여는 중입니다."
+    );
+  });
+  item.querySelector("[data-solution-delete]")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    void resourceCallbacks.withErrors(
+      () => resourceCallbacks.deleteSolution(file.path),
+      "솔루션을 삭제하는 중입니다."
     );
   });
   list.appendChild(item);

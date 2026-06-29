@@ -43,7 +43,57 @@
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1240px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar > div:first-child {
+    min-width: 0;
+  }
+
+  .toolbar h2,
+  .toolbar p {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .toolbar-actions {
+    flex: 1 1 auto;
+    justify-content: stretch;
+  }
+
+  .global-task-status,
+  .job-center-button {
+    flex: 1 1 180px;
+    max-width: none;
+  }
+
+  .studio-layout.solutions-mode .action-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .studio-layout.solutions-mode .resource-item.solution-row {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-layout.solutions-mode .solution-row-main {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr) auto;
+  }
+
+  .studio-layout.solutions-mode .solution-row-actions {
+    grid-column: 1;
+    grid-row: auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .build-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 1380px) {
   .shell {
     grid-template-columns: 1fr;
   }
@@ -207,6 +257,11 @@
     max-height: min(78vh, 980px);
   }
 
+  .studio-layout.solutions-mode .task-panel {
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
   .studio-tabs .tab-list {
     overflow-x: auto;
   }
@@ -342,16 +397,17 @@
 
   .studio-layout.solutions-mode .resource-list {
     grid-template-columns: 1fr;
-    max-height: min(720px, 70vh);
+    max-height: none;
+    overflow: visible;
   }
 
   .studio-layout.solutions-mode .resource-item.solution-row {
     grid-template-columns: 1fr;
   }
 
-  .solution-row-main,
-  .solution-metric-strip,
-  .solution-row-actions {
+  .studio-layout.solutions-mode .solution-row-main,
+  .studio-layout.solutions-mode .solution-metric-strip,
+  .studio-layout.solutions-mode .solution-row-actions {
     grid-column: 1;
     grid-row: auto;
     grid-template-columns: 1fr;

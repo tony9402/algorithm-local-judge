@@ -28,6 +28,7 @@ from judge.web.service_sources import (
     attach_run_to_source,
     save_text_source,
     save_uploaded_source,
+    source_language_id,
     source_path_from_request,
 )
 
@@ -79,6 +80,10 @@ def build_run_result(run_dir: Path, source: Path, message: str) -> dict[str, Any
     return result
 
 
+def language_for_source(source: Path, fallback: str | None = None) -> str | None:
+    return fallback or source_language_id(source)
+
+
 def resolve_run_profile(profile: str | None) -> str:
     """실행 프로필 식별자나 상대 경로를 실제 사용할 수 있는 대상으로 확정합니다.
 
@@ -99,6 +104,7 @@ def run_problem(
     source_path: str | None,
     source_text: str | None,
     filename: str | None,
+    language: str | None = None,
 ) -> dict[str, Any]:
     """문제 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
@@ -113,11 +119,19 @@ def run_problem(
     Returns:
         dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 데이터입니다.
     """
-    source = source_path_from_request(problem_id, source_mode, source_path, source_text, filename)
+    source = source_path_from_request(
+        problem_id, source_mode, source_path, source_text, filename, language
+    )
     run_profile = resolve_run_profile(profile)
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
-        run_dir = run_submission(source, problem_id, run_profile)
+        run_dir = run_submission(
+            source,
+            problem_id,
+            run_profile,
+            stop_on_first_failure=False,
+            language=language_for_source(source, language),
+        )
     return build_run_result(run_dir, source, output.getvalue())
 
 
@@ -126,6 +140,7 @@ def run_problem_source_with_progress(
     profile: str | None,
     source: Path,
     progress,
+    language: str | None = None,
 ) -> dict[str, Any]:
     """문제 소스 진행 상태 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
@@ -141,8 +156,24 @@ def run_problem_source_with_progress(
     run_profile = resolve_run_profile(profile)
     output = io.StringIO()
     with contextlib.redirect_stdout(output):
-        run_dir = run_submission(source, problem_id, run_profile, progress=progress)
+        run_dir = run_submission(
+            source,
+            problem_id,
+            run_profile,
+            progress=progress,
+            stop_on_first_failure=False,
+            language=language_for_source(source, language),
+        )
     return build_run_result(run_dir, source, output.getvalue())
+
+
+def run_problem_source(
+    problem_id: str,
+    profile: str | None,
+    source: Path,
+    language: str | None = None,
+) -> dict[str, Any]:
+    return run_problem_source_with_progress(problem_id, profile, source, None, language)
 
 
 def run_uploaded_problem(
@@ -150,6 +181,7 @@ def run_uploaded_problem(
     profile: str | None,
     file_obj: BinaryIO,
     filename: str | None,
+    language: str | None = None,
 ) -> dict[str, Any]:
     """uploaded 문제 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
@@ -162,14 +194,15 @@ def run_uploaded_problem(
     Returns:
         dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 uploaded 문제 데이터입니다.
     """
-    source = save_uploaded_source(file_obj, filename, problem_id)
-    return run_problem(problem_id, profile, "upload", str(source), None, None)
+    source = save_uploaded_source(file_obj, filename, problem_id, language)
+    return run_problem_source(problem_id, profile, source, language)
 
 
 def run_problem_events(
     problem_id: str,
     profile: str | None,
     source: Path,
+    language: str | None = None,
 ) -> Iterator[str]:
     """문제 events 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
@@ -192,7 +225,14 @@ def run_problem_events(
             run_profile = resolve_run_profile(profile)
             progress("Starting judge run.")
             with contextlib.redirect_stdout(output):
-                run_dir = run_submission(source, problem_id, run_profile, progress=progress)
+                run_dir = run_submission(
+                    source,
+                    problem_id,
+                    run_profile,
+                    progress=progress,
+                    stop_on_first_failure=False,
+                    language=language_for_source(source, language),
+                )
             result = build_run_result(run_dir, source, output.getvalue())
             events.put({"event": "result", "data": result})
         except Exception as exc:
@@ -216,6 +256,7 @@ def save_source_for_stream(
     source_text: str | None,
     text_filename: str | None,
     problem_id: str,
+    language: str | None = None,
 ) -> Path:
     """소스 스트림 데이터를 다음 요청에서도 사용할 수 있도록 안전한 위치에 저장합니다.
 
@@ -233,11 +274,11 @@ def save_source_for_stream(
     if source_mode == "upload":
         if file_obj is None:
             raise JudgeError("source file upload is required")
-        return save_uploaded_source(file_obj, upload_filename, problem_id)
+        return save_uploaded_source(file_obj, upload_filename, problem_id, language)
     if source_mode == "text":
         if not source_text:
             raise JudgeError("source text is required")
-        return save_text_source(source_text, text_filename, problem_id)
+        return save_text_source(source_text, text_filename, problem_id, language)
     raise JudgeError(f"unsupported source mode: {source_mode}")
 
 

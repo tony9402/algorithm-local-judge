@@ -13,6 +13,38 @@ function languageFromName(name) {
   return "Unknown";
 }
 
+function languageIdFromName(name) {
+  const lowered = (name || "").toLowerCase();
+  if (lowered.endsWith(".cpp") || lowered.endsWith(".cc") || lowered.endsWith(".cxx")) return "cpp";
+  if (lowered.endsWith(".py")) return "python";
+  if (lowered.endsWith(".java")) return "java";
+  return "";
+}
+
+function languageNameFromId(languageId) {
+  return { cpp: "C++", python: "Python", pypy: "PyPy", java: "Java" }[languageId] || "Unknown";
+}
+
+function extensionForLanguage(languageId) {
+  return { cpp: ".cpp", python: ".py", pypy: ".py", java: ".java" }[languageId] || "";
+}
+
+function explicitLanguageForName(detected, hintValue) {
+  if (detected === "python" && hintValue === "pypy") return "pypy";
+  return detected || hintValue || "python";
+}
+
+function normalizedSourceName() {
+  const input = app.optional("filenameInput");
+  const hint = app.optional("languageHint");
+  const filename = input?.value.trim() || "";
+  const detected = languageIdFromName(filename);
+  const languageId = explicitLanguageForName(detected, hint?.value);
+  if (!filename) return languageId === "java" ? "Main.java" : `main${extensionForLanguage(languageId)}`;
+  if (detected || /\.[^/.]+$/.test(filename)) return filename;
+  return `${filename}${extensionForLanguage(languageId)}`;
+}
+
 function sourceTextReady() {
   const input = app.optional("sourceTextInput");
   return Boolean(input?.value.trim());
@@ -25,18 +57,17 @@ function hasSelectedProblem() {
   return Boolean(state.selectedProblem || app.optional("problemSelect")?.value);
 }
 function hasRunnableSource() {
-  return state.sourceMode === "upload" ? sourceUploadReady() : sourceTextReady();
+  return sourceTextReady();
 }
 function activeSourceName() {
-  if (state.sourceMode === "upload") return app.$("sourceFileInput").files[0]?.name || "source";
-  return app.$("filenameInput").value.trim() || app.$("languageHint").value || "source";
+  return normalizedSourceName();
 }
 function sourceReadinessText() {
-  if (!hasSelectedProblem()) return "Install a problem first";
+  if (!hasSelectedProblem()) return "문제를 먼저 설치하세요";
   if (!hasRunnableSource()) {
-    return state.sourceMode === "upload" ? "Source file needed" : "Source code needed";
+    return "코드 입력이 필요합니다";
   }
-  return `${activeSourceName()} ready`;
+  return `${activeSourceName()} 준비됨`;
 }
 /**
  * action state 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
@@ -46,11 +77,15 @@ function updateActionState() {
   const hasSource = hasRunnableSource();
   app.setDisabled("casesCompileButton", state.isBusy || !hasProblem);
   app.setDisabled("generateButton", state.isBusy || !hasProblem);
-  app.setDisabled("runButton", state.isBusy || !hasProblem || !hasSource);
+  const cooldown = app.submissionCooldownRemaining?.() || 0;
+  const blocked = state.isBusy || !hasProblem || !hasSource || cooldown > 0;
+  app.setDisabled("runButton", blocked);
+  app.setDisabled("sampleRunButton", blocked || !app.problemSupportsProfile?.("sample"));
+  app.setDisabled("fullRunButton", blocked);
 
   const readiness = app.optional("sourceReadiness");
   if (readiness) {
-    readiness.textContent = sourceReadinessText();
+    readiness.textContent = cooldown > 0 ? `${cooldown}초 후 다시 제출할 수 있습니다` : sourceReadinessText();
     readiness.classList.toggle("ready", hasProblem && hasSource);
   }
 }
@@ -58,17 +93,21 @@ function updateActionState() {
 function syncFilenamePlaceholder() {
   const input = app.optional("filenameInput");
   const hint = app.optional("languageHint");
-  if (input && hint) input.placeholder = hint.value || "main.cpp";
+  if (input && hint) {
+    input.placeholder = hint.value === "java" ? "Main" : "main";
+  }
 }
 /**
  * language badge 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
  */
 function updateLanguageBadge() {
-  const name =
-    state.sourceMode === "upload"
-      ? app.$("sourceFileInput").files[0]?.name || ""
-      : app.$("filenameInput").value || app.$("languageHint").value;
-  const language = name ? languageFromName(name) : "No source";
+  const filename = app.$("filenameInput").value || "";
+  const detected = languageIdFromName(filename);
+  const hint = app.optional("languageHint");
+  if (detected && hint && !(detected === "python" && hint.value === "pypy")) hint.value = detected;
+  const languageId = explicitLanguageForName(detected, hint?.value || "");
+  const language = languageId ? languageNameFromId(languageId) : "No source";
+  const name = normalizedSourceName();
   app.setText("languageBadge", language);
   app.setText("editorFileLabel", name || "main.py");
   app.setText("editorLanguageLabel", language);
@@ -78,9 +117,13 @@ function updateLanguageBadge() {
 
 Object.assign(app, {
   activeSourceName,
+  extensionForLanguage,
   hasRunnableSource,
   hasSelectedProblem,
+  languageIdFromName,
   languageFromName,
+  languageNameFromId,
+  normalizedSourceName,
   sourceReadinessText,
   sourceTextReady,
   sourceUploadReady,

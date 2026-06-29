@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from judge.core.errors import JudgeError
+from alj_core.errors import JudgeError
 from problem_studio.core.git import git_status
 from problem_studio.core.repositories import (
     clone_problem_repository,

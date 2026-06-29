@@ -17,6 +17,7 @@ def source_path_from_request(
     source_path: str | None,
     source_text: str | None,
     filename: str | None,
+    language: str | None = None,
 ) -> Path:
     if source_mode == "path":
         if not source_path:
@@ -24,7 +25,7 @@ def source_path_from_request(
         path = Path(source_path).expanduser()
         if not path.exists():
             raise JudgeError(f"source file not found: {path}")
-        return save_existing_source(path, problem_id, "path")
+        return save_existing_source(path, problem_id, "path", language)
 
     if source_mode == "upload":
         if not source_path:
@@ -34,8 +35,8 @@ def source_path_from_request(
             raise JudgeError(f"uploaded source file not found: {path}")
         with contextlib.suppress(JudgeError):
             return ensure_inside(path, source_history_root())
-        return save_existing_source(path, problem_id, "upload")
+        return save_existing_source(path, problem_id, "upload", language)
 
     if not source_text:
         raise JudgeError("source text is required")
-    return save_text_source(source_text, filename, problem_id)
+    return save_text_source(source_text, filename, problem_id, language)

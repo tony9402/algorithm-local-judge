@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,10 @@ JAVA_SUFFIXES = {".java"}
 SUPPORTED_USER_SUFFIXES = CPP_SUFFIXES | PYTHON_SUFFIXES | JAVA_SUFFIXES
 JAVA_PUBLIC_CLASS_RE = re.compile(r"\bpublic\s+class\s+([A-Za-z_][A-Za-z0-9_]*)")
 COMPILE_OUTPUT_LIMIT = 6000
+COMPILER_IDENTITY_TIMEOUT_MS = 2000
+
+_COMPILER_IDENTITY_LOCK = threading.Lock()
+_COMPILER_IDENTITY_CACHE: dict[tuple[str, str, tuple[str, ...]], dict[str, Any]] = {}
 
 
 @dataclass(frozen=True)
@@ -50,8 +55,9 @@ def compile_cpp(
     problems_include = include_root / "problems"
     if problems_include.exists():
         include_paths.append(problems_include)
+    cxx = resolve_tool("ALJ_CXX", ["g++"])
     command = [
-        "g++",
+        cxx,
         *COMPILE_FLAGS,
         *(flag for include_path in include_paths for flag in ("-I", str(include_path))),
         str(source),
@@ -107,6 +113,36 @@ def resolve_tool(env_name: str, candidates: list[str]) -> str:
     raise JudgeError(
         f"required tool not found. Set {env_name} or install one of: {', '.join(candidates)}"
     )
+
+
+def compiler_identity(
+    env_name: str,
+    candidates: list[str],
+    version_args: list[str] | None = None,
+) -> dict[str, Any]:
+    """컴파일 캐시 입력으로 사용할 실제 도구 경로와 버전 출력을 계산합니다."""
+    resolved = resolve_tool(env_name, candidates)
+    args = tuple(version_args or ["--version"])
+    cache_key = (env_name, resolved, args)
+    with _COMPILER_IDENTITY_LOCK:
+        cached = _COMPILER_IDENTITY_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+    code, stdout, stderr = run_command([resolved, *args], COMPILER_IDENTITY_TIMEOUT_MS)
+    version_text = (stdout + (b"\n" if stdout and stderr else b"") + stderr).decode(
+        "utf-8",
+        errors="replace",
+    )
+    identity = {
+        "env": env_name,
+        "path": resolved,
+        "versionArgs": list(args),
+        "versionReturnCode": code,
+        "version": version_text[:4000],
+    }
+    with _COMPILER_IDENTITY_LOCK:
+        _COMPILER_IDENTITY_CACHE[cache_key] = identity
+    return identity
 
 
 def java_main_class(source: Path) -> str:

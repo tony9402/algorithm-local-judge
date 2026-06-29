@@ -20,25 +20,26 @@ function bindEvents() {
   app.on("debugModeInput", "change", app.renderDebugLog);
   app.on("problemSelect", "change", () => app.withErrors(app.handleProblemChange));
   app.on("problemFolderSaveButton", "click", () =>
-    app.withErrors(app.updateSelectedProblemFolder)
+    app.withErrors(app.createProblemFolderFromInput)
   );
+  app.on("problemFolderInput", "input", app.renderProblemSelection);
   app.on("problemFolderInput", "keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      void app.withErrors(app.updateSelectedProblemFolder);
+      void app.withErrors(app.createProblemFolderFromInput);
     }
   });
   app.on("runProfileSelect", "change", () => {
     state.config.judgeProfile = app.$("runProfileSelect").value;
     app.resetRunStatus(`${app.judgeProfile()} cases will be used for Run.`);
   });
-  app.on("sourceFileInput", "change", app.updateLanguageBadge);
+  app.on("sourceFileInput", "change", () => app.withErrors(app.loadSourceFileIntoEditor));
   app.on("sourceHistoryFilterInput", "input", app.updateSourceHistoryFilter);
   app.on("sourceHistoryStatusFilter", "change", app.updateSourceHistoryFilter);
   app.on("filenameInput", "input", app.updateLanguageBadge);
   app.on("languageHint", "change", () => {
     app.syncFilenamePlaceholder();
-    if (!app.$("filenameInput").value.trim()) app.updateLanguageBadge();
+    app.updateLanguageBadge();
   });
   app.on("sourceTextInput", "input", () => {
     app.updateEditorView();
@@ -61,7 +62,31 @@ function bindEvents() {
   app.on("packFileInput", "change", app.updatePackActionState);
   app.on("casesCompileButton", "click", () => app.withJobErrors(app.compileCasesOnly));
   app.on("generateButton", "click", () => app.withJobErrors(app.generateData));
-  app.on("runButton", "click", () => app.withJobErrors(app.runSubmission));
+  app.on("sampleRunButton", "click", () => app.withJobErrors(() => app.runSubmission("sample")));
+  app.on("fullRunButton", "click", () => app.withJobErrors(() => app.runSubmission("full")));
+  app.on("runButton", "click", () => app.withJobErrors(() => app.runSubmission(app.judgeProfile())));
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const toggleFolder = target.closest("[data-folder-toggle]")?.getAttribute("data-folder-toggle");
+    if (toggleFolder !== null && toggleFolder !== undefined) {
+      event.preventDefault();
+      app.toggleFolderCollapsed(toggleFolder);
+      return;
+    }
+    const deleteFolder = target.closest("[data-folder-delete]")?.getAttribute("data-folder-delete");
+    if (deleteFolder) {
+      event.preventDefault();
+      void app.withErrors(() => app.deleteProblemFolder(deleteFolder));
+      return;
+    }
+    const caseArtifact = target.closest("[data-case-artifact]")?.getAttribute("data-case-artifact");
+    if (caseArtifact && state.lastRunResult?.runId) {
+      event.preventDefault();
+      app.closeModals();
+      void app.withErrors(() => app.loadWrongCase(state.lastRunResult.runId, caseArtifact));
+    }
+  });
   app.on("cachePreviewButton", "click", () => app.withErrors(() => app.cacheClear(true, { all_entries: true })));
   app.on("cacheClearRunsButton", "click", () => app.withErrors(() => app.cacheClear(false, { runs: true })));
   app.on("cacheClearAllButton", "click", () => app.withErrors(() => app.cacheClear(false, { all_entries: true })));

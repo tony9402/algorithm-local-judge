@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from judge.core.errors import JudgeError
-from judge.core.paths import validate_safe_id
-from judge.utils.fs import write_json
+from alj_core.errors import JudgeError
+from alj_core.paths import validate_safe_id
+from alj_core.utils.fs import write_json
 from problem_studio.core.workspace import problem_dir
 
 GENERATOR_CPP = """#include "testlib.h"

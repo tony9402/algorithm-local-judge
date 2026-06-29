@@ -79,6 +79,7 @@ function languageLabelForPath(path) {
   return {
     cpp: "C++",
     python: "Python",
+    pypy: "PyPy",
     java: "Java",
     json: "JSON",
     yaml: "YAML",

@@ -128,7 +128,15 @@ class SolutionVerifyRequest(BaseModel):
     """
 
     profile: str = "hidden"
-    solutions: list[str] | None = None
+    max_workers: int | None = Field(default=None, ge=1, le=8)
+
+
+class SolutionTestRequest(BaseModel):
+    """API에서 주고받는 솔루션 개별 test 요청 필드를 검증하는 스키마입니다.
+    """
+
+    profile: str = "hidden"
+    solution: str = Field(min_length=1)
 
 
 class SolutionStressRequest(BaseModel):
@@ -168,6 +176,13 @@ class SolutionRenameRequest(BaseModel):
     name: str = Field(min_length=1)
     expected: str = "wa"
     language: str = "cpp"
+
+
+class SolutionDeleteRequest(BaseModel):
+    """API에서 주고받는 솔루션 delete 요청 필드를 검증하는 스키마입니다.
+    """
+
+    path: str = Field(min_length=1)
 
 
 class PackBuildRequest(BaseModel):

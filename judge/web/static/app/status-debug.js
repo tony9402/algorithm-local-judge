@@ -86,6 +86,9 @@ async function withJobErrors(action) {
   try {
     await action();
   } catch (error) {
+    if (error.status === 429 && error.detail?.retryAfterSeconds) {
+      app.recordSubmissionCooldown?.(app.$("problemSelect")?.value, error.detail.retryAfterSeconds);
+    }
     showError(error.message);
   }
 }

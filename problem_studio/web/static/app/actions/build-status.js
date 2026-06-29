@@ -3,8 +3,14 @@
  */
 
 import { escapeHtml, optional } from "../dom.js";
-import { TAB_INSTANCE_ID, state } from "../state.js";
-import { currentRunAllLock } from "./build-locks.js";
+import {
+  TAB_INSTANCE_ID,
+  activePackJobForProblem,
+  activePackJobList,
+  stalePackJobList,
+  state,
+} from "../state.js";
+import { allRunAllLocks, currentRunAllLock } from "./build-locks.js";
 export function formatTime(value) {
   if (!value) return "";
   return new Date(value).toLocaleTimeString("ko-KR", {
@@ -30,7 +36,8 @@ function updateRunAllButton() {
   if (!button) return;
   const lock = currentRunAllLock();
   const lockedByAnotherTab = Boolean(lock && lock.owner !== TAB_INSTANCE_ID);
-  const packActive = Boolean(state.activePackJob);
+  const activePackJob = activePackJobForProblem();
+  const packActive = Boolean(activePackJob);
   const bulkActive = Boolean(state.activeBulkJob);
   const bulkCancelling = state.activeBulkJob?.status === "cancelling" || state.activeBulkJob?.cancelRequested;
   button.disabled =
@@ -46,7 +53,7 @@ function updateRunAllButton() {
         ? "전체 테스트 진행 중"
         : "전체 테스트";
   button.title = packActive
-    ? packJobSummary(state.activePackJob)
+    ? packJobSummary(activePackJob)
     : lockedByAnotherTab
       ? `${lock.problemId || "다른 문제"} · ${formatTime(lock.startedAt)} 시작`
       : "";
@@ -57,7 +64,8 @@ function updateRunAllButton() {
 function updatePackButton() {
   const button = optional("packButton");
   if (!button) return;
-  const active = Boolean(state.activePackJob);
+  const activePackJob = activePackJobForProblem();
+  const active = Boolean(activePackJob);
   const bulkActive = Boolean(state.activeBulkJob);
   const bulkCancelling = state.activeBulkJob?.status === "cancelling" || state.activeBulkJob?.cancelRequested;
   const lock = currentRunAllLock();
@@ -72,7 +80,7 @@ function updatePackButton() {
         ? "전체 테스트 진행 중"
         : "팩 빌드";
   button.title = active
-    ? packJobSummary(state.activePackJob)
+    ? packJobSummary(activePackJob)
     : bulkActive
       ? state.activeBulkJob.title || "전체 문제 테스트/팩 빌드"
       : runAllActive
@@ -121,11 +129,12 @@ function bulkBuildButtons() {
 function updateBuildAllPacksButton() {
   const buttons = bulkBuildButtons();
   if (!buttons.length) return;
-  const active = Boolean(state.activePackJob);
+  const activePackJobs = activePackJobList();
+  const active = activePackJobs.length > 0;
   const bulkActive = Boolean(state.activeBulkJob);
   const bulkCancelling = state.activeBulkJob?.status === "cancelling" || state.activeBulkJob?.cancelRequested;
-  const lock = currentRunAllLock();
-  const runAllActive = Boolean(lock);
+  const locks = allRunAllLocks();
+  const runAllActive = locks.length > 0;
   const hasProblems = bulkProblemIds().length > 0;
   for (const button of buttons) {
     button.disabled =
@@ -144,13 +153,16 @@ function updateBuildAllPacksButton() {
     button.title = !hasProblems
       ? "등록된 문제가 없습니다."
       : active
-        ? packJobSummary(state.activePackJob)
+        ? activePackJobs.map(packJobSummary).filter(Boolean).join(" / ")
         : bulkActive
           ? state.activeBulkJob.title || "전체 문제 테스트/팩 빌드"
           : runAllActive
-            ? `${lock.problemId || "전체 문제"} · ${formatTime(lock.startedAt)} 시작`
+            ? locks.map((lock) => `${lock.problemId || "전체 문제"} · ${formatTime(lock.startedAt)} 시작`).join(" / ")
             : "모든 문제를 순서대로 테스트하고 통과한 문제 팩을 생성합니다.";
   }
+}
+function repositoryDataAttribute(repositoryName) {
+  return `data-pack-repository="${escapeHtml(repositoryName || "")}"`;
 }
 /**
  * global 상태 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
@@ -158,19 +170,19 @@ function updateBuildAllPacksButton() {
 function updateGlobalStatus() {
   const status = optional("globalTaskStatus");
   if (!status) return;
-  const lock = currentRunAllLock();
+  const locks = allRunAllLocks();
   const messages = [];
-  if (lock) {
+  for (const lock of locks) {
     messages.push({
       text: `전체 테스트 진행 중 · ${lock.problemId || "다른 문제"} · ${formatTime(lock.startedAt)}`,
     });
   }
-  if (state.activePackJob) {
-    const summary = escapeHtml(packJobSummary(state.activePackJob));
+  for (const job of activePackJobList()) {
+    const summary = escapeHtml(packJobSummary(job));
     messages.push({
       html:
         `팩 빌드 진행 중 · ${summary} ` +
-        `<button type="button" data-cancel-pack-job>취소</button>`,
+        `<button type="button" data-cancel-pack-job="${escapeHtml(job.problemId || "")}" ${repositoryDataAttribute(job.repositoryName)}>취소</button>`,
     });
   }
   if (state.activeBulkJob) {
@@ -184,12 +196,12 @@ function updateGlobalStatus() {
           ),
     });
   }
-  if (state.stalePackJob) {
-    const staleSummary = escapeHtml(packJobSummary(state.stalePackJob));
+  for (const job of stalePackJobList()) {
+    const staleSummary = escapeHtml(packJobSummary(job));
     messages.push({
       html:
         `만료된 팩 빌드 · ${staleSummary} ` +
-        `<button type="button" data-dismiss-stale-pack-job>닫기</button>`,
+        `<button type="button" data-dismiss-stale-pack-job="${escapeHtml(job.problemId || "")}" ${repositoryDataAttribute(job.repositoryName)}>닫기</button>`,
     });
   }
   status.innerHTML = messages

@@ -13,8 +13,9 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from judge.core.cases_compile import CaseCompileResult, CompiledCase, CompiledProfile
-from judge.core.errors import JudgeError
+from alj_core.cases_compile import CaseCompileResult, CompiledCase, CompiledProfile
+from alj_core.errors import JudgeError
+from alj_core.solution_models import SolutionCheckResult
 from problem_studio.core.bulk import build_all_problem_packs
 from problem_studio.core.editor import safe_problem_file
 from problem_studio.core.packflow import (
@@ -63,6 +64,20 @@ class ProblemStudioTest(unittest.TestCase):
                     data_lines.append(line.split(":", 1)[1].strip())
             events.append((event, json.loads("\n".join(data_lines))))
         return events
+
+    def poll_job(self, client: TestClient, job_id: str, terminal: bool = True) -> dict:
+        """백그라운드 작업이 원하는 상태가 될 때까지 짧게 polling합니다."""
+        current = {}
+        for _ in range(100):
+            response = client.get(f"/api/jobs/{job_id}")
+            self.assertEqual(response.status_code, 200, response.text)
+            current = response.json()
+            if terminal and current["status"] not in {"queued", "running", "cancelling"}:
+                return current
+            if not terminal and current["status"] == "running":
+                return current
+            time.sleep(0.01)
+        return current
 
     def test_static_ui_and_workspace_status(self) -> None:
         """정적 화면 및 작업공간 상태 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -127,7 +142,10 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("sidebar-toggle-icon", page.text)
         self.assertIn("solutionCreateModal", page.text)
         self.assertIn("solutionEditModal", page.text)
+        self.assertIn("PyPy", page.text)
         self.assertIn("solutionCasesModal", page.text)
+        self.assertIn("tabFeedbackPanel", page.text)
+        self.assertIn("aggregateFeedbackPanel", page.text)
         self.assertIn("solutionStressModal", page.text)
         self.assertIn("solutionStressReviewModal", page.text)
         self.assertIn("solutionStressSelection", page.text)
@@ -161,7 +179,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("keymap/vim.min.js", page.text)
         self.assertIn('type="module" src="/static/app.js', page.text)
         self.assertNotIn("Link testlib.h", page.text)
-        self.assertNotIn("Diagnostics", page.text)
+        self.assertNotIn(">Diagnostics<", page.text)
         self.assertNotIn("diagnosticsBoard", page.text)
         self.assertNotIn("resultSummary", page.text)
         self.assertNotIn("result-panel", page.text)
@@ -184,6 +202,10 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(dom_module.status_code, 200)
         storage_module = client.get("/static/app/storage.js")
         self.assertEqual(storage_module.status_code, 200)
+        problem_list_css = client.get("/static/styles/problem-list.css")
+        self.assertEqual(problem_list_css.status_code, 200)
+        solution_rows_css = client.get("/static/styles/solution-rows.css")
+        self.assertEqual(solution_rows_css.status_code, 200)
         module_texts = [
             script.text,
             state_module.text,
@@ -247,6 +269,11 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("function bindAppEvents", script_text)
         self.assertIn("function withLoading", script_text)
         self.assertIn("function showAlert", script_text)
+        self.assertIn("function recordTabFeedback", script_text)
+        self.assertIn("function recordOperationFailure", script_text)
+        self.assertIn(".pypy.", script_text)
+        self.assertIn('language: "pypy"', script_text)
+        self.assertIn("function renderFeedbackPanels", script_text)
         self.assertIn("function normalizeErrorDetail", api_module.text)
         self.assertIn("function confirmDiscardChanges", script_text)
         self.assertIn("function beginProgress", script_text)
@@ -274,6 +301,8 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("newProblemDefaultProfile", script_text)
         self.assertIn("function openDeleteProblemModal", script_text)
         self.assertIn("function deleteSelectedProblem", script_text)
+        self.assertIn("function deleteSolution", script_text)
+        self.assertIn("data-solution-delete", script_text)
         self.assertIn("DELETE_CONFIRM_PHRASE", script_text)
         self.assertIn("function folderLabel", script_text)
         self.assertIn("function toggleProblemFolder", script_text)
@@ -301,6 +330,16 @@ class ProblemStudioTest(unittest.TestCase):
             script_text,
         )
         self.assertIn("lastSolutionVerification", script_text)
+        self.assertIn("function resetSolutionVerificationForRun", script_text)
+        self.assertIn("function problemValidationStatus", script_text)
+        self.assertIn("function selectedProblemBulkDiagnostic", script_text)
+        self.assertIn("현재 문제 진단", script_text)
+        self.assertIn("선택한 문제의 실패 단계와 상세만 표시합니다.", script_text)
+        self.assertIn("problem-status-badge", script_text)
+        self.assertIn("problem-status-failed", problem_list_css.text)
+        self.assertIn("문제 있음", script_text)
+        self.assertIn("resource-item.solution-row.verifying", solution_rows_css.text)
+        self.assertIn("background: #f8fafc", solution_rows_css.text)
         self.assertIn("beforeunload", script_text)
         self.assertIn("aria-selected", script_text)
         self.assertIn("function createSolution", script_text)
@@ -309,7 +348,12 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("function verifySingleSolution", script_text)
         self.assertIn('action.id === "uploadSolutions"', script_text)
         self.assertIn("encodeURIComponent(state.selectedProblem)", script_text)
-        self.assertIn("function mergeSolutionVerification", script_text)
+        self.assertIn("activeSolutionVerification", state_module.text)
+        self.assertIn("activeSolutionTestsByPath", state_module.text)
+        self.assertIn("solutionTestResultsByPath", state_module.text)
+        self.assertIn("function isFullSolutionVerificationActive", script_text)
+        self.assertIn("/solutions/test/jobs", script_text)
+        self.assertNotIn("function mergeSolutionVerification", script_text)
         self.assertIn("function highlightCode", script_text)
         self.assertIn("function initializeCodeMirror", script_text)
         self.assertIn("function initializeSourceModalEditors", script_text)
@@ -347,6 +391,11 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("PACK_JOB_KEY", state_module.text)
         self.assertIn("LAST_RESULTS_KEY", state_module.text)
         self.assertIn("PROBLEM_TASK_LOCK_NAME", state_module.text)
+        self.assertIn("activePackJobsByProblem", state_module.text)
+        self.assertIn("activePackJobForProblem", script_text)
+        self.assertIn("locksByProblem", script_text)
+        self.assertIn("jobsByProblem", script_text)
+        self.assertIn("currentRunAllLock(problemId)", script_text)
         self.assertIn("function startPackBuild", script_text)
         self.assertIn("function startPackBuildOnce", script_text)
         self.assertIn("function buildPack", script_text)
@@ -372,7 +421,9 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("function renderSolutionCaseRows", script_text)
         self.assertIn("function selectSolutionPath", script_text)
         self.assertIn("solutions-mode", script_text)
-        self.assertIn("maintainedCount", script_text)
+        self.assertIn("검증중", script_text)
+        self.assertIn("개별 테스트 중", script_text)
+        self.assertNotIn("maintainedCount", script_text)
         self.assertIn('panel.className = "solution-validation-summary hidden";', script_text)
         self.assertNotIn("Skipped ", script_text)
         self.assertNotIn("resultSummary", script_text)
@@ -433,6 +484,8 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("body.sidebar-open .sidebar-toggle-icon", stylesheet_text)
         self.assertIn("transform: translateX(-102%)", stylesheet_text)
         self.assertIn(".app-alert", stylesheet_text)
+        self.assertIn(".tab-feedback-panel", stylesheet_text)
+        self.assertIn(".tab-feedback-item", stylesheet_text)
         self.assertIn(".problem-folder", stylesheet_text)
         self.assertIn(".problem-folder-section", stylesheet_text)
         self.assertIn(".metadata-card", stylesheet_text)
@@ -504,7 +557,7 @@ class ProblemStudioTest(unittest.TestCase):
 
     def test_create_edit_compile_and_list_solutions(self) -> None:
         """생성 편집 컴파일 및 목록 솔루션 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
-        directory, client, _workspace = self.make_client()
+        directory, client, workspace = self.make_client()
         self.addCleanup(directory.cleanup)
 
         created = client.post(
@@ -564,6 +617,26 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(solutions.status_code, 200, solutions.text)
         self.assertEqual(solutions.json()["solutions"][0]["expectedStatus"], "accepted")
 
+        blocked_reference_delete = client.request(
+            "DELETE",
+            "/api/problems/alpha/solutions",
+            json={"path": "solutions/main_solution.ac.cpp"},
+        )
+        self.assertEqual(
+            blocked_reference_delete.status_code,
+            400,
+            blocked_reference_delete.text,
+        )
+        self.assertIn(
+            "cannot delete reference solution",
+            blocked_reference_delete.json()["detail"],
+        )
+        self.assertTrue(
+            (
+                workspace / "problems" / "alpha" / "solutions" / "main_solution.ac.cpp"
+            ).exists()
+        )
+
         upload = client.post(
             "/api/problems/alpha/solutions/upload",
             files=[
@@ -596,6 +669,19 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(created_file.status_code, 200, created_file.text)
         self.assertIn("int main", created_file.json()["content"])
 
+        created_pypy_solution = client.post(
+            "/api/problems/alpha/solutions/create",
+            json={"name": "slow_solution", "expected": "tle", "language": "pypy"},
+        )
+        self.assertEqual(created_pypy_solution.status_code, 200, created_pypy_solution.text)
+        self.assertEqual(
+            created_pypy_solution.json()["created"]["path"],
+            "solutions/slow_solution.pypy.tle.py",
+        )
+        pypy_file = client.get("/api/problems/alpha/files/solutions/slow_solution.pypy.tle.py")
+        self.assertEqual(pypy_file.status_code, 200, pypy_file.text)
+        self.assertIn("def main", pypy_file.json()["content"])
+
         renamed_solution = client.patch(
             "/api/problems/alpha/solutions/rename",
             json={
@@ -612,6 +698,24 @@ class ProblemStudioTest(unittest.TestCase):
         )
         renamed_file = client.get("/api/problems/alpha/files/solutions/renamed_solution.wa.py")
         self.assertEqual(renamed_file.status_code, 200, renamed_file.text)
+
+        deleted_solution = client.request(
+            "DELETE",
+            "/api/problems/alpha/solutions",
+            json={"path": "solutions/renamed_solution.wa.py"},
+        )
+        self.assertEqual(deleted_solution.status_code, 200, deleted_solution.text)
+        self.assertEqual(
+            deleted_solution.json()["deleted"]["path"],
+            "solutions/renamed_solution.wa.py",
+        )
+        self.assertFalse(
+            (
+                workspace / "problems" / "alpha" / "solutions" / "renamed_solution.wa.py"
+            ).exists()
+        )
+        remaining_files = {item["path"] for item in deleted_solution.json()["files"]}
+        self.assertNotIn("solutions/renamed_solution.wa.py", remaining_files)
 
         renamed_reference = client.patch(
             "/api/problems/alpha/solutions/rename",
@@ -649,10 +753,237 @@ class ProblemStudioTest(unittest.TestCase):
         events = self.sse_events(response.text)
         result = next(data for event, data in events if event == "result")
         self.assertEqual(result["verifiedCount"], 1)
+        self.assertNotIn("solutions", mocked_verify.call_args.kwargs)
+        self.assertEqual(result["scope"], "all")
+
+        with patch(
+            "problem_studio.web.routes.solutions.verify_solutions",
+            return_value={
+                "problemId": "01",
+                "profile": "hidden",
+                "passed": True,
+                "verifiedCount": 1,
+                "totalCount": 1,
+                "skippedCount": 0,
+                "checks": [],
+            },
+        ) as mocked_test:
+            test_job = client.post(
+                "/api/problems/alpha/solutions/test/jobs",
+                json={"profile": "hidden", "solution": "solutions/reference.ac.cpp"},
+            )
+
+        self.assertEqual(test_job.status_code, 200, test_job.text)
+        finished = test_job.json()
+        for _ in range(50):
+            job_response = client.get(f"/api/jobs/{test_job.json()['jobId']}")
+            self.assertEqual(job_response.status_code, 200, job_response.text)
+            finished = job_response.json()
+            if finished["status"] not in {"queued", "running", "cancelling"}:
+                break
+            time.sleep(0.01)
+        self.assertEqual(finished["kind"], "solution-test")
+        self.assertEqual(finished["status"], "succeeded")
+        self.assertEqual(finished["result"]["scope"], "single")
+        self.assertEqual(finished["result"]["solution"], "solutions/reference.ac.cpp")
         self.assertEqual(
-            mocked_verify.call_args.kwargs["solutions"],
+            mocked_test.call_args.kwargs["solutions"],
             ["solutions/reference.ac.cpp"],
         )
+
+        backup_reference = client.post(
+            "/api/problems/alpha/solutions/create",
+            json={"name": "backup_reference", "expected": "ac", "language": "cpp"},
+        )
+        self.assertEqual(backup_reference.status_code, 200, backup_reference.text)
+        deleted_reference = client.request(
+            "DELETE",
+            "/api/problems/alpha/solutions",
+            json={"path": "solutions/reference.ac.cpp"},
+        )
+        self.assertEqual(deleted_reference.status_code, 200, deleted_reference.text)
+        self.assertTrue(deleted_reference.json()["referenceChanged"])
+        self.assertEqual(
+            deleted_reference.json()["metadata"]["tools"]["solution"],
+            "solutions/backup_reference.ac.cpp",
+        )
+        self.assertFalse(
+            (workspace / "problems" / "alpha" / "solutions" / "reference.ac.cpp").exists()
+        )
+
+    def test_solution_verify_job_exposes_partial_check_progress(self) -> None:
+        """솔루션 전체 검증 job은 완료 전에도 끝난 솔루션 결과를 progress에 노출해야 합니다."""
+        directory, client, workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        client.post("/api/problems", json={"problem_id": "alpha", "title": "Partial"})
+        partial_ready = threading.Event()
+        finish = threading.Event()
+
+        def fake_verify_solutions(*args, on_check=None, **kwargs) -> dict:
+            self.assertEqual(kwargs["max_workers"], 4)
+            check = SolutionCheckResult(
+                source=workspace / "problems" / "alpha" / "solutions" / "main_solution.ac.cpp",
+                expected_status="accepted",
+                actual_status="accepted",
+                raw_actual_status="accepted",
+                run_id="partial-run",
+                passed=True,
+                cases=[{"case": "001", "status": "ok"}],
+                metrics={"maxTimeMs": 1},
+                status_evidence={
+                    "rawStatus": "accepted",
+                    "rankedStatus": "accepted",
+                    "caseStatusCounts": {"accepted": 1},
+                },
+            )
+            if on_check is not None:
+                on_check(check, 1, 1)
+            partial_ready.set()
+            finish.wait(2)
+            return {
+                "problemId": "alpha",
+                "profile": "hidden",
+                "passed": True,
+                "verifiedCount": 1,
+                "totalCount": 1,
+                "skippedCount": 0,
+                "checks": [check.to_dict(workspace)],
+            }
+
+        with patch(
+            "problem_studio.web.routes.solutions.verify_solutions",
+            side_effect=fake_verify_solutions,
+        ):
+            started = client.post(
+                "/api/problems/alpha/solutions/verify/jobs",
+                json={"profile": "hidden"},
+            )
+            self.assertEqual(started.status_code, 200, started.text)
+            self.assertEqual(started.json()["target"]["maxWorkers"], 4)
+            job_id = started.json()["jobId"]
+            self.assertTrue(partial_ready.wait(2))
+            running = self.poll_job(client, job_id, terminal=False)
+            progress = running["progress"]
+            self.assertEqual(progress["current"], 1)
+            self.assertEqual(progress["total"], 1)
+            self.assertEqual(progress["partialSummary"]["verifiedCount"], 1)
+            self.assertEqual(progress["partialSummary"]["failedCount"], 0)
+            self.assertEqual(
+                progress["partialCheck"]["source"],
+                "problems/alpha/solutions/main_solution.ac.cpp",
+            )
+            self.assertEqual(progress["partialCheck"]["actualStatus"], "accepted")
+            finish.set()
+            finished = self.poll_job(client, job_id)
+
+        self.assertEqual(finished["status"], "succeeded")
+        self.assertEqual(finished["result"]["checks"][0]["runId"], "partial-run")
+
+    def test_solution_verify_job_passes_cancel_check_to_service(self) -> None:
+        """솔루션 검증 job 취소는 서비스 계층의 cancel_check까지 전달되어야 합니다."""
+        directory, client, _workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        client.post("/api/problems", json={"problem_id": "alpha", "title": "Cancel"})
+        started = threading.Event()
+        release = threading.Event()
+
+        def fake_verify_solutions(*args, cancel_check=None, **kwargs) -> dict:
+            self.assertIsNotNone(cancel_check)
+            started.set()
+            release.wait(2)
+            cancel_check()
+            return {
+                "problemId": "alpha",
+                "profile": "hidden",
+                "passed": True,
+                "verifiedCount": 0,
+                "totalCount": 0,
+                "skippedCount": 0,
+                "checks": [],
+            }
+
+        with patch(
+            "problem_studio.web.routes.solutions.verify_solutions",
+            side_effect=fake_verify_solutions,
+        ):
+            response = client.post(
+                "/api/problems/alpha/solutions/verify/jobs",
+                json={"profile": "hidden", "max_workers": 4},
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            job_id = response.json()["jobId"]
+            self.assertTrue(started.wait(1))
+            cancelled = client.post(f"/api/jobs/{job_id}/cancel")
+            self.assertEqual(cancelled.status_code, 200, cancelled.text)
+            self.assertTrue(cancelled.json()["cancelRequested"])
+            release.set()
+            finished = self.poll_job(client, job_id)
+
+        self.assertEqual(finished["status"], "cancelled")
+        self.assertTrue(finished["cancelSupported"])
+
+    def test_full_checks_job_uses_parallel_solution_verify_and_partial_progress(self) -> None:
+        """전체 테스트 job의 솔루션 검증도 병렬 worker와 부분 결과 progress를 사용해야 합니다."""
+        directory, client, workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        client.post("/api/problems", json={"problem_id": "alpha", "title": "Checks"})
+        verify_kwargs = {}
+
+        def fake_verify_solutions(*args, on_check=None, **kwargs) -> dict:
+            verify_kwargs.update(kwargs)
+            self.assertIsNotNone(kwargs.get("cancel_check"))
+            check = SolutionCheckResult(
+                source=workspace / "problems" / "alpha" / "solutions" / "main_solution.ac.cpp",
+                expected_status="accepted",
+                actual_status="accepted",
+                raw_actual_status="accepted",
+                run_id="full-check-run",
+                passed=True,
+                cases=[{"case": "001", "status": "ok"}],
+                metrics={"maxTimeMs": 1},
+                status_evidence={
+                    "rawStatus": "accepted",
+                    "rankedStatus": "accepted",
+                    "caseStatusCounts": {"accepted": 1},
+                },
+            )
+            if on_check is not None:
+                on_check(check, 1, 1)
+            return {
+                "problemId": "alpha",
+                "profile": "hidden",
+                "passed": True,
+                "verifiedCount": 1,
+                "totalCount": 1,
+                "skippedCount": 0,
+                "checks": [check.to_dict(workspace)],
+            }
+
+        with (
+            patch("problem_studio.web.routes.checks.compile_cases", return_value={"valid": True}),
+            patch(
+                "problem_studio.web.routes.checks.compile_problem_tools",
+                return_value={"checker": workspace / "checker"},
+            ),
+            patch(
+                "problem_studio.web.routes.checks.validate_all_data",
+                return_value={"caseCount": 1},
+            ),
+            patch(
+                "problem_studio.web.routes.checks.verify_solutions",
+                side_effect=fake_verify_solutions,
+            ),
+        ):
+            response = client.post("/api/problems/alpha/checks/jobs", json={"force": True})
+            self.assertEqual(response.status_code, 200, response.text)
+            finished = self.poll_job(client, response.json()["jobId"])
+
+        self.assertEqual(finished["status"], "succeeded")
+        self.assertEqual(verify_kwargs["max_workers"], 4)
+        progress = finished["progress"]
+        self.assertEqual(progress["partialSummary"]["verifiedCount"], 1)
+        self.assertEqual(progress["partialSummary"]["maxWorkers"], 4)
+        self.assertEqual(progress["partialCheck"]["runId"], "full-check-run")
 
     def test_problem_delete_requires_exact_confirmation(self) -> None:
         """문제 삭제 요구 정확한 확인 문구 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -1256,6 +1587,10 @@ class ProblemStudioTest(unittest.TestCase):
                 "/api/problems/alpha/solutions/verify/jobs",
                 json={"profile": "hidden", "solutions": None},
             )
+            solution_test_job = client.post(
+                "/api/problems/alpha/solutions/test/jobs",
+                json={"profile": "hidden", "solution": "solutions/wrong.wa.py"},
+            )
             generic_cancel = client.post("/api/jobs/missing/cancel")
             generic_dismiss = client.delete("/api/jobs/missing")
             generic_clear = client.delete("/api/jobs/completed")
@@ -1277,6 +1612,7 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(tools_job.status_code, 403, tools_job.text)
         self.assertEqual(checks_job.status_code, 403, checks_job.text)
         self.assertEqual(solution_job.status_code, 403, solution_job.text)
+        self.assertEqual(solution_test_job.status_code, 403, solution_test_job.text)
         self.assertEqual(generic_cancel.status_code, 403, generic_cancel.text)
         self.assertEqual(generic_dismiss.status_code, 403, generic_dismiss.text)
         self.assertEqual(generic_clear.status_code, 403, generic_clear.text)

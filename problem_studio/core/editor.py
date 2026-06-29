@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from judge.core.compiler import SUPPORTED_USER_SUFFIXES
-from judge.core.errors import JudgeError
-from judge.core.paths import ensure_inside, rel
-from judge.core.problem_constants import REQUIRED_TOOL_FIELDS
-from judge.utils.fs import read_json, write_json
+from alj_core.compiler import SUPPORTED_USER_SUFFIXES
+from alj_core.errors import JudgeError
+from alj_core.paths import ensure_inside, rel
+from alj_core.problem_constants import REQUIRED_TOOL_FIELDS
+from alj_core.utils.fs import read_json, write_json
 from problem_studio.core.workspace import problem_dir
 
 SAFE_UPLOAD_NAME_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
@@ -17,11 +17,18 @@ SOLUTION_EXPECTED_TOKENS = {"ac", "wa", "tle", "mle"}
 SOLUTION_LANGUAGE_EXTENSIONS = {
     "cpp": ".cpp",
     "python": ".py",
+    "pypy": ".py",
     "java": ".java",
+}
+SOLUTION_LANGUAGE_MARKERS = {
+    "pypy": ".pypy",
 }
 SOLUTION_TEMPLATES = {
     "cpp": ("#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    return 0;\n}\n"),
     "python": (
+        'import sys\n\n\ndef main():\n    pass\n\n\nif __name__ == "__main__":\n    main()\n'
+    ),
+    "pypy": (
         'import sys\n\n\ndef main():\n    pass\n\n\nif __name__ == "__main__":\n    main()\n'
     ),
     "java": "class Main {\n    public static void main(String[] args) {\n    }\n}\n",
@@ -154,6 +161,11 @@ def safe_solution_base_name(value: str) -> str:
     return name
 
 
+def solution_filename(base_name: str, expected: str, language: str) -> str:
+    marker = SOLUTION_LANGUAGE_MARKERS.get(language, "")
+    return f"{base_name}{marker}.{expected}{SOLUTION_LANGUAGE_EXTENSIONS[language]}"
+
+
 def create_solution_file(
     workspace: Path,
     problem_id: str,
@@ -178,7 +190,7 @@ def create_solution_file(
     if language not in SOLUTION_LANGUAGE_EXTENSIONS:
         raise JudgeError(f"unknown solution language: {language}")
     base_name = safe_solution_base_name(name)
-    filename = f"{base_name}.{expected}{SOLUTION_LANGUAGE_EXTENSIONS[language]}"
+    filename = solution_filename(base_name, expected, language)
     path = safe_problem_file(workspace, problem_id, f"solutions/{filename}")
     if path.exists():
         raise JudgeError(f"solution already exists: {filename}")
@@ -207,7 +219,7 @@ def rename_solution_file(
         raise JudgeError(f"solution file not found: {raw_path}")
 
     base_name = safe_solution_base_name(name)
-    filename = f"{base_name}.{expected}{SOLUTION_LANGUAGE_EXTENSIONS[language]}"
+    filename = solution_filename(base_name, expected, language)
     new_raw_path = f"solutions/{filename}"
     new_path = safe_problem_file(workspace, problem_id, new_raw_path)
     if new_path != old_path and new_path.exists():
@@ -227,6 +239,54 @@ def rename_solution_file(
         "path": new_raw_path,
         "size": new_path.stat().st_size,
         "metadata": metadata,
+    }
+
+
+def _fallback_reference_solution(base: Path, deleted_raw_path: str) -> str | None:
+    solutions_dir = base / "solutions"
+    if not solutions_dir.exists():
+        return None
+    for source in sorted(path for path in solutions_dir.rglob("*") if path.is_file()):
+        relative = source.relative_to(base).as_posix()
+        if relative == deleted_raw_path:
+            continue
+        if source.suffix.lower() not in SUPPORTED_USER_SUFFIXES:
+            continue
+        parts = source.name.split(".")
+        if len(parts) >= 3 and parts[-2].lower() == "ac":
+            return relative
+    return None
+
+
+def delete_solution_file(workspace: Path, problem_id: str, raw_path: str) -> dict[str, Any]:
+    """솔루션 파일을 삭제하고 참조 정답 메타데이터를 안전하게 유지합니다."""
+    if not raw_path.startswith("solutions/"):
+        raise JudgeError(f"not a solution file: {raw_path}")
+
+    path = safe_problem_file(workspace, problem_id, raw_path)
+    if not path.exists() or not path.is_file():
+        raise JudgeError(f"solution file not found: {raw_path}")
+
+    metadata_path = safe_problem_file(workspace, problem_id, "problem.json")
+    metadata = read_json(metadata_path)
+    tools = metadata.setdefault("tools", {})
+    reference_deleted = tools.get("solution") == raw_path
+    if reference_deleted:
+        fallback = _fallback_reference_solution(problem_dir(workspace, problem_id), raw_path)
+        if not fallback:
+            raise JudgeError(
+                "cannot delete reference solution without another accepted solution"
+            )
+        tools["solution"] = fallback
+
+    path.unlink()
+    if reference_deleted:
+        write_json(metadata_path, metadata)
+
+    return {
+        "deleted": {"path": raw_path},
+        "metadata": metadata,
+        "referenceChanged": reference_deleted,
     }
 
 

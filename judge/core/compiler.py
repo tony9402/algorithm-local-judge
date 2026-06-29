@@ -10,6 +10,7 @@ from judge.core.compiler_common import (
     PreparedSubmission,
     compile_cpp,
     compile_error_message,
+    compiler_identity,
     java_main_class,
     resolve_tool,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "compile_cpp",
     "compile_cpp_submission",
     "compile_error_message",
+    "compiler_identity",
     "compile_java_submission",
     "compile_problem_tool",
     "compile_problem_tools",

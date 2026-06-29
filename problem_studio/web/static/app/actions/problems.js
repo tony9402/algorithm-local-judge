@@ -37,7 +37,12 @@ import {
   renderTabFiles,
   selectSolutionPath,
 } from "../resources-view.js";
-import { DELETE_CONFIRM_PHRASE, state } from "../state.js";
+import {
+  DELETE_CONFIRM_PHRASE,
+  activePackJobForProblem,
+  stalePackJobForProblem,
+  state,
+} from "../state.js";
 import { renderTaskPanel } from "../tabs-view.js";
 import {
   rememberSelectedFile,
@@ -80,7 +85,9 @@ function applyProblemRenameResult(result, previousProblemId) {
   if (!nextProblemId || nextProblemId === previousProblemId) return;
   migrateProblemLastResult(previousProblemId, nextProblemId);
   migrateTabSelections(previousProblemId, nextProblemId);
-  if (state.activePackJob?.problemId === previousProblemId) clearPackJob();
+  if (activePackJobForProblem(previousProblemId)) {
+    clearPackJob(previousProblemId, state.activeRepository || null);
+  }
   state.selectedProblem = nextProblemId;
   if (state.detail) {
     state.detail = {
@@ -99,9 +106,15 @@ function applyProblemRenameResult(result, previousProblemId) {
 export function restoreProblemLastResult(problemId = state.selectedProblem) {
   const result = currentProblemResult(problemId);
   state.lastSolutionVerification = result?.solutionVerification || null;
+  state.solutionTestResultsByPath =
+    result?.solutionTestResultsByPath && typeof result.solutionTestResultsByPath === "object"
+      ? result.solutionTestResultsByPath
+      : {};
   state.lastFullTest = result?.fullTest || null;
   state.lastPackResult = result?.lastPackResult || null;
   state.lastRun = result?.lastRun || null;
+  state.activePackJob = activePackJobForProblem(problemId);
+  state.stalePackJob = stalePackJobForProblem(problemId);
   state.dirtySolutionPaths = Array.isArray(result?.dirtySolutionPaths)
     ? result.dirtySolutionPaths.map(normalizedSolutionPath)
     : [];
@@ -151,6 +164,9 @@ export async function refresh() {
     state.detail = null;
     state.files = [];
     state.lastSolutionVerification = null;
+    state.solutionTestResultsByPath = {};
+    state.activeSolutionVerification = null;
+    state.activeSolutionTestsByPath = {};
     state.lastRun = null;
     hideLastRunPanel();
     renderTaskPanel();
@@ -316,7 +332,7 @@ export async function deleteSelectedProblem() {
     body: JSON.stringify({ confirm_phrase: confirmPhrase }),
   });
   clearProblemLastResult(problemId);
-  if (state.activePackJob?.problemId === problemId) clearPackJob();
+  if (activePackJobForProblem(problemId)) clearPackJob(problemId, state.activeRepository || null);
   state.selectedProblem = null;
   state.selectedFile = null;
   state.detail = null;

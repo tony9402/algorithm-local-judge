@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-from judge.core.errors import JudgeError
+from alj_core.errors import JudgeError
 
 ALLOWED_COMMIT_PREFIXES = ("problems/",)
 ALLOWED_COMMIT_FILES = {"testlib.h"}

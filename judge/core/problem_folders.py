@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
 from judge.core.errors import JudgeError, SecurityPolicyError
-from judge.core.paths import problem_pack_root, rel
+from judge.core.paths import rel, user_data_root
+from judge.core.problem_discovery import discover_problem_ids, problem_roots
 from judge.core.problem_metadata import load_problem
 
 MAX_FOLDER_LENGTH = 80
+FOLDER_REGISTRY_NAME = "judge-folders.json"
+FOLDER_DELETE_WARNING = "폴더 내 문제들이 모두 삭제됩니다."
 
 
 def normalize_problem_folder(folder: str | None) -> str:
@@ -32,11 +36,146 @@ def normalize_problem_folder(folder: str | None) -> str:
 
 def problem_folder_editable(problem_dir: Path) -> bool:
     resolved = problem_dir.resolve()
-    packs = problem_pack_root().resolve()
-    if resolved == packs or packs in resolved.parents:
-        return False
     metadata_path = resolved / "problem.json"
     return metadata_path.exists() and metadata_path.is_file()
+
+
+def problem_folder_registry_path() -> Path:
+    return user_data_root() / FOLDER_REGISTRY_NAME
+
+
+def read_problem_folder_registry() -> list[str]:
+    path = problem_folder_registry_path()
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    folders = data.get("folders") if isinstance(data, dict) else data
+    if not isinstance(folders, list):
+        return []
+    result = []
+    seen = set()
+    for folder in folders:
+        if not isinstance(folder, str):
+            continue
+        normalized = normalize_problem_folder(folder)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            result.append(normalized)
+    return result
+
+
+def write_problem_folder_registry(folders: list[str]) -> None:
+    normalized = []
+    seen = set()
+    for folder in folders:
+        value = normalize_problem_folder(folder)
+        if value and value not in seen:
+            seen.add(value)
+            normalized.append(value)
+    path = problem_folder_registry_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"folders": sorted(normalized, key=str.lower)}, ensure_ascii=False, indent=2)
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def problem_folder_items() -> list[tuple[str, Path, dict[str, Any]]]:
+    items = []
+    for problem_id in discover_problem_ids():
+        problem_dir, _metadata_path, metadata = load_problem(problem_id)
+        items.append((problem_id, problem_dir, metadata))
+    return items
+
+
+def list_problem_folders() -> list[dict[str, Any]]:
+    counts: dict[str, int] = {}
+    folders = set(read_problem_folder_registry())
+    folders.add("")
+    for _problem_id, _problem_dir, metadata in problem_folder_items():
+        folder = normalize_problem_folder(metadata.get("folder") if isinstance(metadata, dict) else "")
+        folders.add(folder)
+        counts[folder] = counts.get(folder, 0) + 1
+    return [
+        {
+            "folder": folder,
+            "label": folder or "Uncategorized",
+            "problemCount": counts.get(folder, 0),
+        }
+        for folder in sorted(folders, key=lambda value: ((value or "Uncategorized").lower()))
+    ]
+
+
+def create_problem_folder(folder: str | None) -> dict[str, Any]:
+    normalized = normalize_problem_folder(folder)
+    if not normalized:
+        raise JudgeError("problem folder name is required")
+    folders = read_problem_folder_registry()
+    if normalized not in folders:
+        folders.append(normalized)
+        write_problem_folder_registry(folders)
+    return {"folder": normalized, "folders": list_problem_folders()}
+
+
+def problems_in_folder(folder: str | None) -> list[dict[str, Any]]:
+    normalized = normalize_problem_folder(folder)
+    result = []
+    for problem_id, problem_dir, metadata in problem_folder_items():
+        problem_folder = normalize_problem_folder(metadata.get("folder") if isinstance(metadata, dict) else "")
+        if problem_folder == normalized:
+            result.append(
+                {
+                    "problemId": problem_id,
+                    "title": metadata.get("title", ""),
+                    "path": str(problem_dir),
+                }
+            )
+    return result
+
+
+def ensure_problem_dir_deletable(problem_dir: Path) -> Path:
+    resolved = problem_dir.resolve()
+    if not (resolved / "problem.json").is_file():
+        raise SecurityPolicyError(f"refusing to delete non-problem directory: {rel(resolved)}")
+    roots = [root.resolve() for root in problem_roots()]
+    if not any(root == resolved.parent or root in resolved.parents for root in roots):
+        raise SecurityPolicyError(f"refusing to delete problem outside known roots: {rel(resolved)}")
+    return resolved
+
+
+def delete_problem_folder(
+    folder: str | None,
+    *,
+    confirm_delete_problems: bool = False,
+) -> dict[str, Any]:
+    normalized = normalize_problem_folder(folder)
+    if not normalized:
+        raise JudgeError("default folder cannot be deleted")
+    targets = problems_in_folder(normalized)
+    if targets and not confirm_delete_problems:
+        return {
+            "deleted": False,
+            "requiresConfirmation": True,
+            "folder": normalized,
+            "warning": FOLDER_DELETE_WARNING,
+            "problems": targets,
+        }
+    for item in targets:
+        shutil.rmtree(ensure_problem_dir_deletable(Path(item["path"])))
+    folders = [item for item in read_problem_folder_registry() if item != normalized]
+    write_problem_folder_registry(folders)
+    return {
+        "deleted": True,
+        "requiresConfirmation": False,
+        "folder": normalized,
+        "deletedProblems": [item["problemId"] for item in targets],
+        "warning": FOLDER_DELETE_WARNING if targets else "",
+        "folders": list_problem_folders(),
+    }
 
 
 def problem_folder_payload(metadata: dict[str, Any], problem_dir: Path) -> dict[str, Any]:
@@ -60,10 +199,13 @@ def update_problem_folder(problem_id: str, folder: str | None) -> dict[str, Any]
     problem_dir, metadata_path, metadata = load_problem(problem_id)
     if not problem_folder_editable(problem_dir):
         raise SecurityPolicyError(
-            "problem folder cannot be changed for installed .aljpack problems; "
-            "install a source problem package or edit the original problem repository"
+            "problem folder cannot be changed because problem metadata is not editable"
         )
-    metadata["folder"] = normalize_problem_folder(folder)
+    normalized_folder = normalize_problem_folder(folder)
+    known_folders = {normalize_problem_folder(item["folder"]) for item in list_problem_folders()}
+    if normalized_folder and normalized_folder not in known_folders:
+        raise JudgeError("problem folder must be created before moving problems")
+    metadata["folder"] = normalized_folder
     metadata_path.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

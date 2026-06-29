@@ -7,7 +7,7 @@ from typing import Any
 from commons.generate import load_config
 from judge.core.pack import installed_packs
 from judge.core.problem import discover_problem_ids, load_problem, tool_paths
-from judge.core.problem_folders import problem_folder_payload
+from judge.core.problem_folders import list_problem_folders, problem_folder_payload
 from judge.core.remote import official_pack_repository
 from judge.web.service_cache import cache_status
 from judge.web.service_common import FULL_PROFILE, SAMPLE_PROFILE, web_debug_enabled
@@ -69,6 +69,7 @@ def current_web_config() -> dict[str, Any]:
 def dashboard_status() -> dict[str, Any]:
     return {
         "problems": list_problems(),
+        "folders": list_problem_folders(),
         "packs": list_packs(),
         "cache": cache_status(),
         "config": current_web_config(),

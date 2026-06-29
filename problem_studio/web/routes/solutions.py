@@ -7,9 +7,10 @@ from typing import Annotated
 from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
-from judge.core.artifacts import wrong_artifacts, wrong_diff_text
+from alj_core.artifacts import wrong_artifacts, wrong_diff_text
 from problem_studio.core.editor import (
     create_solution_file,
+    delete_solution_file,
     list_problem_files,
     rename_solution_file,
     save_solution_upload,
@@ -30,16 +31,19 @@ from problem_studio.web.routes.common import (
     workspace_from_request,
 )
 from problem_studio.web.schemas import (
-    StressAppendRequest,
     SolutionCreateRequest,
+    SolutionDeleteRequest,
     SolutionRenameRequest,
     SolutionStressRequest,
+    SolutionTestRequest,
     SolutionVerifyRequest,
+    StressAppendRequest,
 )
 from problem_studio.web.security_policy import ensure_local_write_allowed
 
 router = APIRouter(prefix="/api/problems/{problem_id}/solutions", tags=["solutions"])
 ARTIFACT_PREVIEW_LIMIT = 12000
+DEFAULT_SOLUTION_VERIFY_WORKERS = 4
 
 
 def preview_artifact_text(text: str, limit: int = ARTIFACT_PREVIEW_LIMIT) -> dict:
@@ -180,6 +184,32 @@ def api_solutions_rename(request: Request, problem_id: str, body: SolutionRename
     return route_result(operation)
 
 
+@router.delete("")
+def api_solutions_delete(request: Request, problem_id: str, body: SolutionDeleteRequest) -> dict:
+    """솔루션 delete 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+    Args:
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (SolutionDeleteRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
+    Returns:
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 delete 데이터입니다.
+    """
+
+    def operation() -> dict:
+        ensure_local_write_allowed(request, "solution delete")
+        workspace = workspace_from_request(request)
+        deleted = delete_solution_file(workspace, problem_id, body.path)
+        return {
+            **deleted,
+            "files": list_problem_files(workspace, problem_id),
+            "solutions": list_solutions(workspace, problem_id),
+        }
+
+    return route_result(operation)
+
+
 @router.post("/verify/stream")
 def api_solutions_verify_stream(
     request: Request, problem_id: str, body: SolutionVerifyRequest
@@ -208,8 +238,9 @@ def api_solutions_verify_stream(
             body.profile,
             progress=progress,
             raise_on_failure=False,
-            solutions=body.solutions,
+            max_workers=body.max_workers or DEFAULT_SOLUTION_VERIFY_WORKERS,
         )
+        result = {**result, "scope": "all"}
         progress(
             "Solution expectation verification finished."
             if result.get("passed")
@@ -238,17 +269,41 @@ def api_solutions_verify_job(
         ensure_local_write_allowed(request, "solution verification")
         workspace = workspace_from_request(request)
         jobs = jobs_from_request(request)
+        worker_count = body.max_workers or DEFAULT_SOLUTION_VERIFY_WORKERS
 
         def operation(cancel_token, progress):
             progress(f"Verifying solutions for {problem_id} on profile {body.profile}.")
+            summary = {"verifiedCount": 0, "failedCount": 0}
+
+            def on_check(check, index: int, total: int) -> None:
+                payload = check.to_dict(workspace)
+                summary["verifiedCount"] = index
+                if not check.passed:
+                    summary["failedCount"] += 1
+                progress(
+                    f"{payload['source']} verified: {payload['actualStatus']}",
+                    current=index,
+                    total=total,
+                    label="솔루션 기대 결과 검증",
+                    partialCheck=payload,
+                    partialSummary={
+                        **summary,
+                        "totalCount": total,
+                        "maxWorkers": worker_count,
+                    },
+                )
+
             result = verify_solutions(
                 workspace,
                 problem_id,
                 body.profile,
                 progress=progress,
                 raise_on_failure=False,
-                solutions=body.solutions,
+                on_check=on_check,
+                max_workers=worker_count,
+                cancel_check=cancel_token.check,
             )
+            result = {**result, "scope": "all"}
             cancel_token.check()
             progress(
                 "Solution expectation verification finished."
@@ -267,7 +322,86 @@ def api_solutions_verify_job(
             target={
                 "problemId": problem_id,
                 "profile": body.profile,
-                "solutions": body.solutions,
+                "scope": "all",
+                "maxWorkers": worker_count,
+            },
+            operation=operation,
+        )
+        return jobs.job_dict(job)
+    except Exception as exc:
+        raise to_http_error(exc) from exc
+
+
+@router.post("/test/jobs")
+def api_solution_test_job(
+    request: Request, problem_id: str, body: SolutionTestRequest
+) -> dict:
+    """솔루션 개별 테스트 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
+
+    Args:
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        body (SolutionTestRequest): API 요청 본문을 검증한 스키마 객체입니다.
+
+    Returns:
+        dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 개별 테스트 작업 데이터입니다.
+    """
+    try:
+        ensure_local_write_allowed(request, "solution single test")
+        workspace = workspace_from_request(request)
+        jobs = jobs_from_request(request)
+
+        def operation(cancel_token, progress):
+            progress(
+                f"Testing solution {body.solution} for {problem_id} on profile {body.profile}."
+            )
+
+            def on_check(check, index: int, total: int) -> None:
+                payload = check.to_dict(workspace)
+                progress(
+                    f"{payload['source']} tested: {payload['actualStatus']}",
+                    current=index,
+                    total=total,
+                    label="개별 테스트",
+                    partialCheck=payload,
+                    partialSummary={
+                        "verifiedCount": index,
+                        "failedCount": 0 if check.passed else 1,
+                        "totalCount": total,
+                    },
+                )
+
+            result = verify_solutions(
+                workspace,
+                problem_id,
+                body.profile,
+                progress=progress,
+                raise_on_failure=False,
+                solutions=[body.solution],
+                on_check=on_check,
+                max_workers=1,
+                cancel_check=cancel_token.check,
+            )
+            cancel_token.check()
+            progress(
+                "Single solution test finished."
+                if result.get("passed")
+                else "Single solution test finished with mismatches."
+            )
+            return {**result, "scope": "single", "solution": body.solution}
+
+        job = enqueue_background_job(
+            jobs,
+            request=request,
+            kind="solution-test",
+            title=f"개별 테스트 · {problem_id}",
+            problem_id=problem_id,
+            lane=scoped_lane(request, problem_id, "validation"),
+            target={
+                "problemId": problem_id,
+                "profile": body.profile,
+                "solution": body.solution,
+                "scope": "single",
             },
             operation=operation,
         )

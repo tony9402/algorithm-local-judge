@@ -9,7 +9,7 @@ from typing import TypeVar
 
 from fastapi import HTTPException, Request
 
-from judge.core.errors import (
+from alj_core.errors import (
     ConcurrencyLimitError,
     JudgeError,
     LimitExceededError,

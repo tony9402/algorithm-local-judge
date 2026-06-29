@@ -8,6 +8,7 @@ from pathlib import Path
 
 from judge.core.errors import JudgeError
 from judge.core.paths import cache_root, ensure_inside, validate_safe_id
+from judge.web.service_common import normalize_submission_filename
 
 
 def source_history_root() -> Path:
@@ -19,9 +20,9 @@ def source_entry_dir(source_id: str) -> Path:
     return ensure_inside(source_history_root() / source_id, cache_root())
 
 
-def default_filename(problem_id: str, filename: str | None) -> str:
-    if filename:
-        name = Path(filename).name
+def default_filename(problem_id: str, filename: str | None, language: str | None = None) -> str:
+    if filename or language:
+        name = normalize_submission_filename(filename, language, problem_id)
     else:
         name = f"main-{problem_id}.py"
     if not name or name in {".", ".."}:
@@ -29,7 +30,11 @@ def default_filename(problem_id: str, filename: str | None) -> str:
     return name
 
 
-def create_source_target(problem_id: str, filename: str | None) -> tuple[str, Path]:
+def create_source_target(
+    problem_id: str,
+    filename: str | None,
+    language: str | None = None,
+) -> tuple[str, Path]:
     """소스 target 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
     Args:
@@ -43,7 +48,7 @@ def create_source_target(problem_id: str, filename: str | None) -> tuple[str, Pa
     source_id = str(time.time_ns())
     target_dir = source_entry_dir(source_id)
     target_dir.mkdir(parents=True, exist_ok=True)
-    return source_id, target_dir / default_filename(problem_id, filename)
+    return source_id, target_dir / default_filename(problem_id, filename, language)
 
 
 def source_id_from_path(source: Path) -> str | None:

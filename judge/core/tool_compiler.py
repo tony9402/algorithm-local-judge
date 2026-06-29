@@ -2,12 +2,17 @@
 """
 from __future__ import annotations
 
+import json
+import threading
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
-from judge.core.compiler_common import compile_cpp
+from judge.core.compiler_common import compile_cpp, compiler_identity
+from judge.core.config import COMPILE_FLAGS, PROTOCOL_VERSION
 from judge.core.errors import JudgeError
-from judge.core.paths import build_root
+from judge.core.manifest import cached_sha256_file
+from judge.core.paths import build_root, repo_root
 from judge.core.problem import (
     TOOL_NAMES,
     is_precompiled_problem,
@@ -15,6 +20,59 @@ from judge.core.problem import (
     tool_output_path,
     tool_paths,
 )
+from judge.utils.fs import read_json, write_json
+from judge.utils.hashing import sha256_json
+
+_TOOL_COMPILE_LOCK = threading.Lock()
+
+
+def _optional_file_hash(path: Path) -> str | None:
+    return cached_sha256_file(path) if path.exists() else None
+
+
+def _tool_manifest_path(output: Path) -> Path:
+    return output.with_name(f"{output.name}.manifest.json")
+
+
+def _tool_compile_key(
+    *,
+    problem_id: str,
+    tool_name: str,
+    metadata_path: Path,
+    metadata: dict[str, Any],
+    paths: dict[str, Path],
+    root: Path,
+) -> str:
+    testlib = root / "testlib.h"
+    payload = {
+        "protocolVersion": PROTOCOL_VERSION,
+        "compileFlags": COMPILE_FLAGS,
+        "compiler": compiler_identity("ALJ_CXX", ["g++"]),
+        "problemId": problem_id,
+        "problemVersion": metadata.get("version"),
+        "tool": tool_name,
+        "limits": {
+            "compileTimeoutMs": metadata.get("limits", {}).get("compileTimeoutMs", 5000),
+        },
+        "sourceHashes": {
+            "problem": cached_sha256_file(metadata_path),
+            tool_name: cached_sha256_file(paths[tool_name]),
+            "generatorConfig": cached_sha256_file(paths["generatorConfig"]),
+            "testlib": _optional_file_hash(testlib),
+        },
+    }
+    return sha256_json(payload)
+
+
+def _cached_tool_output(output: Path, key: str) -> bool:
+    manifest_path = _tool_manifest_path(output)
+    if not output.exists() or not manifest_path.exists():
+        return False
+    try:
+        manifest = read_json(manifest_path)
+    except (json.JSONDecodeError, OSError):
+        return False
+    return manifest.get("compileKey") == key
 
 
 def compile_problem_tool(
@@ -36,7 +94,7 @@ def compile_problem_tool(
     """
     if tool_name not in TOOL_NAMES:
         raise JudgeError(f"unknown problem tool: {tool_name}")
-    problem_dir, _, metadata, paths = tool_paths(problem_id, root)
+    problem_dir, metadata_path, metadata, paths = tool_paths(problem_id, root)
     if is_precompiled_problem(metadata):
         return paths[tool_name]
 
@@ -45,9 +103,31 @@ def compile_problem_tool(
     timeout_ms = limits.get("compileTimeoutMs", 5000)
     logs = build_root(root) / "tools" / problem_id / "logs"
     output = tool_output_path(problem_id, tool_name, root)
-    if progress is not None:
-        progress(f"Compiling {tool_name} tool.")
-    compile_cpp(paths[tool_name], output, root, timeout_ms, logs / f"{tool_name}.log")
+    key = _tool_compile_key(
+        problem_id=problem_id,
+        tool_name=tool_name,
+        metadata_path=metadata_path,
+        metadata=metadata,
+        paths=paths,
+        root=root or repo_root(),
+    )
+    with _TOOL_COMPILE_LOCK:
+        if _cached_tool_output(output, key):
+            if progress is not None:
+                progress(f"Using cached {tool_name} tool.")
+            return output
+        if progress is not None:
+            progress(f"Compiling {tool_name} tool.")
+        compile_cpp(paths[tool_name], output, root, timeout_ms, logs / f"{tool_name}.log")
+        write_json(
+            _tool_manifest_path(output),
+            {
+                "schemaVersion": 1,
+                "problemId": problem_id,
+                "tool": tool_name,
+                "compileKey": key,
+            },
+        )
     return output
 
 

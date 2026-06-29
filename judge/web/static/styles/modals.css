@@ -74,6 +74,10 @@ h2 {
   gap: 16px;
 }
 
+.result-modal {
+  width: min(760px, calc(100vw - 32px));
+}
+
 .modal-heading {
   display: flex;
   justify-content: space-between;
@@ -116,4 +120,3 @@ h2 {
     transform: translateY(0);
   }
 }
-

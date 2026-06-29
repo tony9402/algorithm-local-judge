@@ -23,16 +23,23 @@ export const state = {
   lastPackResult: null,
   lastBulkBuildResult: null,
   lastRun: null,
+  tabFeedbackById: {},
   dirtySolutionPaths: [],
+  solutionTestResultsByPath: {},
+  activeSolutionVerification: null,
+  activeSolutionTestsByPath: {},
   lastStreamDetail: "",
   tabSelections: {},
   problemFolderCollapsed: {},
   resourceFilters: {},
   activeModalTrigger: null,
   activePackJob: null,
+  activePackJobsByProblem: {},
   activeBulkJob: null,
   stalePackJob: null,
+  stalePackJobsByProblem: {},
   packPollTimer: null,
+  packPollTimersByProblem: {},
   editorMode: "default",
   editorSettingsOpen: false,
   vimMode: "insert",
@@ -153,6 +160,7 @@ export const SAVE_BEFORE_ACTIONS = new Set([
 export const EXTENSIONS = {
   cpp: ".cpp",
   python: ".py",
+  pypy: ".py",
   java: ".java",
 };
 
@@ -222,4 +230,34 @@ export const runAllChannel =
   "BroadcastChannel" in window ? new BroadcastChannel("problem-studio-run-all") : null;
 export function activeRepositoryKey() {
   return state.activeRepository || "legacy";
+}
+export function problemStateKey(
+  problemId = state.selectedProblem,
+  repositoryName = state.activeRepository || null
+) {
+  return problemId ? `${repositoryName || "legacy"}:${problemId}` : "";
+}
+export function activePackJobForProblem(
+  problemId = state.selectedProblem,
+  repositoryName = state.activeRepository || null
+) {
+  const key = problemStateKey(problemId, repositoryName);
+  return key ? state.activePackJobsByProblem?.[key] || null : null;
+}
+export function activePackJobList(repositoryName = state.activeRepository || null) {
+  return Object.values(state.activePackJobsByProblem || {}).filter(
+    (job) => (job.repositoryName || null) === (repositoryName || null)
+  );
+}
+export function stalePackJobForProblem(
+  problemId = state.selectedProblem,
+  repositoryName = state.activeRepository || null
+) {
+  const key = problemStateKey(problemId, repositoryName);
+  return key ? state.stalePackJobsByProblem?.[key] || null : null;
+}
+export function stalePackJobList(repositoryName = state.activeRepository || null) {
+  return Object.values(state.stalePackJobsByProblem || {}).filter(
+    (job) => (job.repositoryName || null) === (repositoryName || null)
+  );
 }

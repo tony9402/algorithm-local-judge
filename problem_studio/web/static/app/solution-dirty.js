@@ -44,16 +44,25 @@ export function setDirtySolutionPaths(paths) {
  * @param {Array} paths 같은 작업을 적용할 파일 또는 디렉터리 경로 목록입니다.
  */
 export function removeSolutionChecks(paths) {
-  if (!state.lastSolutionVerification?.checks?.length) return;
   const removed = new Set((paths || []).map(normalizedSolutionPath));
   if (!removed.size) return;
-  state.lastSolutionVerification = {
-    ...state.lastSolutionVerification,
-    checks: state.lastSolutionVerification.checks.filter(
-      (check) => !removed.has(normalizedSolutionPath(solutionCheckSource(check)))
-    ),
-  };
-  persistProblemLastResult({ solutionVerification: state.lastSolutionVerification });
+  const patch = {};
+  if (state.lastSolutionVerification?.checks?.length) {
+    state.lastSolutionVerification = {
+      ...state.lastSolutionVerification,
+      checks: state.lastSolutionVerification.checks.filter(
+        (check) => !removed.has(normalizedSolutionPath(solutionCheckSource(check)))
+      ),
+    };
+    patch.solutionVerification = state.lastSolutionVerification;
+  }
+  if (state.solutionTestResultsByPath && Object.keys(state.solutionTestResultsByPath).length) {
+    const next = { ...state.solutionTestResultsByPath };
+    for (const path of removed) delete next[path];
+    state.solutionTestResultsByPath = next;
+    patch.solutionTestResultsByPath = next;
+  }
+  if (Object.keys(patch).length) persistProblemLastResult(patch);
 }
 export function markSolutionDirty(path, reason = "솔루션 변경으로 재검증이 필요합니다.", options = {}) {
   const dirty = dirtySolutionSet();
@@ -106,6 +115,9 @@ export function validationStatusForFile(path) {
  */
 export function clearSolutionVerification() {
   state.lastSolutionVerification = null;
+  state.solutionTestResultsByPath = {};
+  state.activeSolutionVerification = null;
+  state.activeSolutionTestsByPath = {};
   state.lastFullTest = null;
   state.lastPackResult = null;
   state.lastRun = null;
@@ -118,6 +130,9 @@ export function clearSolutionVerification() {
 }
 export function discardPersistedSolutionResult() {
   state.lastSolutionVerification = null;
+  state.solutionTestResultsByPath = {};
+  state.activeSolutionVerification = null;
+  state.activeSolutionTestsByPath = {};
   state.lastFullTest = null;
   state.lastPackResult = null;
   state.lastRun = null;

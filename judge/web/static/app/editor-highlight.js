@@ -40,12 +40,13 @@ function highlightCode(source, language) {
   const pyKeywords =
     "False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|print|range|len|int|str|list|dict|set|tuple";
   const languageKey = (language || "").toLowerCase();
-  const keywordPattern = languageKey.includes("python")
+  const isPythonLike = languageKey.includes("python") || languageKey.includes("pypy");
+  const keywordPattern = isPythonLike
     ? pyKeywords
     : languageKey.includes("java")
       ? javaKeywords
       : cppKeywords;
-  const tokenPattern = languageKey.includes("python")
+  const tokenPattern = isPythonLike
     ? new RegExp(
         `(#.*|"""[\\s\\S]*?"""|'''[\\s\\S]*?'''|"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'|\\b(?:${keywordPattern})\\b|${commonNumber})`,
         "g"

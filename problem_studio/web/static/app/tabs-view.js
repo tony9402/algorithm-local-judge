@@ -3,6 +3,7 @@
  */
 
 import { $, optional, setText } from "./dom.js";
+import { renderFeedbackPanels } from "./feedback.js";
 import { TAB_CONFIGS, state } from "./state.js";
 import { VALIDATION_QUEUE_ACTIONS } from "./actions/validation-queue.js";
 
@@ -83,6 +84,7 @@ export function updateEditorPanelMode() {
   const layout = document.querySelector(".studio-layout");
   layout?.classList.toggle("info-mode", infoMode);
   layout?.classList.toggle("solutions-mode", solutionsMode);
+  document.querySelector(".workspace")?.classList.toggle("solutions-mode", solutionsMode);
   const editorPanel = document.querySelector(".editor-panel");
   editorPanel?.classList.toggle("build-mode", buildMode);
   editorPanel?.classList.toggle("solutions-hidden", solutionsMode);
@@ -97,6 +99,7 @@ export function currentPrimaryAction() {
 export function renderTaskPanel() {
   const config = TAB_CONFIGS[state.selectedTab];
   renderTabButtons();
+  updateEditorPanelMode();
   setText("taskTitle", config.title);
   setText("taskDescription", config.description);
   $("metadataForm").classList.toggle("hidden", state.selectedTab !== "info");
@@ -107,6 +110,7 @@ export function renderTaskPanel() {
     tabCallbacks.populateMetadataForm(state.detail.metadata);
   }
   renderTabActions();
+  renderFeedbackPanels();
   tabCallbacks.renderSolutionValidationSummary();
   tabCallbacks.renderTabFiles();
 }

@@ -19,7 +19,7 @@ import {
   updateProgressFromJob,
 } from "../progress.js";
 import { renderTabFiles } from "../resources-view.js";
-import { PACK_OUTPUT_DIR, state } from "../state.js";
+import { PACK_OUTPUT_DIR, activePackJobForProblem, state } from "../state.js";
 import { runQueuedJob } from "../jobs-view.js";
 import {
   failedSolutionChecks,
@@ -27,6 +27,7 @@ import {
 } from "../solution-status.js";
 import { saveOpenFileIfDirty } from "./files.js";
 import { hasFreshFullTest, persistProblemLastResult } from "../results.js";
+import { renderProblems } from "../workspace-view.js";
 import { configureBulkBuildActions } from "./build-bulk.js";
 import {
   acquireRunAllLease,
@@ -125,6 +126,7 @@ async function runAllChecks() {
         dirtyReason: "",
       });
       updateBuildPanel();
+      renderProblems(state.problems);
       renderTabFiles();
       showResult("전체 테스트가 완료되었습니다.", "summary success");
     } else {
@@ -143,6 +145,7 @@ async function runAllChecks() {
         dirtyReason: "전체 테스트가 실패했습니다.",
       });
       updateBuildPanel();
+      renderProblems(state.problems);
       renderTabFiles();
       const failedCount = failedSolutionChecks(verification).length;
       showAlert(`솔루션 기대 결과가 ${failedCount}개 일치하지 않습니다. 각 솔루션의 채점 결과에서 상세를 확인하세요.`, "error", {
@@ -189,14 +192,18 @@ async function runAllChecks() {
       dirtyReason: detail || "전체 테스트가 실패했습니다.",
     });
     updateBuildPanel();
+    renderProblems(state.problems);
     renderTabFiles();
     throw error;
   }
 }
 export async function runAllChecksOnce() {
-  if (state.activePackJob) throw new Error("팩 빌드 진행 중에는 전체 테스트를 시작할 수 없습니다.");
+  const problemId = state.selectedProblem;
+  if (activePackJobForProblem(problemId)) {
+    throw new Error("현재 문제의 팩 빌드 진행 중에는 전체 테스트를 시작할 수 없습니다.");
+  }
   return withProblemTaskLock(async () => {
-    const lease = acquireRunAllLease();
+    const lease = acquireRunAllLease(problemId);
     if (!lease) throw new Error("이미 다른 탭에서 전체 테스트가 실행 중입니다.");
     updateGlobalActionState();
     try {
@@ -206,7 +213,7 @@ export async function runAllChecksOnce() {
       releaseRunAllLease(lease);
       updateGlobalActionState();
     }
-  });
+  }, problemId);
 }
 async function startPackBuild() {
   if (!state.selectedProblem) throw new Error("Select a problem first.");
@@ -219,8 +226,8 @@ async function startPackBuild() {
   const outputDir = PACK_OUTPUT_DIR;
   const verifyProfile = $("packVerifyProfileInput").value.trim() || "hidden";
   if (!packId) throw new Error("Pack ID를 입력하세요.");
-  if (state.activePackJob) throw new Error("이미 팩 빌드가 진행 중입니다.");
-  if (currentRunAllLock()) throw new Error("전체 테스트 진행 중에는 팩 빌드를 시작할 수 없습니다.");
+  if (activePackJobForProblem(problemId)) throw new Error("현재 문제의 팩 빌드가 이미 진행 중입니다.");
+  if (currentRunAllLock(problemId)) throw new Error("현재 문제의 전체 테스트 진행 중에는 팩 빌드를 시작할 수 없습니다.");
   const job = await api(`/api/problems/${encodeURIComponent(problemId)}/packs/build`, {
     method: "POST",
     body: JSON.stringify({
@@ -235,7 +242,7 @@ async function startPackBuild() {
 }
 
 async function startPackBuildOnce() {
-  return withProblemTaskLock(startPackBuild);
+  return withProblemTaskLock(startPackBuild, state.selectedProblem);
 }
 export async function buildPack() {
   $("packIdInput").value = $("packIdInput").value.trim() || "basic";

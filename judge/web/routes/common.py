@@ -25,6 +25,8 @@ def to_http_error(exc: Exception) -> HTTPException:
     Returns:
         HTTPException: 클라이언트에 전달할 상태 코드와 오류 본문을 담은 HTTP 예외입니다.
     """
+    if isinstance(exc, HTTPException):
+        return exc
     if isinstance(exc, SecurityPolicyError):
         return HTTPException(status_code=403, detail=str(exc))
     if isinstance(exc, LimitExceededError):
@@ -43,6 +45,21 @@ def jobs_from_request(request: Request) -> BackgroundJobStore:
             request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
     """
     return request.app.state.jobs
+
+
+def record_submission_or_429(request: Request, problem_id: str) -> None:
+    limiter = request.app.state.submission_rate_limiter
+    decision = limiter.check_and_record(problem_id)
+    if decision.accepted:
+        return
+    raise HTTPException(
+        status_code=429,
+        detail={
+            "message": "같은 문제는 5초에 한 번만 제출할 수 있습니다.",
+            "retryAfterSeconds": decision.retry_after_seconds,
+        },
+        headers={"Retry-After": str(decision.retry_after_seconds)},
+    )
 
 
 def enqueue_background_job(

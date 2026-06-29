@@ -6,7 +6,7 @@ const app = window.AljApp;
 const { state } = app;
 
 let jobs = [];
-let filter = "active";
+let allJobs = [];
 let pollTimer = null;
 const waiters = new Map();
 const ACTIVE = new Set(["queued", "running", "cancelling"]);
@@ -14,29 +14,37 @@ const DONE = new Set(["succeeded", "cancelled", "stale"]);
 
 function statusLabel(status) {
   return {
-    queued: "Queued",
-    running: "Running",
-    cancelling: "Cancel requested",
-    succeeded: "Done",
-    failed: "Failed",
-    cancelled: "Cancelled",
-    stale: "Stale",
+    queued: "대기 중",
+    running: "채점 중",
+    cancelling: "취소 요청됨",
+    succeeded: "완료",
+    failed: "실패",
+    cancelled: "취소됨",
+    stale: "만료됨",
   }[status] || status;
 }
 
 function counts() {
+  const source = allJobs.length ? allJobs : jobs;
+  const runJobs = state.jobsServerPaged ? { length: state.jobsTotal } : source.filter((job) => job.kind === "judge-run");
   return {
-    active: jobs.filter((job) => ACTIVE.has(job.status)).length,
-    running: jobs.filter((job) => job.status === "running" || job.status === "cancelling").length,
-    queued: jobs.filter((job) => job.status === "queued").length,
-    failed: jobs.filter((job) => job.status === "failed").length,
+    active: source.filter((job) => ACTIVE.has(job.status)).length,
+    running: source.filter((job) => job.status === "running" || job.status === "cancelling").length,
+    queued: source.filter((job) => job.status === "queued").length,
+    failed: source.filter((job) => job.status === "failed").length,
+    runs: runJobs.length,
   };
 }
 
 function visibleJobs() {
-  if (filter === "active") return jobs.filter((job) => ACTIVE.has(job.status));
-  if (filter === "failed") return jobs.filter((job) => job.status === "failed");
-  return jobs.filter((job) => DONE.has(job.status));
+  if (state.jobsServerPaged) return jobs;
+  const runJobs = jobs
+    .filter((job) => job.kind === "judge-run")
+    .sort((left, right) => String(right.queuedAt || "").localeCompare(String(left.queuedAt || "")));
+  const totalPages = Math.max(1, Math.ceil(runJobs.length / state.jobsPageSize));
+  state.jobsPage = Math.max(1, Math.min(state.jobsPage, totalPages));
+  const start = (state.jobsPage - 1) * state.jobsPageSize;
+  return runJobs.slice(start, start + state.jobsPageSize);
 }
 
 function targetText(job) {
@@ -71,17 +79,13 @@ function renderSummary() {
   const button = app.optional("jobsButton");
   const meta = app.optional("jobsMeta");
   const text = value.active
-    ? `Jobs ${value.active} · running ${value.running} · queued ${value.queued}`
+    ? `작업 ${value.active} · 실행 ${value.running} · 대기 ${value.queued}`
     : value.failed
-      ? `Jobs · failed ${value.failed}`
-      : "Jobs 0";
+      ? `작업 · 실패 ${value.failed}`
+      : `채점 결과 ${value.runs}`;
   if (button) button.textContent = text;
   if (meta) {
-    meta.textContent = value.active
-      ? `${value.running} running, ${value.queued} queued`
-      : value.failed
-        ? `${value.failed} failed job(s)`
-        : "No queued jobs.";
+    meta.textContent = value.runs ? `제출 기록 ${value.runs}개` : "제출 기록이 없습니다.";
   }
 }
 /**
@@ -92,9 +96,18 @@ function renderJobs() {
   const list = app.optional("jobsList");
   if (!list) return;
   const items = visibleJobs();
+  const runCount = state.jobsServerPaged
+    ? state.jobsTotal
+    : jobs.filter((job) => job.kind === "judge-run").length;
+  const totalPages = state.jobsServerPaged
+    ? state.jobsTotalPages
+    : Math.max(1, Math.ceil(runCount / state.jobsPageSize));
+  app.setText("jobsPageLabel", `${state.jobsPage} / ${totalPages}`);
+  app.setDisabled("jobsPrevButton", state.jobsPage <= 1);
+  app.setDisabled("jobsNextButton", state.jobsPage >= totalPages);
   list.classList.toggle("muted", !items.length);
   if (!items.length) {
-    list.textContent = "No jobs.";
+    list.textContent = "제출 기록이 없습니다.";
     return;
   }
   list.innerHTML = app.escapeHtml("") + items.map(renderJobRow).join("");
@@ -107,18 +120,18 @@ function renderJobRow(job) {
   const cancelling = job.status === "cancelling";
   const terminal = ["succeeded", "failed", "cancelled", "stale"].includes(job.status);
   const resultButton = job.status === "succeeded"
-    ? `<button type="button" data-job-result="${app.escapeHtml(job.jobId)}">View Result</button>`
+    ? `<button type="button" data-job-result="${app.escapeHtml(job.jobId)}">채점 결과 보기</button>`
     : "";
   const cancelButton = canCancel || cancelling
-    ? `<button type="button" data-job-cancel="${app.escapeHtml(job.jobId)}" ${cancelling ? "disabled" : ""}>${cancelling ? "Cancel requested" : "Cancel"}</button>`
+    ? `<button type="button" data-job-cancel="${app.escapeHtml(job.jobId)}" ${cancelling ? "disabled" : ""}>${cancelling ? "취소 요청됨" : "취소"}</button>`
     : blockedCancel
-      ? `<button type="button" disabled title="${app.escapeHtml(job.cancelBlockedReason)}">Cancel unavailable</button>`
+      ? `<button type="button" disabled title="${app.escapeHtml(job.cancelBlockedReason)}">취소 불가</button>`
     : "";
   const cancelReason = job.cancelBlockedReason
     ? `<div class="job-cancel-reason">${app.escapeHtml(job.cancelBlockedReason)}</div>`
     : "";
   const dismissButton = terminal
-    ? `<button type="button" data-job-dismiss="${app.escapeHtml(job.jobId)}">Dismiss</button>`
+    ? `<button type="button" data-job-dismiss="${app.escapeHtml(job.jobId)}">기록 삭제</button>`
     : "";
   return `
     <article class="job-row" data-job-id="${app.escapeHtml(job.jobId)}">
@@ -140,8 +153,30 @@ function renderJobRow(job) {
  */
 async function refreshJobs() {
   try {
-    const payload = await app.api("/api/jobs");
+    const params = new URLSearchParams({
+      kind: "judge-run",
+      page: String(state.jobsPage),
+      page_size: String(state.jobsPageSize),
+      order: "queued_desc",
+    });
+    const payload = await app.api(`/api/jobs?${params.toString()}`);
     jobs = payload.jobs || [];
+    if (Number.isFinite(payload.total)) {
+      state.jobsServerPaged = true;
+      state.jobsPage = payload.page || state.jobsPage;
+      state.jobsPageSize = payload.pageSize || state.jobsPageSize;
+      state.jobsTotal = payload.total;
+      state.jobsTotalPages = payload.totalPages || 1;
+    } else {
+      state.jobsServerPaged = false;
+      state.jobsTotal = jobs.filter((job) => job.kind === "judge-run").length;
+      state.jobsTotalPages = Math.max(1, Math.ceil(state.jobsTotal / state.jobsPageSize));
+    }
+    allJobs = jobs;
+    if (waiters.size > 0) {
+      const allPayload = await app.api("/api/jobs?order=queued_desc&page=1&page_size=100");
+      allJobs = allPayload.jobs || jobs;
+    }
     renderJobs();
     resolveWaiters();
   } finally {
@@ -156,7 +191,8 @@ function scheduleJobsPoll(delay = 900) {
 
 function resolveWaiters() {
   for (const [jobId, waiter] of waiters.entries()) {
-    const job = jobs.find((item) => item.jobId === jobId);
+    const source = allJobs.length ? allJobs : jobs;
+    const job = source.find((item) => item.jobId === jobId);
     if (!job) continue;
     if (job.status === "succeeded") {
       waiters.delete(jobId);
@@ -191,9 +227,11 @@ function openJobs(open = true) {
   button.setAttribute("aria-expanded", String(open));
 }
 async function runQueuedJob(path, options = {}) {
-  const job = await app.api(path, options);
+  const { onQueued, ...requestOptions } = options;
+  const job = await app.api(path, requestOptions);
   openJobs(true);
-  app.showToast(`${job.title || "Job"} queued.`, "info");
+  if (typeof onQueued === "function") onQueued(job);
+  app.showToast(`${job.title || "작업"} 대기열에 추가됨`, "info");
   await refreshJobs();
   return new Promise((resolve, reject) => {
     waiters.set(job.jobId, {
@@ -205,7 +243,7 @@ async function runQueuedJob(path, options = {}) {
 }
 async function cancelJob(jobId) {
   await app.api(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" });
-  app.showToast("Cancel requested.", "info");
+  app.showToast("취소를 요청했습니다.", "info");
   await refreshJobs();
 }
 async function dismissJob(jobId) {
@@ -225,6 +263,7 @@ async function applyJobResult(jobId) {
   if (!job?.result) return;
   if (job.kind === "judge-run") {
     await app.restoreRunResult(job.result);
+    app.showResultModal(job.result);
     await app.refreshSecondaryData();
   } else if (job.kind === "judge-generate") {
     app.setStatusCard("data", "Generated", app.profileCaseText(job.result.caseCount, job.result.profile));
@@ -242,15 +281,14 @@ async function applyJobResult(jobId) {
 function bindJobs() {
   app.on("jobsButton", "click", () => openJobs(app.optional("jobsPanel")?.classList.contains("hidden")));
   app.on("jobsClearButton", "click", () => app.withErrors(clearCompletedJobs));
-  for (const button of document.querySelectorAll("[data-job-filter]")) {
-    button.addEventListener("click", () => {
-      filter = button.dataset.jobFilter || "active";
-      for (const item of document.querySelectorAll("[data-job-filter]")) {
-        item.classList.toggle("active", item === button);
-      }
-      renderJobs();
-    });
-  }
+  app.on("jobsPrevButton", "click", () => app.withErrors(async () => {
+    state.jobsPage = Math.max(1, state.jobsPage - 1);
+    await refreshJobs();
+  }));
+  app.on("jobsNextButton", "click", () => app.withErrors(async () => {
+    state.jobsPage += 1;
+    await refreshJobs();
+  }));
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;

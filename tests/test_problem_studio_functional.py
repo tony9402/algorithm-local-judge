@@ -8,12 +8,15 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from judge.core.errors import JudgeError
-from problem_studio.core.bulk import build_all_problem_packs
+from alj_core.errors import JudgeError
+from alj_core.submission_compiler import prepare_user_submission
+from alj_core.tool_compiler import compile_problem_tool
+from problem_studio.core.bulk import build_all_problem_packs, run_problem_full_test
 from problem_studio.core.git import commit_changes, dirty_paths, redact_remote_url
 from problem_studio.core.templates import create_problem
 from problem_studio.web.app import create_app
@@ -95,6 +98,181 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                 return status
             time.sleep(0.01)
         self.fail("background job did not finish")
+
+    def test_problem_tool_compile_reuses_hash_manifest_until_source_changes(self) -> None:
+        """도구 컴파일은 동일 해시 입력이면 캐시를 쓰고 소스 변경 시 다시 컴파일해야 합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-tool-cache-") as tmp:
+            workspace = Path(tmp)
+            create_problem(workspace, "alpha", "Tool Cache")
+            calls = []
+
+            def fake_compile(source, output, include_root, timeout_ms, log_path):
+                calls.append(source.name)
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text("compiled\n", encoding="utf-8")
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text("ok\n", encoding="utf-8")
+                return {}
+
+            with (
+                patch("alj_core.tool_compiler.compile_cpp", side_effect=fake_compile),
+                patch(
+                    "alj_core.tool_compiler.compiler_identity",
+                    return_value={"path": "/fake/g++", "version": "1"},
+                ),
+            ):
+                first = compile_problem_tool("alpha", "checker", workspace)
+                second = compile_problem_tool("alpha", "checker", workspace)
+                checker = workspace / "problems" / "alpha" / "checker" / "judge.cpp"
+                checker.write_text(checker.read_text(encoding="utf-8") + "\n// changed\n", encoding="utf-8")
+                third = compile_problem_tool("alpha", "checker", workspace)
+
+        self.assertEqual(first, second)
+        self.assertEqual(first, third)
+        self.assertEqual(calls, ["judge.cpp", "judge.cpp"])
+
+    def test_problem_tool_compile_cache_misses_when_compiler_identity_changes(self) -> None:
+        """도구 컴파일 캐시는 컴파일러 path/version이 바뀌면 같은 소스라도 다시 빌드해야 합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-tool-cache-compiler-") as tmp:
+            workspace = Path(tmp)
+            create_problem(workspace, "alpha", "Tool Compiler Cache")
+            calls = []
+            identities = [
+                {"path": "/fake/g++-1", "version": "1"},
+                {"path": "/fake/g++-1", "version": "1"},
+                {"path": "/fake/g++-2", "version": "2"},
+            ]
+
+            def fake_compile(source, output, include_root, timeout_ms, log_path):
+                calls.append(source.name)
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text("compiled\n", encoding="utf-8")
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text("ok\n", encoding="utf-8")
+                return {}
+
+            with (
+                patch("alj_core.tool_compiler.compile_cpp", side_effect=fake_compile),
+                patch(
+                    "alj_core.tool_compiler.compiler_identity",
+                    side_effect=identities,
+                ),
+            ):
+                first = compile_problem_tool("alpha", "checker", workspace)
+                second = compile_problem_tool("alpha", "checker", workspace)
+                third = compile_problem_tool("alpha", "checker", workspace)
+
+        self.assertEqual(first, second)
+        self.assertEqual(first, third)
+        self.assertEqual(calls, ["judge.cpp", "judge.cpp"])
+
+    def test_cpp_submission_compile_reuses_hash_manifest_until_source_changes(self) -> None:
+        """C++ 솔루션 컴파일은 동일 소스 해시이면 캐시 산출물을 재사용해야 합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-submission-cache-") as tmp:
+            workspace = Path(tmp)
+            source = workspace / "solution.cpp"
+            source.write_text("int main(){return 0;}\n", encoding="utf-8")
+            calls = []
+
+            def fake_compile(source_path, output, include_root, timeout_ms, log_path):
+                calls.append(source_path.read_text(encoding="utf-8"))
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text("compiled\n", encoding="utf-8")
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text("ok\n", encoding="utf-8")
+                return {}
+
+            with (
+                patch("alj_core.submission_compiler.compile_cpp", side_effect=fake_compile),
+                patch(
+                    "alj_core.submission_compiler.compiler_identity",
+                    return_value={"path": "/fake/g++", "version": "1"},
+                ),
+            ):
+                first = prepare_user_submission(source, workspace / "runs" / "first", 5000, workspace)
+                second = prepare_user_submission(source, workspace / "runs" / "second", 5000, workspace)
+                source.write_text("int main(){return 1;}\n", encoding="utf-8")
+                third = prepare_user_submission(source, workspace / "runs" / "third", 5000, workspace)
+
+        self.assertEqual(first.command, second.command)
+        self.assertNotEqual(second.command, third.command)
+        self.assertEqual(len(calls), 2)
+
+    def test_cpp_submission_compile_cache_misses_when_compiler_identity_changes(self) -> None:
+        """C++ 솔루션 컴파일 캐시는 컴파일러 path/version 변경을 캐시 key에 포함해야 합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-submission-cache-compiler-") as tmp:
+            workspace = Path(tmp)
+            source = workspace / "solution.cpp"
+            source.write_text("int main(){return 0;}\n", encoding="utf-8")
+            calls = []
+            identities = [
+                {"path": "/fake/g++-1", "version": "1"},
+                {"path": "/fake/g++-1", "version": "1"},
+                {"path": "/fake/g++-2", "version": "2"},
+            ]
+
+            def fake_compile(source_path, output, include_root, timeout_ms, log_path):
+                calls.append(source_path.name)
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text("compiled\n", encoding="utf-8")
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text("ok\n", encoding="utf-8")
+                return {}
+
+            with (
+                patch("alj_core.submission_compiler.compile_cpp", side_effect=fake_compile),
+                patch(
+                    "alj_core.submission_compiler.compiler_identity",
+                    side_effect=identities,
+                ),
+            ):
+                first = prepare_user_submission(source, workspace / "runs" / "first", 5000, workspace)
+                second = prepare_user_submission(source, workspace / "runs" / "second", 5000, workspace)
+                third = prepare_user_submission(source, workspace / "runs" / "third", 5000, workspace)
+
+        self.assertEqual(first.command, second.command)
+        self.assertNotEqual(second.command, third.command)
+        self.assertEqual(calls, ["solution.cpp", "solution.cpp"])
+
+    def test_java_submission_cache_recompiles_when_main_class_file_is_missing(self) -> None:
+        """Java 솔루션 캐시는 manifest만이 아니라 main class 산출물 존재까지 확인해야 합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-java-cache-") as tmp:
+            workspace = Path(tmp)
+            source = workspace / "Main.java"
+            source.write_text("public class Main { public static void main(String[] args) {} }\n", encoding="utf-8")
+            compile_calls = []
+
+            def fake_resolve_tool(env_name, candidates):
+                return f"/fake/{env_name.lower()}"
+
+            def fake_run_command(command, timeout_ms, **kwargs):
+                compile_calls.append(command)
+                classes_dir = Path(command[command.index("-d") + 1])
+                classes_dir.mkdir(parents=True, exist_ok=True)
+                (classes_dir / "Main.class").write_bytes(b"class")
+                log_path = kwargs.get("log_path")
+                if log_path:
+                    log_path.parent.mkdir(parents=True, exist_ok=True)
+                    log_path.write_text("ok\n", encoding="utf-8")
+                return 0, b"", b""
+
+            with (
+                patch("alj_core.submission_compiler.resolve_tool", side_effect=fake_resolve_tool),
+                patch(
+                    "alj_core.submission_compiler.compiler_identity",
+                    return_value={"path": "/fake/javac", "version": "1"},
+                ),
+                patch("alj_core.submission_compiler.run_command", side_effect=fake_run_command),
+            ):
+                first = prepare_user_submission(source, workspace / "runs" / "first", 5000, workspace)
+                second = prepare_user_submission(source, workspace / "runs" / "second", 5000, workspace)
+                class_file = Path(first.command[2]) / "Main.class"
+                class_file.unlink()
+                third = prepare_user_submission(source, workspace / "runs" / "third", 5000, workspace)
+
+        self.assertEqual(first.command, second.command)
+        self.assertEqual(first.command, third.command)
+        self.assertEqual(len(compile_calls), 2)
 
     def git(self, cwd: Path, *args: str) -> str:
         """테스트 저장소 안에서 Git 명령을 실행하고 실패 시 표준 오류를 포함해 즉시 실패시킵니다.
@@ -512,6 +690,69 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         self.assertEqual(download.status_code, 400, download.text)
         self.assertIn("outside the output directory", download.json()["detail"])
 
+    def test_full_problem_test_passes_parallel_workers_and_cancel_to_solution_verify(self) -> None:
+        """전체 테스트 내부 솔루션 검증도 병렬 worker와 취소 체크를 전달해야 합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-full-test-solutions-") as tmp:
+            workspace = Path(tmp)
+            progress_messages = []
+            cancel_checks = []
+            verify_kwargs = {}
+
+            class Token:
+                cancelled = False
+
+                def check(self) -> None:
+                    cancel_checks.append("checked")
+
+            def fake_verify_solutions(*args, **kwargs) -> dict:
+                verify_kwargs.update(kwargs)
+                kwargs["cancel_check"]()
+                return {
+                    "problemId": "01",
+                    "profile": "hidden",
+                    "passed": True,
+                    "verifiedCount": 1,
+                    "totalCount": 1,
+                    "skippedCount": 0,
+                    "checks": [{"source": "solutions/main_solution.ac.cpp", "passed": True}],
+                }
+
+            with (
+                patch(
+                    "problem_studio.core.bulk.compile_problem_cases",
+                    return_value=SimpleNamespace(
+                        valid=True,
+                        profiles=[SimpleNamespace(name="hidden")],
+                    ),
+                ),
+                patch(
+                    "problem_studio.core.bulk.compile_problem_tools",
+                    return_value={"checker": workspace / "checker"},
+                ),
+                patch(
+                    "problem_studio.core.bulk.validate_all_data",
+                    return_value={"caseCount": 1},
+                ),
+                patch(
+                    "problem_studio.core.bulk.verify_solutions",
+                    side_effect=fake_verify_solutions,
+                ),
+            ):
+                result = run_problem_full_test(
+                    workspace,
+                    "01",
+                    "hidden",
+                    False,
+                    progress_messages.append,
+                    cancel_token=Token(),
+                )
+
+        self.assertTrue(result["passed"])
+        self.assertEqual(verify_kwargs["max_workers"], 4)
+        self.assertIsNotNone(verify_kwargs["cancel_check"])
+        self.assertGreaterEqual(len(cancel_checks), 1)
+        self.assertIn("Verifying expected solution results.", progress_messages)
+
     def test_bulk_build_rejects_unknown_ids_and_skips_pack_on_failure(self) -> None:
         """일괄 빌드 거부 알 수 없는 식별자 및 건너뜀 패키지 실패 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-problem-studio-functional-") as tmp:
@@ -882,6 +1123,17 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertEqual([job["jobId"] for job in repo_b_jobs.json()["jobs"]], [job_b_id])
             repo_a_job_from_b = client.get(f"/api/jobs/{job_a_id}")
             self.assertEqual(repo_a_job_from_b.status_code, 404, repo_a_job_from_b.text)
+            scoped_repo_a_job_from_b = client.get(
+                f"/api/jobs/{job_a_id}",
+                params={"repository_scope": job_a.json()["target"]["repositoryScope"]},
+            )
+            self.assertEqual(scoped_repo_a_job_from_b.status_code, 200, scoped_repo_a_job_from_b.text)
+            self.assertEqual(scoped_repo_a_job_from_b.json()["jobId"], job_a_id)
+            wrong_scoped_repo_a_job_from_b = client.get(
+                f"/api/jobs/{job_a_id}",
+                params={"repository_scope": job_b.json()["target"]["repositoryScope"]},
+            )
+            self.assertEqual(wrong_scoped_repo_a_job_from_b.status_code, 404, wrong_scoped_repo_a_job_from_b.text)
 
             client.post("/api/repositories/select", json={"repo_name": "repo-a"})
             repo_a_jobs = client.get("/api/jobs")
@@ -889,6 +1141,12 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
             self.assertEqual([job["jobId"] for job in repo_a_jobs.json()["jobs"]], [job_a_id])
             repo_b_job_from_a = client.get(f"/api/jobs/{job_b_id}")
             self.assertEqual(repo_b_job_from_a.status_code, 404, repo_b_job_from_a.text)
+            scoped_repo_b_job_from_a = client.get(
+                f"/api/jobs/{job_b_id}",
+                params={"repository_scope": job_b.json()["target"]["repositoryScope"]},
+            )
+            self.assertEqual(scoped_repo_b_job_from_a.status_code, 200, scoped_repo_b_job_from_a.text)
+            self.assertEqual(scoped_repo_b_job_from_a.json()["jobId"], job_b_id)
 
     def test_git_commit_runs_inside_selected_repository(self) -> None:
         """Git 커밋 실행 내부 선택된 저장소 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""

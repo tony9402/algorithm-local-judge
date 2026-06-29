@@ -3,7 +3,139 @@
  */
 
 import { normalizeErrorDetail } from "./api.js";
-import { optional } from "./dom.js";
+import { escapeHtml, optional } from "./dom.js";
+import { TAB_CONFIGS, state } from "./state.js";
+
+const TAB_FEEDBACK_LIMIT = 16;
+
+function feedbackId() {
+  return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function feedbackKey(item) {
+  return item.key || [item.severity, item.source, item.title].filter(Boolean).join(":");
+}
+
+function visibleFeedbackItems(tabId = state.selectedTab) {
+  return (state.tabFeedbackById?.[tabId] || []).filter((item) => !item.resolved);
+}
+
+function aggregateFeedbackItems() {
+  return Object.entries(state.tabFeedbackById || {})
+    .flatMap(([tabId, items]) =>
+      (items || [])
+        .filter((item) => !item.resolved && ["error", "warning"].includes(item.severity))
+        .map((item) => ({ ...item, tabId }))
+    )
+    .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+}
+
+function renderFeedbackItem(item, includeTab = false) {
+  const tabTitle = TAB_CONFIGS[item.tabId]?.title || item.tabId || "";
+  return `
+    <article class="tab-feedback-item ${escapeHtml(item.severity || "info")}">
+      <div class="tab-feedback-item-head">
+        <strong>${escapeHtml(item.title || "알림")}</strong>
+        ${includeTab ? `<span>${escapeHtml(tabTitle)}</span>` : ""}
+      </div>
+      ${item.source ? `<div class="tab-feedback-source">${escapeHtml(item.source)}</div>` : ""}
+      <p>${escapeHtml(normalizeErrorDetail(item.message) || "확인할 항목이 있습니다.")}</p>
+    </article>
+  `;
+}
+
+function renderFeedbackContainer(container, title, items, includeTab = false) {
+  if (!container) return;
+  container.classList.toggle("hidden", !items.length);
+  if (!items.length) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <div class="tab-feedback-title">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(items.length)}개</span>
+    </div>
+    <div class="tab-feedback-list">
+      ${items.map((item) => renderFeedbackItem(item, includeTab)).join("")}
+    </div>
+  `;
+}
+
+export function renderFeedbackPanels() {
+  renderFeedbackContainer(
+    optional("tabFeedbackPanel"),
+    `${TAB_CONFIGS[state.selectedTab]?.title || "현재 탭"} 확인 항목`,
+    visibleFeedbackItems(state.selectedTab),
+    false
+  );
+  renderFeedbackContainer(
+    optional("aggregateFeedbackPanel"),
+    "전체 확인 항목",
+    aggregateFeedbackItems(),
+    true
+  );
+}
+
+export function recordTabFeedback(tabId, feedback = {}) {
+  const targetTab = tabId || state.selectedTab;
+  state.tabFeedbackById = { ...(state.tabFeedbackById || {}) };
+  const items = [...(state.tabFeedbackById[targetTab] || [])];
+  const now = Date.now();
+  const item = {
+    id: feedback.id || feedbackId(),
+    key: feedback.key,
+    tabId: targetTab,
+    severity: feedback.severity || "info",
+    title: feedback.title || "알림",
+    message: normalizeErrorDetail(feedback.message || feedback.detail || ""),
+    source: feedback.source || "",
+    jobId: feedback.jobId || null,
+    createdAt: feedback.createdAt || now,
+    updatedAt: now,
+    resolved: false,
+  };
+  const key = feedbackKey(item);
+  const index = items.findIndex((existing) => !existing.resolved && feedbackKey(existing) === key);
+  if (index >= 0) {
+    items[index] = {
+      ...items[index],
+      ...item,
+      id: items[index].id,
+      createdAt: items[index].createdAt,
+    };
+  } else {
+    items.unshift(item);
+  }
+  state.tabFeedbackById[targetTab] = items.slice(0, TAB_FEEDBACK_LIMIT);
+  renderFeedbackPanels();
+  return item;
+}
+
+export function resolveTabFeedback(tabId, predicate = () => true) {
+  const targetTab = tabId || state.selectedTab;
+  const items = state.tabFeedbackById?.[targetTab] || [];
+  state.tabFeedbackById = {
+    ...(state.tabFeedbackById || {}),
+    [targetTab]: items.map((item) =>
+      predicate(item)
+        ? { ...item, resolved: true, updatedAt: Date.now() }
+        : item
+    ),
+  };
+  renderFeedbackPanels();
+}
+
+export function recordOperationFailure({ tabId, title, detail, source, jobId, key }) {
+  return recordTabFeedback(tabId, {
+    severity: "error",
+    title,
+    message: detail,
+    source,
+    jobId,
+    key,
+  });
+}
 
 function alertTypeFromClass(className = "") {
   if (className.includes("error")) return "error";

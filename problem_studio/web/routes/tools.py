@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from judge.core.compiler import compile_problem_tool, compile_problem_tools
-from judge.core.paths import rel
+from alj_core.compiler import compile_problem_tool, compile_problem_tools
+from alj_core.paths import rel
 from problem_studio.web.routes.common import (
     enqueue_background_job,
     jobs_from_request,

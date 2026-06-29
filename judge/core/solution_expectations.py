@@ -6,6 +6,7 @@ from pathlib import Path
 
 from judge.core.compiler import SUPPORTED_USER_SUFFIXES
 from judge.core.errors import JudgeError
+from judge.core.languages import language_id_from_filename
 from judge.core.paths import rel
 from judge.core.problem import tool_paths
 from judge.core.solution_models import SolutionExpectation
@@ -17,6 +18,15 @@ EXPECTED_STATUS_BY_TOKEN = {
     "tle": "time_limit",
     "mle": "memory_limit",
 }
+
+
+def language_from_solution_name(path: Path) -> str | None:
+    lowered = path.name.lower()
+    if lowered.endswith(".py"):
+        parts = lowered.split(".")
+        if len(parts) >= 4 and parts[-3] == "pypy" and parts[-2] in EXPECTED_STATUS_BY_TOKEN:
+            return "pypy"
+    return language_id_from_filename(path.name)
 
 
 def expected_status_from_solution_name(path: Path) -> tuple[str, str]:
@@ -53,7 +63,7 @@ def discover_solution_expectations(problem_dir: Path) -> list[SolutionExpectatio
         if source.suffix.lower() not in SUPPORTED_USER_SUFFIXES:
             continue
         token, status = expected_status_from_solution_name(source)
-        expectations.append(SolutionExpectation(source, token, status))
+        expectations.append(SolutionExpectation(source, token, status, language_from_solution_name(source)))
     if not expectations:
         raise JudgeError(f"no expected solution files found under {solutions_dir}")
     return expectations

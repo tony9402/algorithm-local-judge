@@ -20,5 +20,6 @@ def handle(args: argparse.Namespace) -> int:
         args.code_file,
         args.run_problem or args.problem,
         args.run_profile or args.profile,
+        language=args.run_language or args.language,
     )
     return 0

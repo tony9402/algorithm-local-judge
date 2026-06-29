@@ -80,10 +80,11 @@ uv run judge generate <problem-id> --profile hidden --force
 ```bash
 uv run judge run --problem <problem-id> --profile sample path/to/main.cpp
 uv run judge --problem <problem-id> --profile sample path/to/main.py
+uv run judge --problem <problem-id> --profile sample --language pypy path/to/main.py
 uv run judge --problem <problem-id> --profile sample path/to/Main.java
 ```
 
-지원 확장자는 `.cpp`, `.cc`, `.cxx`, `.py`, `.java`입니다.
+지원 확장자는 `.cpp`, `.cc`, `.cxx`, `.py`, `.java`입니다. PyPy는 `.py` 파일을 사용하며 `--language pypy`로 선택합니다. PyPy 실행 파일은 `ALJ_PYPY`로 지정하거나 PATH의 `pypy3`, `pypy`를 사용합니다.
 
 ## 오답 확인
 

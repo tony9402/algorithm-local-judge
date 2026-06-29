@@ -6,6 +6,7 @@ import { escapeHtml } from "../dom.js";
 export function languageForPath(path) {
   const lower = (path || "").toLowerCase();
   if (lower.endsWith(".cpp") || lower.endsWith(".cc") || lower.endsWith(".cxx")) return "cpp";
+  if (/\.pypy\.(ac|wa|tle|mle)\.py$/.test(lower)) return "pypy";
   if (lower.endsWith(".py")) return "python";
   if (lower.endsWith(".java")) return "java";
   if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return "yaml";
@@ -63,7 +64,7 @@ export function highlightCode(text, language) {
         .replace(/\b(-?\d+)\b/g, '<span class="tok-number">$1</span>')
     );
   }
-  if (language === "python") {
+  if (language === "python" || language === "pypy") {
     const protectedPython = protectMatches(escaped, [
       { pattern: /^(\s*#.*)$/gm, className: "tok-comment" },
       { pattern: /(&quot;.*?&quot;|'.*?')/g, className: "tok-string" },
@@ -102,6 +103,7 @@ export function codeMirrorModeForLanguage(language) {
     cpp: "text/x-c++src",
     java: "text/x-java",
     python: "python",
+    pypy: "python",
     json: "application/json",
     yaml: "yaml",
     text: "text/plain",

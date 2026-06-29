@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import Request
 
-from judge.core.errors import SecurityPolicyError
+from alj_core.errors import SecurityPolicyError
 
 LOCAL_BINDING_HOSTS = {"127.0.0.1", "localhost", "::1"}
 

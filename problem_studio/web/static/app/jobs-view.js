@@ -211,7 +211,7 @@ async function refreshJobs() {
     jobs = payload.jobs || [];
     if (reconcileRunAllLockWithJobs(jobs)) updateGlobalActionState();
     renderJobs();
-    resolveWaiters();
+    await resolveWaiters();
   } finally {
     schedulePoll();
   }
@@ -222,9 +222,20 @@ function schedulePoll(delay = 900) {
   pollTimer = window.setTimeout(refreshJobs, delay);
 }
 
-function resolveWaiters() {
+async function jobForWaiter(jobId, waiter) {
+  const visible = jobs.find((item) => item.jobId === jobId);
+  if (visible || !waiter.repositoryScope) return visible;
+  try {
+    return await api(
+      `/api/jobs/${encodeURIComponent(jobId)}?repository_scope=${encodeURIComponent(waiter.repositoryScope)}`
+    );
+  } catch {
+    return null;
+  }
+}
+async function resolveWaiters() {
   for (const [jobId, waiter] of waiters.entries()) {
-    const job = jobs.find((item) => item.jobId === jobId);
+    const job = await jobForWaiter(jobId, waiter);
     if (!job) continue;
     waiter.onProgress?.(job);
     if (job.status === "succeeded") {
@@ -249,6 +260,7 @@ export async function runQueuedJob(path, body, options = {}) {
   await refreshJobs();
   return new Promise((resolve, reject) => {
     waiters.set(job.jobId, {
+      repositoryScope: job.target?.repositoryScope || null,
       resolve: (finished) => {
         const result = finished.result || {};
         options.onResult?.(result, finished);
@@ -274,6 +286,7 @@ export async function enqueueQueuedJob(path, body, options = {}) {
   await refreshJobs();
   if (options.onResult || options.onFailure || options.onProgress) {
     waiters.set(job.jobId, {
+      repositoryScope: job.target?.repositoryScope || null,
       resolve: (finished) => {
         const result = finished.result || {};
         options.onResult?.(result, finished);

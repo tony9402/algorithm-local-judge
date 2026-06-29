@@ -45,6 +45,19 @@ class ProblemFolderUpdateRequest(BaseModel):
     folder: str = ""
 
 
+class ProblemFolderCreateRequest(BaseModel):
+    """API에서 주고받는 문제 폴더 create 요청 필드를 검증하는 스키마입니다."""
+
+    folder: str = Field(min_length=1)
+
+
+class ProblemFolderDeleteRequest(BaseModel):
+    """API에서 주고받는 문제 폴더 delete 요청 필드를 검증하는 스키마입니다."""
+
+    folder: str = Field(min_length=1)
+    confirm_delete_problems: bool = False
+
+
 class RunRequest(BaseModel):
     """API에서 주고받는 실행 요청 필드를 검증하는 스키마입니다.
     """
@@ -55,6 +68,7 @@ class RunRequest(BaseModel):
     source_path: str | None = None
     source_text: str | None = None
     filename: str | None = None
+    language: str | None = None
 
 
 class CacheClearRequest(BaseModel):

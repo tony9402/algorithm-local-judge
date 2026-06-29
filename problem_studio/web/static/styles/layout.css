@@ -9,6 +9,12 @@
   overflow: auto;
 }
 
+.workspace.solutions-mode {
+  align-content: stretch;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: auto;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -62,4 +68,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-

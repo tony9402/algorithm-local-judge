@@ -44,11 +44,39 @@ function problemFolder(problem) {
 }
 
 function problemFolderLabel(folder) {
-  return folder || "Uncategorized";
+  return folder || "미분류";
+}
+
+function collapsedFolders() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(app.COLLAPSED_FOLDERS_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function rememberCollapsedFolders(values) {
+  try {
+    localStorage.setItem(app.COLLAPSED_FOLDERS_KEY, JSON.stringify([...values]));
+  } catch {
+    // Folder collapse state is a convenience; rendering still works without storage.
+  }
+}
+
+function toggleFolderCollapsed(folder) {
+  const collapsed = collapsedFolders();
+  if (collapsed.has(folder)) collapsed.delete(folder);
+  else collapsed.add(folder);
+  rememberCollapsedFolders(collapsed);
+  renderProblems(state.problems);
 }
 
 function problemsByFolder(problems) {
   const groups = new Map();
+  for (const folder of state.folders || []) {
+    const value = typeof folder === "string" ? folder : folder.folder;
+    groups.set((value || "").trim(), []);
+  }
   for (const problem of problems) {
     const folder = problemFolder(problem);
     if (!groups.has(folder)) groups.set(folder, []);
@@ -65,14 +93,8 @@ function renderProblemFolderControls() {
   const input = app.optional("problemFolderInput");
   const button = app.optional("problemFolderSaveButton");
   if (!input || !button) return;
-  const problem = state.problems.find((item) => item.problemId === state.selectedProblem);
-  const editable = Boolean(problem?.folderEditable);
-  input.value = problemFolder(problem);
-  input.disabled = !problem;
-  button.disabled = !problem || !editable;
-  button.title = editable
-    ? "선택한 문제의 folder를 변경합니다."
-    : "설치된 .aljpack 문제는 folder를 직접 변경할 수 없습니다.";
+  button.disabled = state.isBusy || !input.value.trim();
+  button.title = "새 폴더를 만든 뒤 문제를 드래그해서 옮깁니다.";
 }
 function createProblemItem(problem, select) {
   const item = document.createElement("button");
@@ -83,7 +105,7 @@ function createProblemItem(problem, select) {
   item.draggable = Boolean(problem.folderEditable);
   item.setAttribute("aria-pressed", "false");
   const problemLabel = `${app.escapeHtml(problem.problemId)} ${app.escapeHtml(problem.title || "")}`;
-  const folderHint = problem.folderEditable ? "Drag to move folder" : "Read-only pack";
+  const folderHint = problem.folderEditable ? "드래그해서 폴더 이동" : "읽기 전용";
   item.innerHTML = `<strong>${problemLabel}</strong><span>v${app.escapeHtml(problem.version ?? "")} · ${app.escapeHtml(folderHint)}</span>`;
   item.addEventListener("click", () => {
     select.value = problem.problemId;
@@ -105,15 +127,35 @@ function createProblemFolderGroup(folder, problems, select) {
   const group = document.createElement("section");
   group.className = "problem-folder-group";
   group.dataset.folder = folder;
+  const collapsed = collapsedFolders().has(folder);
+  group.classList.toggle("collapsed", collapsed);
+  const canDelete = Boolean(folder);
   group.innerHTML = `
     <div class="problem-folder-header">
-      <span>${app.escapeHtml(problemFolderLabel(folder))}</span>
-      <small>${problems.length}</small>
+      <button class="folder-toggle" type="button" data-folder-toggle="${app.escapeHtml(folder)}" aria-expanded="${String(!collapsed)}">
+        <span>${collapsed ? "▸" : "▾"}</span>
+        <strong>${app.escapeHtml(problemFolderLabel(folder))}</strong>
+      </button>
+      <div class="folder-header-actions">
+        <small>${problems.length}</small>
+        ${
+          canDelete
+            ? `<button class="folder-delete" type="button" data-folder-delete="${app.escapeHtml(folder)}" aria-label="${app.escapeHtml(problemFolderLabel(folder))} 삭제">삭제</button>`
+            : ""
+        }
+      </div>
     </div>
   `;
   const items = document.createElement("div");
   items.className = "problem-folder-items";
+  items.classList.toggle("hidden", collapsed);
   for (const problem of problems) items.appendChild(createProblemItem(problem, select));
+  if (!problems.length) {
+    const empty = document.createElement("div");
+    empty.className = "muted empty-folder";
+    empty.textContent = "비어 있는 폴더";
+    items.appendChild(empty);
+  }
   group.appendChild(items);
   group.addEventListener("dragover", (event) => {
     event.preventDefault();
@@ -206,6 +248,13 @@ function renderRunProfiles(problem) {
   select.value = profiles.includes(current) ? current : profiles[0];
   state.config.judgeProfile = select.value;
 }
+
+function problemSupportsProfile(profile) {
+  const problem = state.problems.find((item) => item.problemId === state.selectedProblem);
+  const profiles = problem?.profiles?.length ? problem.profiles : ["full", "sample", "hidden"];
+  if (profile === "full") return true;
+  return profiles.includes(profile);
+}
 /**
  * 문제 change 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  */
@@ -238,23 +287,59 @@ async function updateProblemFolder(problemId, folder) {
       : problem
   );
   renderProblems(state.problems);
-  app.showToast(`${problemId} folder moved to ${problemFolderLabel(result.folder)}.`);
+  app.showToast(`${problemId} 문제를 ${problemFolderLabel(result.folder)} 폴더로 옮겼습니다.`);
 }
 /**
- * selected 문제 폴더 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
+ * 입력값으로 새 문제 폴더를 만들고 목록에 반영합니다.
  */
-async function updateSelectedProblemFolder() {
-  if (!state.selectedProblem) return;
-  await updateProblemFolder(state.selectedProblem, app.$("problemFolderInput").value);
+async function createProblemFolderFromInput() {
+  const input = app.$("problemFolderInput");
+  const folder = input.value.trim();
+  if (!folder) return;
+  const result = await app.api("/api/folders", {
+    method: "POST",
+    body: JSON.stringify({ folder }),
+  });
+  state.folders = result.folders || state.folders;
+  input.value = "";
+  renderProblems(state.problems);
+  app.showToast(`폴더 생성: ${problemFolderLabel(result.folder)}`);
+}
+
+async function deleteProblemFolder(folder) {
+  const problems = state.problems.filter((problem) => problemFolder(problem) === folder);
+  let confirmDelete = false;
+  if (problems.length) {
+    const names = problems.map((problem) => problem.problemId).join(", ");
+    confirmDelete = window.confirm(
+      `${problemFolderLabel(folder)} 폴더를 삭제합니다.\n폴더 내 문제들이 모두 삭제됩니다.\n삭제될 문제: ${names}`
+    );
+    if (!confirmDelete) return;
+  }
+  const result = await app.api("/api/folders", {
+    method: "DELETE",
+    body: JSON.stringify({ folder, confirm_delete_problems: confirmDelete }),
+  });
+  state.folders = result.folders || [];
+  if (result.deletedProblems?.includes(state.selectedProblem)) {
+    state.selectedProblem = null;
+    rememberProblemId(null);
+  }
+  await app.refresh();
+  app.showToast(`${problemFolderLabel(folder)} 폴더를 삭제했습니다.`);
 }
 
 Object.assign(app, {
+  createProblemFolderFromInput,
+  deleteProblemFolder,
   handleProblemChange,
   rememberProblemId,
   problemFolderLabel,
+  problemSupportsProfile,
   renderProblemSelection,
   renderRunProfiles,
   renderProblems,
+  toggleFolderCollapsed,
   updateProblemFolder,
-  updateSelectedProblemFolder,
+  updateSelectedProblemFolder: createProblemFolderFromInput,
 });

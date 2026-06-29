@@ -110,6 +110,38 @@
   font-weight: 800;
 }
 
+.folder-toggle {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 4px 2px;
+  font: inherit;
+  text-align: left;
+}
+
+.folder-toggle strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.folder-delete {
+  min-height: 28px;
+  padding: 0 8px;
+  color: var(--bad);
+}
+
 .problem-folder-header small {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -120,6 +152,12 @@
 .problem-folder-items {
   display: grid;
   gap: 8px;
+}
+
+.empty-folder {
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  padding: 10px;
 }
 
 .list-item {

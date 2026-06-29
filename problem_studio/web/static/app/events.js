@@ -117,11 +117,15 @@ export function bindAppEvents(actions) {
   optional("globalTaskStatus")?.addEventListener("click", (event) => {
     if (event.target instanceof HTMLElement && event.target.matches("[data-dismiss-stale-pack-job]")) {
       event.preventDefault();
-      void actions.withInlineErrors(actions.dismissStalePackJob);
+      const problemId = event.target.getAttribute("data-dismiss-stale-pack-job") || state.selectedProblem;
+      const repositoryName = event.target.getAttribute("data-pack-repository") || null;
+      void actions.withInlineErrors(() => actions.dismissStalePackJob(problemId, repositoryName));
     }
     if (event.target instanceof HTMLElement && event.target.matches("[data-cancel-pack-job]")) {
       event.preventDefault();
-      void actions.withInlineErrors(actions.cancelActivePackJob);
+      const problemId = event.target.getAttribute("data-cancel-pack-job") || state.selectedProblem;
+      const repositoryName = event.target.getAttribute("data-pack-repository") || null;
+      void actions.withInlineErrors(() => actions.cancelActivePackJob(problemId, repositoryName));
     }
     if (event.target instanceof HTMLElement && event.target.matches("[data-cancel-bulk-job]")) {
       event.preventDefault();

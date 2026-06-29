@@ -22,14 +22,28 @@ function clearSourceInputs() {
  * @param {string} mode mode을 계산하거나 검증할 때 필요한 mode 입력입니다.
  */
 function setMode(mode) {
-  state.sourceMode = mode;
-  app.$("uploadModeButton").classList.toggle("active", mode === "upload");
-  app.$("textModeButton").classList.toggle("active", mode === "text");
-  app.$("uploadModeButton").setAttribute("aria-selected", String(mode === "upload"));
-  app.$("textModeButton").setAttribute("aria-selected", String(mode === "text"));
-  app.$("uploadSourcePanel").classList.toggle("hidden", mode !== "upload");
-  app.$("textSourcePanel").classList.toggle("hidden", mode !== "text");
+  state.sourceMode = "text";
+  app.$("uploadModeButton").classList.toggle("active", false);
+  app.$("textModeButton").classList.toggle("active", true);
+  app.$("uploadModeButton").setAttribute("aria-selected", "false");
+  app.$("textModeButton").setAttribute("aria-selected", "true");
+  app.$("uploadSourcePanel").classList.add("hidden");
+  app.$("textSourcePanel").classList.remove("hidden");
   app.updateLanguageBadge();
+}
+
+async function loadSourceFileIntoEditor() {
+  const input = app.optional("sourceFileInput");
+  const file = input?.files?.[0];
+  if (!file) {
+    app.updateLanguageBadge();
+    return;
+  }
+  app.$("filenameInput").value = file.name;
+  app.$("sourceTextInput").value = await file.text();
+  setMode("text");
+  app.updateEditorView();
+  app.syncEditorScroll();
 }
 /**
  * drop zone 이벤트를 DOM 요소와 핸들러에 연결합니다.
@@ -53,8 +67,7 @@ function bindDropZone() {
     const files = event.dataTransfer?.files;
     if (files?.length) {
       input.files = files;
-      setMode("upload");
-      app.updateLanguageBadge();
+      void app.withErrors(loadSourceFileIntoEditor);
     }
   });
 }
@@ -62,5 +75,6 @@ function bindDropZone() {
 Object.assign(app, {
   bindDropZone,
   clearSourceInputs,
+  loadSourceFileIntoEditor,
   setMode,
 });

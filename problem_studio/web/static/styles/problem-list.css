@@ -104,6 +104,66 @@
   font-size: 12px;
 }
 
+.list-item .problem-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: visible;
+  white-space: normal;
+}
+
+.list-item .problem-title-row strong {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.list-item .problem-status-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 20px;
+  max-width: 74px;
+  overflow: hidden;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-item .problem-status-badge.failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.list-item .problem-status-badge.stale {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.list-item .problem-status-badge.passed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.list-item.problem-status-failed {
+  border-color: color-mix(in srgb, var(--bad) 46%, var(--line));
+  background: #fff7f7;
+  box-shadow: inset 4px 0 0 var(--bad);
+}
+
+.list-item.problem-status-stale {
+  border-color: color-mix(in srgb, var(--warn) 40%, var(--line));
+  box-shadow: inset 4px 0 0 var(--warn);
+}
+
+.list-item.problem-status-passed {
+  border-color: color-mix(in srgb, var(--good) 32%, var(--line));
+}
+
 .sidebar .list-item {
   border-color: rgba(255, 255, 255, 0.12);
   background: var(--sidebar-soft);
@@ -114,6 +174,19 @@
   color: #a9b8cc;
 }
 
+.sidebar .list-item.problem-status-failed {
+  border-color: rgba(248, 113, 113, 0.72);
+  background: rgba(127, 29, 29, 0.22);
+}
+
+.sidebar .list-item.problem-status-stale {
+  border-color: rgba(245, 158, 11, 0.62);
+}
+
+.sidebar .list-item.problem-status-passed {
+  border-color: rgba(34, 197, 94, 0.42);
+}
+
 .list-item.active {
   border-color: var(--accent);
   background: var(--accent-soft);
@@ -122,6 +195,25 @@
 
 .list-item.active span {
   color: var(--muted);
+}
+
+.list-item.active.problem-status-failed {
+  border-color: color-mix(in srgb, var(--bad) 60%, var(--accent));
+  box-shadow:
+    inset 4px 0 0 var(--bad),
+    0 0 0 2px rgba(239, 68, 68, 0.12);
+}
+
+.list-item.active .problem-status-badge.failed {
+  color: #991b1b;
+}
+
+.list-item.active .problem-status-badge.stale {
+  color: #92400e;
+}
+
+.list-item.active .problem-status-badge.passed {
+  color: #166534;
 }
 
 .muted {

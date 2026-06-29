@@ -111,6 +111,8 @@ def run_submission_cases(
                 status = case_status
                 first_wrong = case
                 copy_wrong_artifacts(wrong_dir, case_id, in_path, answer_path, actual_path)
+            elif not stop_on_first_failure:
+                copy_wrong_artifacts(wrong_dir, case_id, in_path, answer_path, actual_path)
             if stop_on_first_failure:
                 break
 

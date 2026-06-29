@@ -4,7 +4,7 @@
 
 import { escapeHtml, optional, setText } from "./dom.js";
 import { currentProblemResult, hasFreshFullTest } from "./results.js";
-import { PACK_OUTPUT_DIR, STATUS_LABELS, state } from "./state.js";
+import { PACK_OUTPUT_DIR, STATUS_LABELS, activePackJobForProblem, state } from "./state.js";
 import { updateEditorPanelMode } from "./tabs-view.js";
 
 const buildCallbacks = {
@@ -93,6 +93,21 @@ function selectedProblemDiagnostic(fullTest) {
     failureDetails: fullTest.failureDetails || [],
   };
 }
+function selectedProblemBulkDiagnostic() {
+  if (!state.selectedProblem) return null;
+  const item = (state.lastBulkBuildResult?.problems || []).find(
+    (problem) => problem.problemId === state.selectedProblem && !problem.passed
+  );
+  if (!item) return null;
+  return {
+    problemId: state.selectedProblem,
+    passed: false,
+    summary: item.summary || "전체 문제 테스트가 실패했습니다.",
+    failureStage: item.failureStage || "unknown",
+    failureStageLabel: item.failureStageLabel || "",
+    failureDetails: item.failureDetails || [],
+  };
+}
 function renderBuildDiagnostics(fullTest) {
   const panel = optional("buildDiagnostics");
   if (!panel) return;
@@ -101,21 +116,8 @@ function renderBuildDiagnostics(fullTest) {
     return;
   }
 
-  const bulkResult = state.lastBulkBuildResult;
-  let problems = [];
-  let summary = "";
-  if (bulkResult?.problems?.length) {
-    problems = bulkResult.problems.filter((item) => !item.passed);
-    summary = `${bulkResult.problemCount || bulkResult.problems.length}개 중 ${problems.length}개 문제 실패`;
-  }
-  if (!problems.length) {
-    const current = selectedProblemDiagnostic(fullTest);
-    if (current) {
-      problems = [current];
-      summary = "현재 문제 전체 테스트 실패";
-    }
-  }
-  if (!problems.length) {
+  const current = selectedProblemDiagnostic(fullTest) || (fullTest ? null : selectedProblemBulkDiagnostic());
+  if (!current) {
     panel.classList.add("hidden");
     panel.innerHTML = "";
     return;
@@ -125,13 +127,13 @@ function renderBuildDiagnostics(fullTest) {
   panel.innerHTML = `
     <div class="build-diagnostics-heading">
       <div>
-        <span>문제별 진단</span>
-        <strong>어느 문제의 어느 단계가 실패했는지 확인하세요.</strong>
+        <span>현재 문제 진단</span>
+        <strong>선택한 문제의 실패 단계와 상세만 표시합니다.</strong>
       </div>
-      <span class="build-diagnostics-count">${escapeHtml(summary)}</span>
+      <span class="build-diagnostics-count">${escapeHtml(failureStageLabel(current))} 확인 필요</span>
     </div>
     <div class="build-diagnostic-list">
-      ${problems.map(renderProblemDiagnostic).join("")}
+      ${renderProblemDiagnostic(current, 0)}
     </div>
   `;
 }
@@ -159,6 +161,7 @@ export function updateBuildDashboard() {
   const result = currentProblemResult();
   const fullTest = result?.fullTest || state.lastFullTest;
   const pack = state.lastPackResult || result?.lastPackResult;
+  const activePackJob = activePackJobForProblem();
   const profile = optional("packVerifyProfileInput")?.value.trim() || "hidden";
   let tone = "neutral";
   let title = "전체 테스트 필요";
@@ -166,10 +169,10 @@ export function updateBuildDashboard() {
   let testState = "대기";
   let testDetail = "아직 통과 기록이 없습니다.";
 
-  if (state.activePackJob) {
+  if (activePackJob) {
     tone = "running";
     title = "팩 빌드 진행 중";
-    summary = buildCallbacks.packJobSummary(state.activePackJob);
+    summary = buildCallbacks.packJobSummary(activePackJob);
     testState = "빌드 중";
     testDetail = "완료되면 최근 팩과 다운로드 링크가 갱신됩니다.";
   } else if (hasFreshFullTest()) {
@@ -202,7 +205,7 @@ export function updateBuildDashboard() {
   setText("buildDashboardProfile", profile);
   setText(
     "buildDashboardPack",
-    state.activePackJob ? buildCallbacks.packJobSummary(state.activePackJob) : pack?.archiveLabel || "아직 없음"
+    activePackJob ? buildCallbacks.packJobSummary(activePackJob) : pack?.archiveLabel || "아직 없음"
   );
   updateDownloadLink(optional("buildDashboardDownloadLink"), pack, "팩 파일");
   renderBuildDiagnostics(fullTest);
@@ -221,13 +224,14 @@ export function updateBuildPanel() {
   }
 
   const result = currentProblemResult();
+  const activePackJob = activePackJobForProblem();
   const status = optional("buildValidationStatus");
   const output = optional("packOutputLabel");
   const link = optional("packDownloadLink");
   if (output) output.textContent = PACK_OUTPUT_DIR;
   if (status) {
-    if (state.activePackJob) {
-      status.textContent = `팩 빌드 진행 중입니다. ${buildCallbacks.packJobSummary(state.activePackJob)}`;
+    if (activePackJob) {
+      status.textContent = `팩 빌드 진행 중입니다. ${buildCallbacks.packJobSummary(activePackJob)}`;
     } else if (hasFreshFullTest()) {
       status.textContent = `전체 테스트 통과 상태입니다. 바로 현재 문제 팩을 빌드할 수 있습니다.`;
     } else if (result?.dirtyAfterFullTest) {

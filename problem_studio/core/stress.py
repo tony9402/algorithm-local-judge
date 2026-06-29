@@ -14,20 +14,20 @@ from typing import Any
 import yaml
 
 from commons.generate import expand_cases, load_config, sha256_text
-from judge.core.cases_compile import compile_problem_cases, format_compile_result
-from judge.core.compiler import compile_problem_tools, prepare_user_submission
-from judge.core.errors import JudgeError
-from judge.core.paths import cache_root, ensure_inside, rel, validate_safe_id
-from judge.core.problem import tool_paths
-from judge.core.runner import checker_compare, solution_write, validator_check
-from judge.core.solution_expectations import (
+from alj_core.cases_compile import compile_problem_cases, format_compile_result
+from alj_core.compiler import compile_problem_tools, prepare_user_submission
+from alj_core.errors import JudgeError
+from alj_core.paths import cache_root, ensure_inside, rel, validate_safe_id
+from alj_core.problem import tool_paths
+from alj_core.runner import checker_compare, solution_write, validator_check
+from alj_core.solution_expectations import (
     discover_solution_expectations,
     ensure_reference_solution,
     filter_solution_expectations,
 )
-from judge.core.submission_cases import run_submission_cases
-from judge.utils.fs import read_json, write_json
-from judge.utils.process import run_command_result
+from alj_core.submission_cases import run_submission_cases
+from alj_core.utils.fs import read_json, write_json
+from alj_core.utils.process import run_command_result
 
 MAX_STRESS_DURATION_SECONDS = 300
 DEFAULT_STRESS_DURATION_SECONDS = 60
@@ -374,6 +374,7 @@ def stress_test_solutions(
                 run_subdir,
                 timeout_ms,
                 workspace,
+                language=expectation.language if expectation.language == "pypy" else None,
             ).command
         except JudgeError as exc:
             compile_status = "compile_error"

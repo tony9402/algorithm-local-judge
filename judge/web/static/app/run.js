@@ -4,25 +4,21 @@
 
 const app = window.AljApp;
 const { state } = app;
-function runFormData() {
+function runFormData(profile) {
   const formData = new FormData();
   formData.append("problem_id", app.$("problemSelect").value);
-  formData.append("profile", app.judgeProfile());
-  formData.append("source_mode", state.sourceMode);
-  if (state.sourceMode === "upload") {
-    const file = app.$("sourceFileInput").files[0];
-    if (!file) throw new Error("Source file upload is required.");
-    formData.append("file", file);
-  } else {
-    formData.append("filename", app.$("filenameInput").value.trim() || app.$("languageHint").value);
-    formData.append("source_text", app.$("sourceTextInput").value);
-  }
+  formData.append("profile", profile || app.judgeProfile());
+  formData.append("source_mode", "text");
+  formData.append("filename", app.$("filenameInput").value.trim());
+  formData.append("language", app.$("languageHint").value);
+  formData.append("source_text", app.$("sourceTextInput").value);
   return formData;
 }
-async function streamRun(formData) {
+async function streamRun(formData, onQueued) {
   return app.runQueuedJob("/api/run/jobs", {
     method: "POST",
     body: formData,
+    onQueued,
   });
 }
 
@@ -31,6 +27,7 @@ function resultCaseCount(result) {
   return result.cases?.length || 0;
 }
 async function restoreRunResult(result) {
+  state.lastRunResult = result;
   state.artifacts = null;
   app.$("wrongPanel").classList.add("hidden");
   app.hideGenerationProgress();
@@ -54,22 +51,25 @@ async function restoreRunResult(result) {
 /**
  * 제출 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
  */
-async function runSubmission() {
+async function runSubmission(profile = app.judgeProfile()) {
   state.artifacts = null;
   app.$("wrongPanel").classList.add("hidden");
+  app.$("caseResults").classList.add("hidden");
   app.clearDebugLog();
   app.setBadge("Running", "neutral");
-  app.setStatusCard("data", "Checking", app.judgeProfile());
+  app.setStatusCard("data", "Checking", profile);
   app.setStatusCard("judge", "Waiting");
   app.setStatusCard("run", "-", "In progress");
-  app.setSummary(`Judging submission with ${app.judgeProfile()} cases.`, "result-summary");
-  const compileResult = await app.compileCasesData({ showSuccess: false });
+  app.setSummary(`Judging submission with ${profile} cases.`, "result-summary");
+  const compileResult = await app.compileCasesData({ showSuccess: false, profile });
   if (!compileResult.valid) return;
   const totalCases = app.compiledCaseCount(compileResult);
   app.setGenerationProgress(0, totalCases, "Data generation");
   app.appendRunLog("Starting judge run.");
-  const result = await streamRun(runFormData());
+  const problemId = app.$("problemSelect").value;
+  const result = await streamRun(runFormData(profile), () => recordSubmissionCooldown(problemId));
   if (!result) throw new Error("Run finished without a result.");
+  state.lastRunResult = result;
   app.setBadge(result.status.replaceAll("_", " "), statusClassName(result.status));
   app.setText("resultMeta", `${result.problemId} · ${result.profile} · ${result.language} · ${result.runId}`);
   app.setStatusCard("data", "Ready", result.profile);
@@ -86,6 +86,85 @@ async function runSubmission() {
     await loadWrongCase(result.runId, result.firstFailedCase);
   }
   await app.refreshSecondaryData();
+}
+
+function recordSubmissionCooldown(problemId, seconds = 5) {
+  state.submissionCooldowns[problemId] = Date.now() + seconds * 1000;
+  scheduleCooldownTick();
+  app.updateActionState();
+}
+
+function submissionCooldownRemaining(problemId = app.$("problemSelect")?.value) {
+  const until = state.submissionCooldowns[problemId] || 0;
+  return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+}
+
+function scheduleCooldownTick() {
+  if (state.cooldownTimer) window.clearTimeout(state.cooldownTimer);
+  state.cooldownTimer = window.setTimeout(() => {
+    app.updateActionState();
+    if (submissionCooldownRemaining() > 0) scheduleCooldownTick();
+  }, 250);
+}
+
+function caseStatusLabel(status) {
+  if (status === "ok") return "맞음";
+  if (status === "wrong_answer") return "틀림";
+  if (status === "runtime_error") return "런타임 오류";
+  if (status === "time_limit") return "시간 초과";
+  if (status === "memory_limit") return "메모리 초과";
+  return status?.replaceAll("_", " ") || "-";
+}
+
+function renderCaseResults(result, targetId = "resultCaseResults") {
+  const panel = app.optional(targetId);
+  if (!panel) return;
+  const cases = Array.isArray(result.cases) ? result.cases : [];
+  if (!cases.length) {
+    panel.classList.remove("hidden");
+    panel.innerHTML = '<div class="modal-status muted">표시할 테스트케이스 결과가 없습니다.</div>';
+    return;
+  }
+  panel.classList.remove("hidden");
+  panel.innerHTML = `
+    <div class="case-results-heading">
+      <strong>테스트케이스 결과</strong>
+      <span>${app.escapeHtml(String(cases.length))}개</span>
+    </div>
+    <div class="case-result-table">
+      ${cases.map(renderCaseResultRow).join("")}
+    </div>
+  `;
+}
+
+function showResultModal(result) {
+  state.lastRunResult = result;
+  app.setText(
+    "resultModalMeta",
+    `${result.problemId || "-"} · ${result.profile || "-"} · ${result.language || "-"} · ${result.runId || "-"}`
+  );
+  renderCaseResults(result, "resultCaseResults");
+  app.openModal("resultModal");
+}
+
+function renderCaseResultRow(testCase) {
+  const status = testCase.status || "";
+  const failed = status && status !== "ok";
+  const memory = Number.isFinite(testCase.memoryBytes)
+    ? `${Math.round(testCase.memoryBytes / 1024)} KB`
+    : "-";
+  const artifactButton = failed
+    ? `<button type="button" data-case-artifact="${app.escapeHtml(testCase.case)}">보기</button>`
+    : "";
+  return `
+    <div class="case-result-row ${failed ? "failed" : "passed"}">
+      <strong>${app.escapeHtml(testCase.case || "-")}</strong>
+      <span>${app.escapeHtml(caseStatusLabel(status))}</span>
+      <small>${app.escapeHtml(String(testCase.timeMs ?? "-"))} ms · ${app.escapeHtml(memory)}</small>
+      <p>${app.escapeHtml(testCase.message || "")}</p>
+      ${artifactButton}
+    </div>
+  `;
 }
 
 function statusClassName(status) {
@@ -263,14 +342,18 @@ Object.assign(app, {
   downloadArtifact,
   loadWrongCase,
   renderArtifact,
+  renderCaseResults,
+  recordSubmissionCooldown,
   restoreRunResult,
   resultCaseCount,
   runFormData,
   runMetricsText,
   runSubmission,
   runSummary,
+  showResultModal,
   statusClassName,
   streamRun,
+  submissionCooldownRemaining,
   toggleArtifactExpanded,
   toggleArtifactWrap,
 });

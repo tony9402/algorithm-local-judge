@@ -1,6 +1,8 @@
-"""문제 스튜디오 솔루션 업로드, 검증, 스트레스 실행, 오답 산출물 확인 흐름을 브라우저에서 검증하는 모듈입니다."""
+"""Problem Studio 솔루션 브라우저 E2E 테스트입니다."""
 
 from __future__ import annotations
+
+from urllib.parse import parse_qs, urlparse
 
 from problem_studio.core.templates import create_problem
 from problem_studio.web.app import create_app
@@ -12,6 +14,7 @@ from tests.e2e.helpers import (
     set_solution_modal_editor_value,
     wait_for_text,
 )
+from tests.e2e.problem_studio_fakes import git
 
 
 def completed_solution_job(
@@ -92,11 +95,60 @@ def route_solution_jobs(page, jobs: dict[str, dict]) -> None:
     page.route("**/api/jobs", lambda route: route.fulfill(json={"jobs": list(jobs.values())}))
 
 
+def accepted_solution_result(
+    *,
+    problem_id: str,
+    path: str,
+    run_id: str,
+    scope: str = "single",
+) -> dict:
+    """통과한 솔루션 검증 결과를 일관된 형태로 구성합니다.
+
+    Args:
+        problem_id (str): 결과가 속한 문제 식별자입니다.
+        path (str): 검증한 솔루션 상대 경로입니다.
+        run_id (str): 화면과 저장소에서 확인할 실행 식별자입니다.
+        scope (str): 전체 검증 또는 개별 테스트 범위입니다.
+
+    Returns:
+        dict: 솔루션 검증 API와 작업 센터가 반환하는 결과 페이로드입니다.
+    """
+    return {
+        "problemId": problem_id,
+        "profile": "hidden",
+        "scope": scope,
+        "solution": path if scope == "single" else None,
+        "passed": True,
+        "verifiedCount": 1,
+        "totalCount": 1,
+        "skippedCount": 0,
+        "checks": [
+            {
+                "path": path,
+                "sourcePath": path,
+                "expectedStatus": "accepted",
+                "actualStatus": "accepted",
+                "passed": True,
+                "runId": run_id,
+                "metrics": {"maxTimeMs": 1, "maxMemoryBytes": 1024},
+                "cases": [
+                    {
+                        "case": "hidden-1",
+                        "status": "accepted",
+                        "timeMs": 1,
+                        "memoryBytes": 1024,
+                    }
+                ],
+            }
+        ],
+    }
+
+
 class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
-    """문제 스튜디오 솔루션 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+    """Problem Studio 솔루션 브라우저 흐름을 검증합니다."""
 
     def test_solution_stress_mismatch_preview_and_append_in_browser(self) -> None:
-        """솔루션 스트레스 불일치 미리보기 및 추가 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+        """스트레스 불일치 미리보기와 케이스 추가 흐름을 검증합니다."""
         jobs: dict[str, dict] = {}
         append_requests: list[dict] = []
 
@@ -134,7 +186,7 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
         }
 
         def stress_job(route):
-            """스트레스 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+            """스트레스 작업 응답을 구성합니다.
 
             Args:
                 route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
@@ -144,7 +196,7 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
             route.fulfill(json=job)
 
         def preview_route(route):
-            """미리보기 라우트 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+            """스트레스 mismatch 미리보기 응답을 구성합니다.
 
             Args:
                 route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
@@ -171,7 +223,7 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
             )
 
         def append_route(route):
-            """추가 라우트 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+            """스트레스 케이스 추가 응답을 구성합니다.
 
             Args:
                 route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
@@ -232,11 +284,11 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 self.assert_no_browser_errors()
 
     def test_solution_mismatch_artifact_preview_in_browser(self) -> None:
-        """솔루션 불일치 산출물 미리보기 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+        """솔루션 불일치 산출물 미리보기 흐름을 검증합니다."""
         jobs: dict[str, dict] = {}
 
         def verify_job(route):
-            """검증 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+            """검증 작업 응답을 구성합니다.
 
             Args:
                 route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
@@ -274,7 +326,7 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
             route.fulfill(json=job)
 
         def artifact_route(route):
-            """산출물 라우트 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+            """산출물 미리보기 응답을 구성합니다.
 
             Args:
                 route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
@@ -327,13 +379,590 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 )
                 self.assert_no_browser_errors()
 
-    def test_solution_upload_rename_edit_and_incremental_verify(self) -> None:
-        """솔루션 업로드 이름 변경 편집 및 증분 검증 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+    def test_full_solution_verify_shows_verifying_state_over_previous_result(self) -> None:
+        """전체 검증 시작 직후 이전 결과 대신 검증중 상태를 검증합니다."""
         verify_requests: list[dict] = []
         jobs: dict[str, dict] = {}
 
+        completed_result = {
+            "problemId": "alpha",
+            "profile": "hidden",
+            "scope": "all",
+            "passed": True,
+            "verifiedCount": 1,
+            "totalCount": 1,
+            "skippedCount": 0,
+            "checks": [
+                {
+                    "path": "solutions/main_solution.ac.cpp",
+                    "sourcePath": "solutions/main_solution.ac.cpp",
+                    "expectedStatus": "accepted",
+                    "actualStatus": "accepted",
+                    "passed": True,
+                    "runId": "previous-run",
+                    "metrics": {"maxTimeMs": 1, "maxMemoryBytes": 1024},
+                    "cases": [
+                        {
+                            "case": "hidden-1",
+                            "status": "accepted",
+                            "timeMs": 1,
+                            "memoryBytes": 1024,
+                        }
+                    ],
+                }
+            ],
+        }
+        finished_after_switch = {
+            **completed_result,
+            "checks": [
+                {
+                    **completed_result["checks"][0],
+                    "runId": "alpha-finished-after-switch",
+                }
+            ],
+        }
+
         def verify_job(route):
-            """검증 작업 테스트 보조 로직을 분리해 같은 검증 조건을 여러 시나리오에서 일관되게 사용합니다.
+            """완료와 running 검증 작업 응답을 차례로 구성합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
+            body = route.request.post_data_json or {}
+            verify_requests.append(body)
+            if len(verify_requests) == 1:
+                job = completed_solution_job("solution-previous", completed_result)
+            else:
+                job = {
+                    "jobId": "solution-running",
+                    "kind": "solution-verify",
+                    "title": "솔루션 기대 결과 검증",
+                    "problemId": "alpha",
+                    "status": "running",
+                    "cancelSupported": True,
+                    "target": {
+                        "problemId": "alpha",
+                        "profile": "hidden",
+                        "scope": "all",
+                    },
+                    "progress": {"message": "verifying solutions"},
+                    "lastLog": "verifying solutions",
+                    "logs": [{"message": "verifying solutions"}],
+                    "result": None,
+                }
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-verifying-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Verifying", "E2E")
+            create_problem(workspace, "beta", "Beta Verifying", "E2E")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/verify/jobs", verify_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#alertStack", "Solutions verified.")
+                wait_for_text(page, "#tabFiles", "기대 AC · 일치")
+                self.assertIsNone(verify_requests[-1].get("solutions"))
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#tabFiles", "검증중")
+                self.assertNotIn("previous-run", page.locator("#tabFiles").inner_text())
+                self.assertIsNone(verify_requests[-1].get("solutions"))
+
+                page.locator("#problemList .list-item").filter(has_text="beta").click()
+                wait_for_text(page, "#problemTitle", "Beta Verifying")
+                jobs["solution-running"] = completed_solution_job(
+                    "solution-running",
+                    finished_after_switch,
+                    problem_id="alpha",
+                    last_log="alpha verify finished after switch",
+                )
+                page.wait_for_function(
+                    """() => {
+                        const raw = localStorage.getItem("problem-studio:last-results:v1");
+                        return raw && raw.includes("alpha-finished-after-switch");
+                    }"""
+                )
+                self.assertNotIn(
+                    "alpha-finished-after-switch",
+                    page.locator("#tabFiles").inner_text(),
+                )
+                self.assert_no_browser_errors()
+
+    def test_full_solution_verify_applies_partial_progress_before_completion(self) -> None:
+        """전체 검증 job이 끝나기 전 완료된 솔루션 row가 partial progress로 갱신되는지 검증합니다."""
+        jobs: dict[str, dict] = {}
+        verify_requests: list[dict] = []
+
+        def verify_job(route):
+            body = route.request.post_data_json or {}
+            verify_requests.append(body)
+            job = {
+                "jobId": "solution-partial-running",
+                "kind": "solution-verify",
+                "title": "솔루션 기대 결과 검증",
+                "problemId": "alpha",
+                "status": "running",
+                "cancelSupported": True,
+                "target": {
+                    "problemId": "alpha",
+                    "profile": "hidden",
+                    "scope": "all",
+                },
+                "progress": {
+                    "message": "solutions/main_solution.ac.cpp verified: accepted",
+                    "current": 1,
+                    "total": 2,
+                    "partialSummary": {
+                        "verifiedCount": 1,
+                        "failedCount": 0,
+                        "totalCount": 2,
+                    },
+                    "partialCheck": {
+                        "source": "problems/alpha/solutions/main_solution.ac.cpp",
+                        "expectedStatus": "accepted",
+                        "actualStatus": "accepted",
+                        "rawActualStatus": "accepted",
+                        "passed": True,
+                        "runId": "partial-visible-run",
+                        "metrics": {"maxTimeMs": 1, "maxMemoryBytes": 1024},
+                        "cases": [
+                            {
+                                "case": "hidden-1",
+                                "status": "ok",
+                                "timeMs": 1,
+                                "memoryBytes": 1024,
+                            }
+                        ],
+                    },
+                },
+                "lastLog": "solutions/main_solution.ac.cpp verified: accepted",
+                "logs": [{"message": "solutions/main_solution.ac.cpp verified: accepted"}],
+                "result": None,
+            }
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-partial-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Partial", "E2E")
+            extra = workspace / "problems" / "alpha" / "solutions" / "extra_solution.wa.py"
+            extra.write_text("print(0)\n", encoding="utf-8")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/verify/jobs", verify_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#tabFiles", "검증 중 · 기대 AC 일치")
+                wait_for_text(page, "#tabFiles", "partial-visible-run")
+                wait_for_text(page, "#tabFiles", "extra_solution.wa.py")
+                wait_for_text(page, "#tabFiles", "검증중")
+                self.assertIsNone(verify_requests[-1].get("solutions"))
+                self.assert_no_browser_errors()
+
+    def test_single_solution_test_completion_after_problem_switch_is_scoped(self) -> None:
+        """문제 전환 중 완료된 개별 테스트의 저장 범위를 검증합니다."""
+        jobs: dict[str, dict] = {}
+        single_result = {
+            "problemId": "alpha",
+            "profile": "hidden",
+            "scope": "single",
+            "solution": "solutions/main_solution.ac.cpp",
+            "passed": True,
+            "verifiedCount": 1,
+            "totalCount": 1,
+            "skippedCount": 0,
+            "checks": [
+                {
+                    "path": "solutions/main_solution.ac.cpp",
+                    "sourcePath": "solutions/main_solution.ac.cpp",
+                    "expectedStatus": "accepted",
+                    "actualStatus": "accepted",
+                    "passed": True,
+                    "runId": "single-after-switch",
+                    "metrics": {"maxTimeMs": 1, "maxMemoryBytes": 1024},
+                    "cases": [
+                        {
+                            "case": "hidden-1",
+                            "status": "accepted",
+                            "timeMs": 1,
+                            "memoryBytes": 1024,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        def single_test_job(route):
+            """개별 테스트 작업을 running 상태로 시작해 문제 전환 중 완료되는 상황을 만듭니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
+            job = {
+                "jobId": "single-running",
+                "kind": "solution-test",
+                "title": "개별 테스트",
+                "problemId": "alpha",
+                "status": "running",
+                "cancelSupported": True,
+                "target": {
+                    "problemId": "alpha",
+                    "profile": "hidden",
+                    "solution": "solutions/main_solution.ac.cpp",
+                    "scope": "single",
+                },
+                "progress": {"message": "single test running"},
+                "lastLog": "single test running",
+                "logs": [{"message": "single test running"}],
+                "result": None,
+            }
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-switch-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Single Switch", "E2E")
+            create_problem(workspace, "beta", "Beta Single Switch", "E2E")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/test/jobs", single_test_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+                page.locator('[data-solution-test="solutions/main_solution.ac.cpp"]').click()
+                wait_for_text(page, "#tabFiles", "개별 테스트 중")
+
+                page.locator("#problemList .list-item").filter(has_text="beta").click()
+                wait_for_text(page, "#problemTitle", "Beta Single Switch")
+                jobs["single-running"] = completed_solution_job(
+                    "single-running",
+                    single_result,
+                    problem_id="alpha",
+                    last_log="single test finished after switch",
+                )
+                jobs["single-running"]["kind"] = "solution-test"
+                page.wait_for_function(
+                    """() => {
+                        const raw = localStorage.getItem("problem-studio:last-results:v1");
+                        return raw && raw.includes("single-after-switch");
+                    }"""
+                )
+                self.assertNotIn("single-after-switch", page.locator("#tabFiles").inner_text())
+                self.assert_no_browser_errors()
+
+    def test_single_solution_test_terminal_jobs_clear_active_state(self) -> None:
+        """개별 테스트 terminal job이 row 진행 상태를 정리하는지 검증합니다."""
+        jobs: dict[str, dict] = {}
+        request_count = 0
+
+        def single_test_job(route):
+            """개별 테스트 작업을 running으로 시작하고 테스트 본문에서 terminal 상태로 전환합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
+            nonlocal request_count
+            request_count += 1
+            job_id = f"single-terminal-{request_count}"
+            job = {
+                "jobId": job_id,
+                "kind": "solution-test",
+                "title": "개별 테스트",
+                "problemId": "alpha",
+                "status": "running",
+                "cancelSupported": True,
+                "target": {
+                    "problemId": "alpha",
+                    "profile": "hidden",
+                    "solution": "solutions/main_solution.ac.cpp",
+                    "scope": "single",
+                },
+                "progress": {"message": "single test running"},
+                "lastLog": "single test running",
+                "logs": [{"message": "single test running"}],
+                "result": None,
+            }
+            jobs[job_id] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-terminal-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Terminal", "E2E")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/test/jobs", single_test_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+
+                for status, message in [
+                    ("failed", "forced single failure"),
+                    ("cancelled", "취소됨"),
+                    ("stale", "만료됨"),
+                ]:
+                    page.locator('[data-solution-test="solutions/main_solution.ac.cpp"]').click()
+                    wait_for_text(page, "#tabFiles", "개별 테스트 중")
+                    job = jobs[f"single-terminal-{request_count}"]
+                    job["status"] = status
+                    job["error"] = "forced single failure" if status == "failed" else None
+                    job["lastLog"] = message
+                    job["progress"] = {"message": message}
+                    wait_for_text(page, "#alertStack", message)
+                    page.wait_for_function(
+                        """() => !document.querySelector("#tabFiles")?.textContent
+                            .includes("개별 테스트 중")"""
+                    )
+                    self.assertNotIn("개별 테스트 중", page.locator("#tabFiles").inner_text())
+
+                self.assert_no_browser_errors()
+
+    def test_single_solution_test_completion_after_repository_switch_is_scoped(self) -> None:
+        """저장소 전환 중 완료된 개별 테스트의 저장 범위를 검증합니다."""
+        jobs: dict[str, dict] = {}
+        current_repository_scope = {"value": "repo:repo-a"}
+        scoped_job_reads: list[str] = []
+        solution_path = "solutions/main_solution.ac.cpp"
+        result = accepted_solution_result(
+            problem_id="01",
+            path=solution_path,
+            run_id="repo-a-single-run",
+        )
+
+        def visible_jobs(route):
+            """현재 화면 저장소에 보이는 작업만 목록 응답에 포함합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
+            route.fulfill(
+                json={
+                    "jobs": [
+                        job
+                        for job in jobs.values()
+                        if job.get("target", {}).get("repositoryScope")
+                        == current_repository_scope["value"]
+                    ]
+                }
+            )
+
+        def scoped_job(route):
+            """waiter가 캡처한 repository_scope로 완료 작업을 조회하는 경로를 검증합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
+            parsed = urlparse(route.request.url)
+            job_id = parsed.path.rsplit("/", 1)[-1]
+            scope = parse_qs(parsed.query).get("repository_scope", [""])[0]
+            scoped_job_reads.append(scope)
+            job = jobs.get(job_id)
+            if job and job.get("target", {}).get("repositoryScope") == scope:
+                route.fulfill(json=job)
+            else:
+                route.fulfill(status=404, json={"detail": "job not found"})
+
+        def single_test_job(route):
+            """repo-a에서 시작한 개별 테스트 작업을 running 상태로 반환합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
+            job = {
+                "jobId": "repo-a-single",
+                "kind": "solution-test",
+                "title": "개별 테스트",
+                "problemId": "01",
+                "status": "running",
+                "cancelSupported": True,
+                "target": {
+                    "problemId": "01",
+                    "profile": "hidden",
+                    "solution": solution_path,
+                    "scope": "single",
+                    "repositoryName": "repo-a",
+                    "repositoryScope": "repo:repo-a",
+                },
+                "progress": {"message": "repo-a single test running"},
+                "lastLog": "repo-a single test running",
+                "logs": [{"message": "repo-a single test running"}],
+                "result": None,
+            }
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-repo-switch-e2e-") as (
+            _directory,
+            root,
+        ):
+            workspace = root / "studio"
+            repo_a = workspace / "problems" / "repo-a"
+            repo_b = workspace / "problems" / "repo-b"
+            create_problem(repo_a, "01", "Repo A Solution", "E2E")
+            create_problem(repo_b, "01", "Repo B Solution", "E2E")
+            git(repo_a, "init")
+            git(repo_b, "init")
+
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                page.route("**/api/jobs", visible_jobs)
+                page.route("**/api/jobs/*", scoped_job)
+                page.route("**/api/problems/*/solutions/test/jobs", single_test_job)
+                page.goto(server.url)
+                page.locator("#repositorySelect").wait_for(state="visible")
+                page.locator("#repositoryRefreshButton").click()
+                page.locator("#repositoryCloneButton").click()
+                page.locator("#repositoryNameInput").fill("repo-a")
+                page.locator("#repositoryRegisterButton").click()
+                wait_for_text(page, "#problemTitle", "Repo A Solution")
+                page.locator('[data-tab="solutions"]').click()
+                page.locator(f'[data-solution-test="{solution_path}"]').click()
+                wait_for_text(page, "#tabFiles", "개별 테스트 중")
+
+                current_repository_scope["value"] = "repo:repo-b"
+                page.locator("#repositorySelect").select_option("repo-b")
+                wait_for_text(page, "#problemTitle", "Repo B Solution")
+                jobs["repo-a-single"].update(
+                    {
+                        "status": "succeeded",
+                        "result": result,
+                        "progress": {"message": "repo-a single finished"},
+                        "lastLog": "repo-a single finished",
+                    }
+                )
+                page.wait_for_function(
+                    """() => {
+                        const raw = localStorage.getItem("problem-studio:last-results:v1");
+                        if (!raw) return false;
+                        const data = JSON.parse(raw);
+                        const repoA = data["repo-a:01"];
+                        const repoB = data["repo-b:01"];
+                        const stored = repoA?.solutionTestResultsByPath
+                            ?.["solutions/main_solution.ac.cpp"]?.checks?.[0]?.runId;
+                        return stored === "repo-a-single-run"
+                            && !JSON.stringify(repoB || {}).includes("repo-a-single-run");
+                    }"""
+                )
+                self.assertIn("repo:repo-a", scoped_job_reads)
+                self.assertNotIn("repo-a-single-run", page.locator("#tabFiles").inner_text())
+
+                current_repository_scope["value"] = "repo:repo-a"
+                page.locator("#repositorySelect").select_option("repo-a")
+                wait_for_text(page, "#problemTitle", "Repo A Solution")
+                page.locator('[data-tab="solutions"]').click()
+                wait_for_text(page, "#tabFiles", "repo-a-single-run")
+                self.assert_no_browser_errors()
+
+    def test_full_solution_verify_failure_clears_previous_result(self) -> None:
+        """전체 검증 실패 시에도 검증 시작 전에 있던 기대 결과가 다시 노출되지 않는지 검증합니다."""
+        verify_requests: list[dict] = []
+        jobs: dict[str, dict] = {}
+        previous_result = {
+            "problemId": "alpha",
+            "profile": "hidden",
+            "scope": "all",
+            "passed": True,
+            "verifiedCount": 1,
+            "totalCount": 1,
+            "skippedCount": 0,
+            "checks": [
+                {
+                    "path": "solutions/main_solution.ac.cpp",
+                    "sourcePath": "solutions/main_solution.ac.cpp",
+                    "expectedStatus": "accepted",
+                    "actualStatus": "accepted",
+                    "passed": True,
+                    "runId": "previous-preserved",
+                    "metrics": {"maxTimeMs": 1, "maxMemoryBytes": 1024},
+                    "cases": [
+                        {
+                            "case": "hidden-1",
+                            "status": "accepted",
+                            "timeMs": 1,
+                            "memoryBytes": 1024,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        def verify_job(route):
+            """첫 요청은 성공, 두 번째 요청은 실패 job으로 반환합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
+            verify_requests.append(route.request.post_data_json or {})
+            if len(verify_requests) == 1:
+                job = completed_solution_job("solution-preserved", previous_result)
+            else:
+                job = {
+                    "jobId": "solution-failed",
+                    "kind": "solution-verify",
+                    "title": "솔루션 기대 결과 검증",
+                    "problemId": "alpha",
+                    "status": "failed",
+                    "cancelSupported": True,
+                    "target": {"problemId": "alpha", "profile": "hidden", "scope": "all"},
+                    "progress": {"message": "verification failed"},
+                    "lastLog": "verification failed",
+                    "logs": [{"message": "verification failed"}],
+                    "error": "forced verification failure",
+                    "result": None,
+                }
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-fail-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Failure Preserve", "E2E")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/verify/jobs", verify_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#alertStack", "Solutions verified.")
+                wait_for_text(page, "#tabFiles", "previous-preserved")
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#tabFiles", "검증중")
+                self.assertNotIn("previous-preserved", page.locator("#tabFiles").inner_text())
+                wait_for_text(page, "#alertStack", "forced verification failure")
+                self.assertNotIn("previous-preserved", page.locator("#tabFiles").inner_text())
+                self.assert_no_browser_errors()
+
+    def test_solution_upload_rename_edit_full_verify_and_single_test(self) -> None:
+        """솔루션 업로드, 편집, 전체 검증, 개별 테스트 흐름을 검증합니다."""
+        verify_requests: list[dict] = []
+        single_test_requests: list[dict] = []
+        jobs: dict[str, dict] = {}
+
+        def verify_job(route):
+            """전체 검증 작업 응답을 구성합니다.
 
             Args:
                 route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
@@ -380,6 +1009,55 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
             jobs[job["jobId"]] = job
             route.fulfill(json=job)
 
+        def single_test_job(route):
+            """개별 테스트 작업 응답을 구성합니다.
+
+            Args:
+                route (Any): 브라우저 라우팅 콜백에서 받은 요청 객체입니다.
+            """
+            body = route.request.post_data_json or {}
+            single_test_requests.append(body)
+            path = body.get("solution") or "solutions/main_solution.ac.cpp"
+            result = {
+                "problemId": "alpha",
+                "profile": "hidden",
+                "scope": "single",
+                "solution": path,
+                "passed": True,
+                "verifiedCount": 1,
+                "totalCount": 1,
+                "skippedCount": 0,
+                "checks": [
+                    {
+                        "path": path,
+                        "sourcePath": path,
+                        "expectedStatus": "accepted",
+                        "actualStatus": "accepted",
+                        "passed": True,
+                        "runId": "single-test-run",
+                        "metrics": {"maxTimeMs": 1, "maxMemoryBytes": 1024},
+                        "cases": [
+                            {
+                                "case": "hidden-1",
+                                "status": "accepted",
+                                "timeMs": 1,
+                                "memoryBytes": 1024,
+                            }
+                        ],
+                    }
+                ],
+            }
+            job = completed_solution_job(
+                f"solution-single-{len(single_test_requests)}",
+                result,
+                last_log="single solution test finished",
+            )
+            job["kind"] = "solution-test"
+            job["title"] = "개별 테스트"
+            job["target"]["solution"] = path
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
         with isolated_runtime("alj-problem-studio-solution-edit-e2e-") as (
             _directory,
             workspace,
@@ -391,6 +1069,7 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 page = self.new_page(server.url)
                 route_solution_jobs(page, jobs)
                 page.route("**/api/problems/*/solutions/verify/jobs", verify_job)
+                page.route("**/api/problems/*/solutions/test/jobs", single_test_job)
                 page.goto(server.url)
                 page.locator("#newProblemButton").wait_for(state="visible")
                 page.locator('[data-tab="solutions"]').click()
@@ -418,7 +1097,29 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 self.assertFalse((solution_dir / "uploaded.wa.py").exists())
                 self.assertTrue((solution_dir / "renamed.ac.py").exists())
 
+                page.locator('[data-solution-test="solutions/renamed.ac.py"]').click()
+                wait_for_text(page, "#alertStack", "Single solution tested.")
+                wait_for_text(page, "#tabFiles", "전체 재검증 필요")
+                self.assertEqual(single_test_requests[-1]["solution"], "solutions/renamed.ac.py")
+
                 click_by_text(page, "#tabActions button", "기대 결과 검증")
                 wait_for_text(page, "#alertStack", "Solutions verified.")
-                self.assertEqual(verify_requests[-1].get("solutions"), ["solutions/renamed.ac.py"])
+                self.assertIsNone(verify_requests[-1].get("solutions"))
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#alertStack", "Solutions verified.")
+                self.assertIsNone(verify_requests[-1].get("solutions"))
+
+                dialogs: list[str] = []
+                page.on(
+                    "dialog",
+                    lambda dialog: (dialogs.append(dialog.message), dialog.accept()),
+                )
+                page.locator('[data-solution-delete="solutions/renamed.ac.py"]').click()
+                wait_for_text(page, "#alertStack", "솔루션 파일을 삭제했습니다.")
+                page.locator('[data-solution-delete="solutions/renamed.ac.py"]').wait_for(
+                    state="detached"
+                )
+                self.assertFalse((solution_dir / "renamed.ac.py").exists())
+                self.assertTrue(any("solutions/renamed.ac.py" in text for text in dialogs))
                 self.assert_no_browser_errors()

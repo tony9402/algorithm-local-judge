@@ -2,7 +2,9 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from commons.job_queue import ACTIVE_STATUSES
 from judge.web.routes.common import jobs_from_request, to_http_error
@@ -12,7 +14,13 @@ router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
 
 @router.get("")
-def api_jobs(request: Request) -> dict:
+def api_jobs(
+    request: Request,
+    kind: str | None = Query(default=None),
+    page: Annotated[int | None, Query(ge=1)] = None,
+    page_size: Annotated[int | None, Query(ge=1, le=100)] = None,
+    order: str = Query(default="default"),
+) -> dict:
     """작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
 
     Args:
@@ -22,7 +30,32 @@ def api_jobs(request: Request) -> dict:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
     jobs = jobs_from_request(request)
-    return {"jobs": [jobs.job_dict(job) for job in jobs.list()]}
+    items = jobs.list()
+    if kind:
+        items = [job for job in items if job.kind == kind]
+    if order == "queued_desc":
+        items = sorted(items, key=lambda job: job.queued_at, reverse=True)
+    total = len(items)
+    requested_paging = page is not None or page_size is not None
+    current_page = page or 1
+    current_page_size = page_size or 20
+    if requested_paging:
+        start = (current_page - 1) * current_page_size
+        selected = items[start : start + current_page_size]
+    else:
+        selected = items
+    payload = {"jobs": [jobs.job_dict(job) for job in selected]}
+    if kind or order != "default" or requested_paging:
+        total_pages = max(1, (total + current_page_size - 1) // current_page_size)
+        payload.update(
+            {
+                "page": current_page,
+                "pageSize": current_page_size,
+                "total": total,
+                "totalPages": total_pages,
+            }
+        )
+    return payload
 
 
 @router.delete("/completed")

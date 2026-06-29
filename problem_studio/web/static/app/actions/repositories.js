@@ -23,16 +23,26 @@ function resetProblemStateForRepositoryChange() {
   state.files = [];
   state.lastSolutionVerification = null;
   state.lastSolutionStress = null;
+  state.solutionTestResultsByPath = {};
+  state.activeSolutionVerification = null;
+  state.activeSolutionTestsByPath = {};
   state.lastFullTest = null;
   state.lastPackResult = null;
+  state.lastBulkBuildResult = null;
   state.lastRun = null;
   state.dirtySolutionPaths = [];
   state.activeBulkJob = null;
   state.stalePackJob = null;
+  state.activePackJobsByProblem = {};
+  state.stalePackJobsByProblem = {};
   if (state.packPollTimer) {
     window.clearTimeout(state.packPollTimer);
     state.packPollTimer = null;
   }
+  for (const timer of Object.values(state.packPollTimersByProblem || {})) {
+    window.clearTimeout(timer);
+  }
+  state.packPollTimersByProblem = {};
   state.activePackJob = null;
 }
 /**

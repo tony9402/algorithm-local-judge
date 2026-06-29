@@ -32,6 +32,7 @@ INSTALL_HINTS = {
     ),
     "javaCompiler": "Install a JDK and set ALJ_JAVAC when javac is not on PATH.",
     "javaRuntime": "Install a JDK/JRE and set ALJ_JAVA when java is not on PATH.",
+    "pypyRuntime": "Install PyPy and set ALJ_PYPY when pypy3/pypy is not on PATH.",
     "git": "Install Git and make sure the git command is on PATH.",
 }
 
@@ -125,6 +126,12 @@ def collect_diagnostics() -> dict[str, Any]:
             "ALJ_JAVA",
             hint_key="javaRuntime",
         ),
+        "pypyRuntime": tool_status(
+            "PyPy runtime",
+            ["pypy3", "pypy"],
+            "ALJ_PYPY",
+            hint_key="pypyRuntime",
+        ),
         "git": tool_status("Git", ["git"], hint_key="git"),
     }
     paths = {
@@ -199,7 +206,7 @@ def print_text_report(diagnostics: dict[str, Any], verbose: bool) -> None:
     print(f"Python: {status_icon(python['status'])} {python['version']} ({python['path']})")
 
     print("Tools:")
-    for key in ("cpp", "javaCompiler", "javaRuntime", "git"):
+    for key in ("cpp", "javaCompiler", "javaRuntime", "pypyRuntime", "git"):
         tool = diagnostics["tools"][key]
         value = tool["path"] or ", ".join(tool["candidates"])
         print(f"  {tool['label']}: {status_icon(tool['status'])} {value}")

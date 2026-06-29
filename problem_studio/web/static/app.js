@@ -7,6 +7,7 @@ import {
 import {
   configureSolutionActions,
   createSolution,
+  deleteSolution,
   openSolutionStressModal,
   openStressMismatchModal,
   openSolutionCasesModal,
@@ -152,6 +153,7 @@ configureEditorCore({
   withErrors,
 });
 configureResourcesView({
+  deleteSolution,
   openFile,
   openSolutionCasesModal,
   openSolutionEditModal,

@@ -17,6 +17,7 @@ class SolutionExpectation:
     path: Path
     token: str
     status: str
+    language: str | None = None
 
 
 @dataclass(frozen=True)
@@ -32,17 +33,23 @@ class SolutionCheckResult:
     message: str = ""
     cases: list[dict[str, Any]] | None = None
     metrics: dict[str, Any] | None = None
+    raw_actual_status: str | None = None
+    status_evidence: dict[str, Any] | None = None
+    language: str | None = None
 
     def to_dict(self, root: Path | None = None) -> dict[str, object]:
         return {
             "source": rel(self.source, root),
+            "language": self.language,
             "expectedStatus": self.expected_status,
             "actualStatus": self.actual_status,
+            "rawActualStatus": self.raw_actual_status or self.actual_status,
             "runId": self.run_id,
             "passed": self.passed,
             "message": self.message,
             "cases": self.cases or [],
             "metrics": self.metrics or {},
+            "statusEvidence": self.status_evidence or {},
         }
 
 

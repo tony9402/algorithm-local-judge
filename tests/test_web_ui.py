@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -16,6 +17,7 @@ from fastapi.testclient import TestClient
 from judge.core.errors import JudgeError
 from judge.web import services
 from judge.web.app import create_app
+from judge.web.service_common import language_from_filename
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_INNER_HTML_SAFE_MARKERS = (
@@ -185,10 +187,18 @@ class WebUiTest(unittest.TestCase):
                 self.assertIn("editor-toolbar", page.text)
                 self.assertIn("sourceHistoryList", page.text)
                 self.assertIn("sourceReadiness", page.text)
-                self.assertIn("Run Tests", page.text)
+                self.assertIn("예제 채점", page.text)
+                self.assertIn("전체 채점", page.text)
                 self.assertIn("jobsButton", page.text)
                 self.assertIn("jobsPanel", page.text)
+                self.assertIn("resultModal", page.text)
+                self.assertIn("resultCaseResults", page.text)
                 self.assertIn("runProfileSelect", page.text)
+                self.assertIn("PyPy", page.text)
+                self.assertNotIn("Run Profile", page.text)
+                self.assertNotIn("Language Hint", page.text)
+                self.assertNotIn("View Result", page.text)
+                self.assertNotIn("Dismiss", page.text)
                 self.assertIn("toastHost", page.text)
                 self.assertIn("generationProgress", page.text)
                 self.assertNotIn("Refresh</button>", page.text)
@@ -242,6 +252,8 @@ class WebUiTest(unittest.TestCase):
                 self.assertIn("/api/jobs", script_text)
                 self.assertIn("cancelBlockedReason", script_text)
                 self.assertIn("/api/config", script_text)
+                self.assertIn("pypy", script_text)
+                self.assertIn("PyPy", script_text)
                 self.assertNotIn("profileSelect", script_text)
                 stylesheet = client.get("/static/styles.css")
                 self.assertEqual(stylesheet.status_code, 200)
@@ -274,6 +286,7 @@ class WebUiTest(unittest.TestCase):
                 self.assertIn(".source-history", stylesheet_text)
                 self.assertIn(".code-editor", stylesheet_text)
                 self.assertIn(".job-cancel-reason", stylesheet_text)
+                self.assertIn(".case-result-row", stylesheet_text)
                 self.assertIn(".modal", stylesheet_text)
                 self.assertIn("@media (max-width: 900px)", stylesheet_text)
                 status = client.get("/api/status")
@@ -289,8 +302,8 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(config.status_code, 200)
                 self.assertEqual(config.json()["judgeProfile"], "full")
 
-    def test_problem_folder_update_allows_source_and_blocks_pack_problem(self) -> None:
-        """문제 폴더 갱신 허용 소스 및 차단 패키지 문제 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
+    def test_problem_folder_update_requires_created_folder(self) -> None:
+        """문제 폴더 갱신은 미리 생성한 폴더로만 허용되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-folder-test-") as tmp:
             tmp_path = Path(tmp)
             project = tmp_path / "project"
@@ -321,7 +334,14 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(problems.status_code, 200, problems.text)
                 by_id = {problem["problemId"]: problem for problem in problems.json()}
                 self.assertTrue(by_id["alpha"]["folderEditable"])
-                self.assertFalse(by_id["beta"]["folderEditable"])
+                self.assertTrue(by_id["beta"]["folderEditable"])
+
+                missing = client.patch("/api/problems/alpha/folder", json={"folder": "Graph"})
+                self.assertEqual(missing.status_code, 400, missing.text)
+                self.assertIn("created before moving", missing.json()["detail"])
+
+                created = client.post("/api/folders", json={"folder": "Graph"})
+                self.assertEqual(created.status_code, 200, created.text)
 
                 moved = client.patch("/api/problems/alpha/folder", json={"folder": "Graph"})
                 self.assertEqual(moved.status_code, 200, moved.text)
@@ -331,9 +351,164 @@ class WebUiTest(unittest.TestCase):
                     (source_problem / "problem.json").read_text(encoding="utf-8"),
                 )
 
-                blocked = client.patch("/api/problems/beta/folder", json={"folder": "Graph"})
-                self.assertEqual(blocked.status_code, 403, blocked.text)
-                self.assertIn(".aljpack", blocked.json()["detail"])
+                pack_moved = client.patch("/api/problems/beta/folder", json={"folder": "Graph"})
+                self.assertEqual(pack_moved.status_code, 200, pack_moved.text)
+                self.assertEqual(pack_moved.json()["folder"], "Graph")
+
+    def test_problem_folder_create_and_delete_confirmation_policy(self) -> None:
+        """폴더 생성과 삭제 확인 정책이 빈 폴더/문제 포함 폴더를 구분하는지 검증합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-web-folder-delete-test-") as tmp:
+            tmp_path = Path(tmp)
+            project = tmp_path / "project"
+            project.mkdir()
+            source_problem = (
+                tmp_path / "data" / "problem-sources" / "owner" / "repo" / "problems" / "alpha"
+            )
+            source_problem.mkdir(parents=True)
+            (source_problem / "problem.json").write_text(
+                '{"problemId":"alpha","title":"Alpha","folder":"Graph"}',
+                encoding="utf-8",
+            )
+            env = {
+                **os.environ,
+                "ALJ_PROJECT_ROOT": str(project),
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+                "ALJ_CACHE_HOME": str(tmp_path / "cache"),
+            }
+            with patch.dict(os.environ, env, clear=True):
+                client = TestClient(create_app())
+                created = client.post("/api/folders", json={"folder": "Empty"})
+                self.assertEqual(created.status_code, 200, created.text)
+                folders = client.get("/api/folders")
+                self.assertEqual(folders.status_code, 200, folders.text)
+                self.assertIn("Empty", {item["folder"] for item in folders.json()})
+
+                deleted_empty = client.request(
+                    "DELETE",
+                    "/api/folders",
+                    json={"folder": "Empty", "confirm_delete_problems": False},
+                )
+                self.assertEqual(deleted_empty.status_code, 200, deleted_empty.text)
+                self.assertTrue(deleted_empty.json()["deleted"])
+
+                needs_confirm = client.request(
+                    "DELETE",
+                    "/api/folders",
+                    json={"folder": "Graph", "confirm_delete_problems": False},
+                )
+                self.assertEqual(needs_confirm.status_code, 409, needs_confirm.text)
+                self.assertIn("폴더 내 문제들이 모두 삭제됩니다", needs_confirm.text)
+                self.assertEqual(needs_confirm.json()["problems"][0]["problemId"], "alpha")
+
+                confirmed = client.request(
+                    "DELETE",
+                    "/api/folders",
+                    json={"folder": "Graph", "confirm_delete_problems": True},
+                )
+                self.assertEqual(confirmed.status_code, 200, confirmed.text)
+                self.assertEqual(confirmed.json()["deletedProblems"], ["alpha"])
+                self.assertFalse(source_problem.exists())
+                self.assertEqual(client.get("/api/problems").json(), [])
+
+    def test_submission_rate_limit_is_per_problem(self) -> None:
+        """같은 문제의 제출은 5초 안에 거절되고 다른 문제는 영향을 받지 않는지 검증합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-web-rate-test-") as tmp:
+            cache = Path(tmp) / "cache"
+            calls: list[str] = []
+
+            def fake_run_submission(source, problem_id, profile, **kwargs):
+                calls.append(problem_id)
+                self.assertFalse(kwargs.get("stop_on_first_failure", True))
+                run_dir = cache / "runs" / f"run-{problem_id}-{len(calls)}"
+                run_dir.mkdir(parents=True)
+                (run_dir / "result.json").write_text(
+                    json.dumps(
+                        {
+                            "runId": run_dir.name,
+                            "problemId": problem_id,
+                            "profile": profile,
+                            "language": language_from_filename(source.name).lower(),
+                            "status": "accepted",
+                            "cases": [{"case": "001", "status": "ok"}],
+                            "metrics": {"maxTimeMs": 1, "maxMemoryBytes": 1024},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return run_dir
+
+            env = {
+                **os.environ,
+                "ALJ_CACHE_HOME": str(cache),
+                "ALJ_DATA_HOME": str(Path(tmp) / "data"),
+            }
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch("judge.web.service_runs.run_submission", side_effect=fake_run_submission),
+            ):
+                client = TestClient(create_app())
+                first = client.post(
+                    "/api/run",
+                    json={
+                        "problem_id": "06",
+                        "profile": "sample",
+                        "source_mode": "text",
+                        "filename": "main.py",
+                        "source_text": "print(1)\n",
+                    },
+                )
+                second = client.post(
+                    "/api/run",
+                    json={
+                        "problem_id": "06",
+                        "profile": "sample",
+                        "source_mode": "text",
+                        "filename": "main.py",
+                        "source_text": "print(1)\n",
+                    },
+                )
+                other_problem = client.post(
+                    "/api/run",
+                    json={
+                        "problem_id": "07",
+                        "profile": "sample",
+                        "source_mode": "text",
+                        "filename": "main.py",
+                        "source_text": "print(1)\n",
+                    },
+                )
+
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertEqual(second.status_code, 429, second.text)
+        self.assertIn("retryAfterSeconds", second.text)
+        self.assertEqual(other_problem.status_code, 200, other_problem.text)
+        self.assertEqual(calls, ["06", "07"])
+
+    def test_submission_filename_and_language_are_normalized(self) -> None:
+        """명시 언어가 파일명 정규화에 우선 적용되고 확장자 호환성을 검증하는지 확인합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-web-source-name-test-") as tmp:
+            env = {
+                **os.environ,
+                "ALJ_CACHE_HOME": str(Path(tmp) / "cache"),
+                "ALJ_DATA_HOME": str(Path(tmp) / "data"),
+            }
+            with patch.dict(os.environ, env, clear=True):
+                python_source = services.save_text_source("print(1)\n", "main", "06", "python")
+                pypy_source = services.save_text_source("print(1)\n", "main.py", "06", "pypy")
+                cpp_source = services.save_text_source("int main(){}\n", "solution.cpp", "06", "cpp")
+                java_source = services.save_text_source("class Main {}\n", "", "06", "java")
+                with self.assertRaises(JudgeError):
+                    services.save_text_source("int main(){}\n", "solution.cpp", "06", "python")
+                with self.assertRaises(JudgeError):
+                    services.save_text_source("x", "main.rb", "06", "python")
+                with self.assertRaises(JudgeError):
+                    services.save_text_source("x", "main", "06", "ruby")
+
+        self.assertEqual(python_source.name, "main.py")
+        self.assertEqual(pypy_source.name, "main.py")
+        self.assertEqual(cpp_source.name, "solution.cpp")
+        self.assertEqual(language_from_filename(cpp_source.name), "C++")
+        self.assertEqual(java_source.name, "Main.java")
 
     def test_judge_jobs_api_lists_and_cancels_queued_job(self) -> None:
         """채점기 작업 API 목록 조회 및 취소 대기 중 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -380,6 +555,37 @@ class WebUiTest(unittest.TestCase):
         dismissed = client.delete(f"/api/jobs/{queued_job['jobId']}")
         self.assertEqual(dismissed.status_code, 200, dismissed.text)
         release.set()
+
+    def test_judge_jobs_api_paginates_judge_runs_by_newest_first(self) -> None:
+        """제출 결과 API가 judge-run만 최신 제출순으로 페이지네이션하는지 검증합니다."""
+        client = TestClient(create_app())
+        client.app.state.jobs.start(
+            kind="judge-generate",
+            title="generate",
+            problem_id="06",
+            operation=lambda: {"ok": True},
+        )
+        for index in range(6):
+            client.app.state.jobs.start(
+                kind="judge-run",
+                title=f"run-{index}",
+                problem_id="06",
+                operation=lambda value=index: {"index": value},
+            )
+            time.sleep(0.002)
+
+        first_page = client.get("/api/jobs?kind=judge-run&page=1&page_size=3&order=queued_desc")
+        second_page = client.get("/api/jobs?kind=judge-run&page=2&page_size=3&order=queued_desc")
+
+        self.assertEqual(first_page.status_code, 200, first_page.text)
+        self.assertEqual(second_page.status_code, 200, second_page.text)
+        first_data = first_page.json()
+        second_data = second_page.json()
+        self.assertEqual(first_data["total"], 6)
+        self.assertEqual(first_data["totalPages"], 2)
+        self.assertEqual([job["title"] for job in first_data["jobs"]], ["run-5", "run-4", "run-3"])
+        self.assertEqual([job["title"] for job in second_data["jobs"]], ["run-2", "run-1", "run-0"])
+        self.assertTrue(all(job["kind"] == "judge-run" for job in first_data["jobs"]))
 
     def test_pack_install_job_exposes_blocked_cancel_reason(self) -> None:
         """패키지 설치 작업 노출 차단 취소 사유 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -466,6 +672,63 @@ class WebUiTest(unittest.TestCase):
                 after_clear = client.get("/api/sources")
                 self.assertEqual(after_clear.status_code, 200, after_clear.text)
                 self.assertEqual(after_clear.json()["sources"], [])
+
+    def test_run_pasted_pypy_submission_preserves_language(self) -> None:
+        """PyPy로 붙여넣은 제출이 .py 확장자 추론에 덮이지 않고 실행 언어로 전달되는지 검증합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-web-pypy-test-") as tmp:
+            cache = Path(tmp) / "cache"
+
+            def fake_run_submission(source, problem_id, profile, **kwargs):
+                self.assertEqual(kwargs.get("language"), "pypy")
+                run_dir = cache / "runs" / "run-pypy"
+                run_dir.mkdir(parents=True)
+                (run_dir / "result.json").write_text(
+                    json.dumps(
+                        {
+                            "runId": "run-pypy",
+                            "problemId": problem_id,
+                            "profile": profile,
+                            "language": kwargs.get("language"),
+                            "status": "accepted",
+                            "cases": [{"case": "001", "status": "ok"}],
+                            "metrics": {"maxTimeMs": 1, "maxMemoryBytes": None},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return run_dir
+
+            env = {
+                **os.environ,
+                "ALJ_CACHE_HOME": str(cache),
+                "ALJ_DATA_HOME": str(Path(tmp) / "data"),
+            }
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch("judge.web.service_runs.run_submission", side_effect=fake_run_submission),
+            ):
+                client = TestClient(create_app())
+                response = client.post(
+                    "/api/run",
+                    json={
+                        "problem_id": "06",
+                        "profile": "sample",
+                        "source_mode": "text",
+                        "filename": "main.py",
+                        "language": "pypy",
+                        "source_text": "print(1)\n",
+                    },
+                )
+                self.assertEqual(response.status_code, 200, response.text)
+                result = response.json()
+                self.assertEqual(result["language"], "pypy")
+                sources = client.get("/api/sources")
+                self.assertEqual(sources.status_code, 200, sources.text)
+                source_entry = sources.json()["sources"][0]
+                self.assertEqual(source_entry["filename"], "main.py")
+                self.assertEqual(source_entry["language"], "PyPy")
+                self.assertEqual(source_entry["languageId"], "pypy")
+                self.assertEqual(source_entry["lastRun"]["language"], "pypy")
 
     def test_run_defaults_to_full_profile_when_profile_is_omitted(self) -> None:
         """실행 기본값 전체 프로필 프로필 생략 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -819,27 +1082,58 @@ class WebUiTest(unittest.TestCase):
 
     def test_non_local_binding_can_opt_in_to_run_api(self) -> None:
         """비 로컬 바인딩 가능 선택 실행 API 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
-        client = TestClient(
-            create_app(
-                local_binding=False,
-                remote_warning=True,
-                allow_remote_run=True,
-            )
-        )
-        with patch("judge.web.services.run_problem", return_value={"status": "accepted"}):
-            response = client.post(
-                "/api/run",
-                json={
-                    "problem_id": "06",
-                    "profile": "sample",
-                    "source_mode": "text",
-                    "filename": "main.py",
-                    "source_text": "print(1)",
-                },
-            )
+        with tempfile.TemporaryDirectory(prefix="alj-web-remote-run-test-") as tmp:
+            cache = Path(tmp) / "cache"
+
+            def fake_run_submission(source, problem_id, profile, **_kwargs):
+                run_dir = cache / "runs" / "remote-run"
+                run_dir.mkdir(parents=True)
+                (run_dir / "result.json").write_text(
+                    json.dumps(
+                        {
+                            "runId": "remote-run",
+                            "problemId": problem_id,
+                            "profile": profile,
+                            "language": "python",
+                            "status": "accepted",
+                            "cases": [{"case": "001", "status": "ok"}],
+                            "metrics": {"maxTimeMs": 1, "maxMemoryBytes": None},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return run_dir
+
+            env = {
+                **os.environ,
+                "ALJ_CACHE_HOME": str(cache),
+                "ALJ_DATA_HOME": str(Path(tmp) / "data"),
+            }
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch("judge.web.service_runs.run_submission", side_effect=fake_run_submission),
+            ):
+                client = TestClient(
+                    create_app(
+                        local_binding=False,
+                        remote_warning=True,
+                        allow_remote_run=True,
+                    )
+                )
+                response = client.post(
+                    "/api/run",
+                    json={
+                        "problem_id": "06",
+                        "profile": "sample",
+                        "source_mode": "text",
+                        "filename": "main.py",
+                        "source_text": "print(1)",
+                    },
+                )
+                config = client.get("/api/config")
 
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertTrue(client.get("/api/config").json()["security"]["remoteRunAllowed"])
+        self.assertTrue(config.json()["security"]["remoteRunAllowed"])
 
     def test_source_text_and_upload_size_limits_return_413(self) -> None:
         """소스 텍스트 및 업로드 크기 제한 반환 413 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""

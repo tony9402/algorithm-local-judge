@@ -166,6 +166,14 @@ def format_failure_report(summary: dict) -> str:
         f"generatedCount: {len(summary.get('generated') or [])}",
         f"failureCount: {len(failures)}",
     ]
+    pypy_summary = summary.get("pypy") or {}
+    if pypy_summary:
+        lines.append(
+            "pypy: "
+            f"{pypy_summary.get('status')} · "
+            f"{pypy_summary.get('problemId') or '-'} · "
+            f"{pypy_summary.get('source') or pypy_summary.get('reason') or '-'}"
+        )
     for index, failure in enumerate(failures, start=1):
         lines.extend(
             [
@@ -201,6 +209,9 @@ def docker_verification_script() -> str:
         import subprocess
         import sys
         import threading
+        from pathlib import Path
+
+        from judge.core.paths import cache_root
 
         SUMMARY_PREFIX = {SUMMARY_PREFIX!r}
         PROGRESS_PREFIX = {PROGRESS_PREFIX!r}
@@ -281,6 +292,261 @@ def docker_verification_script() -> str:
             }}
 
 
+        def synthetic_failure(
+            problem_id: str,
+            stage: str,
+            command: list[str],
+            stderr: str,
+            stdout: str = "",
+        ) -> dict[str, object]:
+            return {{
+                "problemId": problem_id,
+                "stage": stage,
+                "command": " ".join(command),
+                "exitCode": 1,
+                "stdout": trim(stdout),
+                "stderr": trim(stderr),
+            }}
+
+
+        def doctor_tools(doctor: subprocess.CompletedProcess[str]) -> dict[str, object]:
+            try:
+                payload = json.loads(doctor.stdout)
+            except json.JSONDecodeError:
+                return {{}}
+            tools = payload.get("tools")
+            return tools if isinstance(tools, dict) else {{}}
+
+
+        def pypy_runtime_failure(
+            tools: dict[str, object],
+            doctor: subprocess.CompletedProcess[str],
+        ) -> dict[str, object] | None:
+            runtime = tools.get("pypyRuntime")
+            if isinstance(runtime, dict) and runtime.get("status") == "ok":
+                return None
+            reason = "PyPy runtime is not available in the Docker image."
+            if isinstance(runtime, dict):
+                reason = str(runtime.get("hint") or runtime.get("message") or reason)
+            return synthetic_failure(
+                "__setup__",
+                "pypy runtime",
+                list(doctor.args),
+                reason,
+                doctor.stdout,
+            )
+
+
+        def write_file(path: Path, content: str) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+
+
+        def create_pypy_smoke_package() -> tuple[str, Path, Path]:
+            problem_id = f"pypy-smoke-{{os.getpid()}}"
+            package_root = Path("/tmp") / problem_id
+            problem_root = package_root / "problems" / problem_id
+            user_source = package_root / "submission.py"
+            write_file(package_root / "testlib.h", "// docker pypy smoke fixture\\n")
+            write_file(
+                problem_root / "problem.json",
+                json.dumps(
+                    {{
+                        "schemaVersion": 1,
+                        "problemId": problem_id,
+                        "title": "Docker PyPy Smoke",
+                        "version": 1,
+                        "defaultProfile": "sample",
+                        "tools": {{
+                            "generator": "generator/generator.cpp",
+                            "generatorConfig": "generator/cases.yml",
+                            "validator": "validator/validator.cpp",
+                            "checker": "checker/checker.cpp",
+                            "solution": "solutions/reference.cpp",
+                        }},
+                        "limits": {{
+                            "compileTimeoutMs": 5000,
+                            "generationTimeoutMs": 5000,
+                            "solutionTimeoutMs": 2000,
+                            "userTimeoutMs": 2000,
+                            "userMemoryLimitMb": 512,
+                        }},
+                    }},
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+            )
+            write_file(
+                problem_root / "generator" / "cases.yml",
+                (
+                    "profiles:\\n"
+                    "  sample:\\n"
+                    "    cases:\\n"
+                    "      - name: pypy-smoke\\n"
+                    "        type: fixed\\n"
+                    "        content: |\\n"
+                    "          11 31\\n"
+                ),
+            )
+            write_file(problem_root / "generator" / "generator.cpp", "int main() {{ return 0; }}\\n")
+            write_file(problem_root / "validator" / "validator.cpp", "int main() {{ return 0; }}\\n")
+            write_file(
+                problem_root / "checker" / "checker.cpp",
+                (
+                    "#include <fstream>\\n"
+                    "#include <sstream>\\n"
+                    "#include <string>\\n"
+                    "int main(int argc, char** argv) {{\\n"
+                    "  if (argc < 4) return 1;\\n"
+                    "  std::ifstream output(argv[2]);\\n"
+                    "  std::ifstream answer(argv[3]);\\n"
+                    "  std::ostringstream output_text;\\n"
+                    "  std::ostringstream answer_text;\\n"
+                    "  output_text << output.rdbuf();\\n"
+                    "  answer_text << answer.rdbuf();\\n"
+                    "  return output_text.str() == answer_text.str() ? 0 : 1;\\n"
+                    "}}\\n"
+                ),
+            )
+            write_file(
+                problem_root / "solutions" / "reference.cpp",
+                (
+                    "#include <iostream>\\n"
+                    "int main() {{\\n"
+                    "  long long a = 0, b = 0;\\n"
+                    "  std::cin >> a >> b;\\n"
+                    "  std::cout << (a + b) << '\\\\n';\\n"
+                    "  return 0;\\n"
+                    "}}\\n"
+                ),
+            )
+            write_file(
+                user_source,
+                (
+                    "import sys\\n"
+                    "values = [int(part) for part in sys.stdin.read().split()]\\n"
+                    "print(sum(values))\\n"
+                ),
+            )
+            return problem_id, package_root, user_source
+
+
+        def latest_run_result() -> dict[str, object]:
+            run_root = cache_root() / "runs"
+            if not run_root.exists():
+                return {{}}
+            result_paths = sorted(
+                run_root.glob("*/result.json"),
+                key=lambda path: path.stat().st_mtime,
+            )
+            if not result_paths:
+                return {{}}
+            try:
+                return json.loads(result_paths[-1].read_text(encoding="utf-8"))
+            except Exception:
+                return {{}}
+
+
+        def pypy_smoke(
+        ) -> tuple[dict[str, object], dict[str, object] | None]:
+            problem_id, package_root, source = create_pypy_smoke_package()
+            install_command = ["judge", "problem", "install", str(package_root)]
+            install_result = run(install_command)
+            summary = {{"status": "running", "problemId": problem_id, "source": str(source)}}
+            if install_result.returncode != 0:
+                summary["status"] = "failed"
+                return summary, command_failure(
+                    problem_id,
+                    "pypy smoke install",
+                    install_command,
+                    install_result,
+                )
+
+            generate_command = ["judge", "generate", problem_id, "--profile", "sample", "--force"]
+            generate_result = run(generate_command)
+            if generate_result.returncode != 0:
+                summary["status"] = "failed"
+                return summary, command_failure(
+                    problem_id,
+                    "pypy smoke generate",
+                    generate_command,
+                    generate_result,
+                )
+
+            emit(f"pypy smoke {{problem_id}} {{source.name}}")
+            command = [
+                "judge",
+                "--problem",
+                problem_id,
+                "--profile",
+                "sample",
+                "--language",
+                "pypy",
+                str(source),
+            ]
+            result = run(command)
+            summary["status"] = "running" if result.returncode == 0 else "failed"
+            if result.returncode != 0:
+                return summary, command_failure(problem_id, "pypy smoke", command, result)
+
+            payload = latest_run_result()
+            summary["language"] = payload.get("language")
+            summary["resultStatus"] = payload.get("status")
+            if payload.get("language") != "pypy" or payload.get("status") != "accepted":
+                summary["status"] = "failed"
+                return summary, synthetic_failure(
+                    problem_id,
+                    "pypy result metadata",
+                    command,
+                    (
+                        "expected latest result.json to contain "
+                        "language=pypy and status=accepted"
+                    ),
+                    json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                )
+
+            emit(f"python default smoke {{problem_id}} {{source.name}}")
+            default_command = [
+                "judge",
+                "--problem",
+                problem_id,
+                "--profile",
+                "sample",
+                str(source),
+            ]
+            default_result = run(default_command)
+            if default_result.returncode != 0:
+                summary["status"] = "failed"
+                return summary, command_failure(
+                    problem_id,
+                    "python default smoke",
+                    default_command,
+                    default_result,
+                )
+
+            default_payload = latest_run_result()
+            summary["pythonDefaultLanguage"] = default_payload.get("language")
+            summary["pythonDefaultStatus"] = default_payload.get("status")
+            if (
+                default_payload.get("language") != "python"
+                or default_payload.get("status") != "accepted"
+            ):
+                summary["status"] = "failed"
+                return summary, synthetic_failure(
+                    problem_id,
+                    "python default metadata",
+                    default_command,
+                    (
+                        "expected latest result.json to contain "
+                        "language=python and status=accepted"
+                    ),
+                    json.dumps(default_payload, ensure_ascii=False, sort_keys=True),
+                )
+
+            summary["status"] = "passed"
+            return summary, None
+
+
         def finish(summary: dict[str, object]) -> None:
             print(
                 SUMMARY_PREFIX
@@ -313,6 +579,21 @@ def docker_verification_script() -> str:
                 "problemCount": 0,
                 "generated": [],
                 "failures": [command_failure("__setup__", "doctor", doctor.args, doctor)],
+                "pypy": {{"status": "not_run", "reason": "doctor failed"}},
+            }})
+        tools = doctor_tools(doctor)
+        pypy_failure = pypy_runtime_failure(tools, doctor)
+        if pypy_failure is not None:
+            finish({{
+                "repository": repository,
+                "profile": profile,
+                "problemCount": 0,
+                "generated": [],
+                "failures": [pypy_failure],
+                "pypy": {{
+                    "status": "failed",
+                    "reason": pypy_failure["stderr"],
+                }},
             }})
 
         emit("installing repository " + repository)
@@ -324,6 +605,7 @@ def docker_verification_script() -> str:
                 "problemCount": 0,
                 "generated": [],
                 "failures": [command_failure("__setup__", "install", install.args, install)],
+                "pypy": {{"status": "not_run", "reason": "install failed"}},
             }})
 
         listing = run(["judge", "list"])
@@ -334,6 +616,7 @@ def docker_verification_script() -> str:
                 "problemCount": 0,
                 "generated": [],
                 "failures": [command_failure("__setup__", "list", listing.args, listing)],
+                "pypy": {{"status": "not_run", "reason": "list failed"}},
             }})
 
         problem_ids = installed_problem_ids(listing.stdout)
@@ -353,6 +636,7 @@ def docker_verification_script() -> str:
                         "stderr": "no problems were installed from " + repository,
                     }}
                 ],
+                "pypy": {{"status": "not_run", "reason": "no installed problems"}},
             }})
 
         generated = []
@@ -389,15 +673,76 @@ def docker_verification_script() -> str:
             generated.append(problem_id)
             emit(f"[{{index}}/{{len(problem_ids)}}] {{problem_id}} OK")
 
+        pypy_summary, pypy_failure = pypy_smoke()
+        if pypy_failure is not None:
+            failures.append(pypy_failure)
+
         finish({{
             "repository": repository,
             "profile": profile,
             "problemCount": len(problem_ids),
             "generated": generated,
             "failures": failures,
+            "pypy": pypy_summary,
         }})
         """
     ).strip() + "\n"
+
+
+class DockerRemotePackageScriptContractTest(unittest.TestCase):
+    """Docker 데몬 없이도 컨테이너 내부 검증 스크립트의 핵심 계약을 확인합니다."""
+
+    def test_dockerfile_installs_pypy_runtime(self) -> None:
+        """Docker 이미지가 PyPy 런타임을 배포 계약에 포함하는지 확인합니다."""
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+        self.assertIn("pypy3", dockerfile)
+
+    def test_verification_script_checks_pypy_runtime_and_runs_dynamic_pypy_smoke(self) -> None:
+        """Docker 검증 스크립트가 PyPy를 고정 문제 없이 실제 Judge 실행으로 검증하는지 확인합니다."""
+        script = docker_verification_script()
+
+        self.assertIn("pypyRuntime", script)
+        self.assertIn('"--language",', script)
+        self.assertIn('"pypy",', script)
+        self.assertIn("python default smoke", script)
+        self.assertIn("pythonDefaultLanguage", script)
+        self.assertIn("create_pypy_smoke_package()", script)
+        self.assertIn("pypy-smoke-{os.getpid()}", script)
+        self.assertIn("judge\", \"problem\", \"install\"", script)
+        self.assertIn("latest_run_result()", script)
+        self.assertNotIn('"06"', script)
+        self.assertNotIn("main_solution.ac.py", script)
+
+    def test_failure_report_includes_pypy_context(self) -> None:
+        """Docker 실패 리포트가 PyPy smoke 실패 대상을 함께 표시하는지 확인합니다."""
+        report = format_failure_report(
+            {
+                "repository": "owner/repo",
+                "profile": "sample",
+                "problemCount": 1,
+                "generated": [],
+                "pypy": {
+                    "status": "failed",
+                    "problemId": "dynamic-problem",
+                    "source": "/data/problem-sources/repo/problems/dynamic-problem/solutions/ac.ac.py",
+                },
+                "failures": [
+                    {
+                        "problemId": "dynamic-problem",
+                        "stage": "pypy smoke",
+                        "command": "judge --language pypy <dynamic-source>",
+                        "exitCode": 1,
+                        "stdout": "",
+                        "stderr": "failure",
+                    }
+                ],
+            }
+        )
+
+        self.assertIn("pypy: failed", report)
+        self.assertIn("dynamic-problem", report)
+        self.assertIn("pypy smoke", report)
 
 
 @unittest.skipUnless(
@@ -468,6 +813,13 @@ class DockerRemotePackageE2ETest(unittest.TestCase):
         self.assertGreater(summary["problemCount"], 0)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(summary["problemCount"], len(summary["generated"]))
+        self.assertEqual(summary.get("pypy", {}).get("status"), "passed", format_failure_report(summary))
+        self.assertEqual(summary.get("pypy", {}).get("language"), "pypy")
+        self.assertEqual(summary.get("pypy", {}).get("resultStatus"), "accepted")
+        self.assertEqual(summary.get("pypy", {}).get("pythonDefaultLanguage"), "python")
+        self.assertEqual(summary.get("pypy", {}).get("pythonDefaultStatus"), "accepted")
+        self.assertTrue(summary.get("pypy", {}).get("problemId"))
+        self.assertTrue((summary.get("pypy", {}).get("source") or "").endswith(".py"))
 
 
 if __name__ == "__main__":

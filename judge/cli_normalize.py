@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from judge.cli_dispatch import COMMAND_HANDLERS
 from judge.core.errors import JudgeError
 
-RUN_GLOBAL_OPTIONS_WITH_VALUES = {"--problem", "--profile"}
+RUN_GLOBAL_OPTIONS_WITH_VALUES = {"--problem", "--profile", "--language"}
 
 
 def run_global_option_name(token: str) -> str | None:

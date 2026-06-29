@@ -4,7 +4,6 @@
 
 import {
   LAST_RESULTS_KEY,
-  activeRepositoryKey,
   state,
 } from "./state.js";
 import { readStorage, writeStorage } from "./storage.js";
@@ -14,24 +13,32 @@ export function storedLastResults() {
   const results = readStorage(LAST_RESULTS_KEY);
   return results && typeof results === "object" ? results : {};
 }
-function resultKey(problemId = state.selectedProblem) {
-  return problemId ? `${activeRepositoryKey()}:${problemId}` : null;
+function resultKey(problemId = state.selectedProblem, repositoryName = state.activeRepository || null) {
+  const repositoryKey = repositoryName || "legacy";
+  return problemId ? `${repositoryKey}:${problemId}` : null;
 }
-export function persistProblemLastResult(patch, problemId = state.selectedProblem) {
-  const key = resultKey(problemId);
+export function persistProblemLastResult(
+  patch,
+  problemId = state.selectedProblem,
+  repositoryName = state.activeRepository || null
+) {
+  const key = resultKey(problemId, repositoryName);
   if (!key) return;
   const results = storedLastResults();
   results[key] = {
     ...(results[key] || {}),
     ...patch,
     problemId,
-    repositoryName: state.activeRepository || null,
+    repositoryName,
     updatedAt: Date.now(),
   };
   writeStorage(LAST_RESULTS_KEY, results);
 }
-export function currentProblemResult(problemId = state.selectedProblem) {
-  const key = resultKey(problemId);
+export function currentProblemResult(
+  problemId = state.selectedProblem,
+  repositoryName = state.activeRepository || null
+) {
+  const key = resultKey(problemId, repositoryName);
   return key ? storedLastResults()[key] || null : null;
 }
 export function hasFreshFullTest(problemId = state.selectedProblem) {

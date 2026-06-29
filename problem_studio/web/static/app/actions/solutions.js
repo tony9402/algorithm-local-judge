@@ -29,16 +29,23 @@ import {
   solutionParts,
 } from "../resources-view.js";
 import { state } from "../state.js";
+import { rememberView, selectionKey } from "../view-persistence.js";
 import {
-  dirtySolutionSet,
   failedSolutionChecks,
   formatSolutionFailureSummary,
   normalizedSolutionPath,
   solutionCheckSource,
 } from "../solution-status.js";
-import { appendOutput, showAlert, showResult } from "../feedback.js";
+import {
+  appendOutput,
+  recordOperationFailure,
+  resolveTabFeedback,
+  showAlert,
+  showResult,
+} from "../feedback.js";
 import { enqueueQueuedJob, runQueuedJob } from "../jobs-view.js";
 import { showLastRun } from "../progress.js";
+import { currentProblemResult } from "../results.js";
 
 const solutionCallbacks = {
   closeModals: () => {},
@@ -69,59 +76,152 @@ export function solutionFilePaths() {
     .map((file) => normalizedSolutionPath(file.path));
 }
 
-function mergeSolutionVerification(previous, partial) {
-  const currentPaths = solutionFilePaths();
-  const currentPathSet = new Set(currentPaths);
-  const byPath = new Map();
-  for (const check of previous?.checks || []) {
-    const path = normalizedSolutionPath(solutionCheckSource(check));
-    if (currentPathSet.has(path)) byPath.set(path, check);
-  }
-  for (const check of partial?.checks || []) {
-    byPath.set(normalizedSolutionPath(solutionCheckSource(check)), check);
-  }
-  const checks = currentPaths
-    .map((path) => byPath.get(path))
-    .filter(Boolean);
-  const everyCurrentPathChecked = currentPaths.every((path) => byPath.has(path));
-  const verifiedNow = partial?.checks?.length || 0;
-  const maintainedCount = Math.max(0, checks.length - verifiedNow);
-  return {
-    ...(previous || {}),
-    ...partial,
-    checks,
-    passed: checks.every((check) => check.passed),
-    complete: everyCurrentPathChecked,
-    verifiedCount: verifiedNow,
-    totalCount: currentPaths.length,
-    skippedCount: 0,
-    maintainedCount,
-    incremental: verifiedNow < currentPaths.length,
+function renderSolutionStatusViews() {
+  renderSolutionValidationSummary();
+  renderTabFiles();
+}
+function solutionJobToken() {
+  return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+function isCurrentProblemContext(problemId, repositoryName) {
+  return state.selectedProblem === problemId && (state.activeRepository || null) === repositoryName;
+}
+function setActiveSolutionVerification(problemId, patch = {}) {
+  const active = state.activeSolutionVerification;
+  if (active?.token && patch.token && active.token !== patch.token && patch.jobId) return;
+  state.activeSolutionVerification = {
+    ...(active || {}),
+    problemId,
+    status: "running",
+    startedAt: Date.now(),
+    ...patch,
   };
+  renderSolutionStatusViews();
 }
-function pathsNeedingSolutionVerification(options = {}) {
-  const allPaths = solutionFilePaths();
-  if (options.paths?.length) return options.paths.map(normalizedSolutionPath);
-  if (options.forceAll || !state.lastSolutionVerification) return allPaths;
-  const checked = new Set(
-    (state.lastSolutionVerification.checks || []).map((check) =>
-      normalizedSolutionPath(solutionCheckSource(check))
-    )
+function resetSolutionVerificationForRun(problemId, repositoryName, allPaths) {
+  const verification = {
+    problemId,
+    profile: "hidden",
+    scope: "all",
+    complete: false,
+    passed: null,
+    verifiedCount: 0,
+    totalCount: allPaths.length,
+    skippedCount: 0,
+    checks: [],
+    checkedAt: Date.now(),
+  };
+  state.lastSolutionVerification = verification;
+  solutionCallbacks.persistProblemLastResult?.(
+    { solutionVerification: verification },
+    problemId,
+    repositoryName
   );
-  const dirty = dirtySolutionSet();
-  return allPaths.filter((path) => dirty.has(path) || !checked.has(path));
+  resolveTabFeedback("solutions", (item) => item.key === "solution-verify:all");
 }
-/**
- * 솔루션 dirty 캐시, 선택 상태, 또는 화면 표시를 초기화합니다.
- *
- * @param {Array} paths 같은 작업을 적용할 파일 또는 디렉터리 경로 목록입니다.
- */
-function clearSolutionDirty(paths) {
-  const completed = new Set((paths || []).map(normalizedSolutionPath));
-  if (!completed.size) return;
-  solutionCallbacks.setDirtySolutionPaths(
-    state.dirtySolutionPaths.filter((path) => !completed.has(path))
+function clearActiveSolutionVerification(problemId, token) {
+  const active = state.activeSolutionVerification;
+  if (!active || active.problemId !== problemId) return;
+  if (token && active.token && active.token !== token) return;
+  state.activeSolutionVerification = null;
+  renderSolutionStatusViews();
+}
+function setActiveSolutionTest(problemId, path, patch = {}) {
+  const normalizedPath = normalizedSolutionPath(path);
+  const active = state.activeSolutionTestsByPath?.[normalizedPath];
+  if (active?.token && patch.token && active.token !== patch.token && patch.jobId) return;
+  state.activeSolutionTestsByPath = {
+    ...(state.activeSolutionTestsByPath || {}),
+    [normalizedPath]: {
+      ...(active || {}),
+      problemId,
+      path: normalizedPath,
+      startedAt: Date.now(),
+      status: "running",
+      ...patch,
+    },
+  };
+  renderSolutionStatusViews();
+}
+function clearActiveSolutionTest(problemId, path, token) {
+  const normalizedPath = normalizedSolutionPath(path);
+  const active = state.activeSolutionTestsByPath?.[normalizedPath];
+  if (!active || active.problemId !== problemId) return;
+  if (token && active.token && active.token !== token) return;
+  const next = { ...(state.activeSolutionTestsByPath || {}) };
+  delete next[normalizedPath];
+  state.activeSolutionTestsByPath = next;
+  renderSolutionStatusViews();
+}
+function persistSolutionTestResult(problemId, path, result, repositoryName) {
+  const normalizedPath = normalizedSolutionPath(path);
+  const stored = currentProblemResult(problemId, repositoryName)?.solutionTestResultsByPath || {};
+  const next = {
+    ...stored,
+    [normalizedPath]: {
+      ...result,
+      scope: "single",
+      solution: normalizedPath,
+      checkedAt: Date.now(),
+    },
+  };
+  if (isCurrentProblemContext(problemId, repositoryName)) {
+    state.solutionTestResultsByPath = next;
+  }
+  solutionCallbacks.persistProblemLastResult?.(
+    { solutionTestResultsByPath: next },
+    problemId,
+    repositoryName
   );
+}
+function dirtyPathsAfterClearing(problemId, repositoryName, completedPaths) {
+  const completed = new Set((completedPaths || []).map(normalizedSolutionPath));
+  const source = isCurrentProblemContext(problemId, repositoryName)
+    ? state.dirtySolutionPaths
+    : currentProblemResult(problemId, repositoryName)?.dirtySolutionPaths || [];
+  return source.filter((path) => !completed.has(normalizedSolutionPath(path)));
+}
+function checkMatchesSource(check, source) {
+  const left = normalizedSolutionPath(solutionCheckSource(check));
+  const right = normalizedSolutionPath(source);
+  return left === right || left.endsWith(`/${right}`) || right.endsWith(`/${left}`);
+}
+function applyPartialSolutionCheck(problemId, repositoryName, token, partialCheck, partialSummary = {}) {
+  if (!partialCheck || !isCurrentProblemContext(problemId, repositoryName)) return;
+  const active = state.activeSolutionVerification;
+  if (!active || active.problemId !== problemId || active.token !== token) return;
+  const existing = state.lastSolutionVerification || {};
+  const checks = Array.isArray(existing.checks) ? [...existing.checks] : [];
+  const index = checks.findIndex((check) => checkMatchesSource(check, partialCheck.source));
+  if (index >= 0) {
+    checks[index] = { ...checks[index], ...partialCheck };
+  } else {
+    checks.push(partialCheck);
+  }
+  const verifiedCount = Number(partialSummary.verifiedCount ?? checks.length);
+  const totalCount = Number(partialSummary.totalCount ?? existing.totalCount ?? solutionFilePaths().length);
+  const failedCount = Number(
+    partialSummary.failedCount ?? checks.filter((check) => !check.passed).length
+  );
+  state.lastSolutionVerification = {
+    ...existing,
+    problemId,
+    profile: existing.profile || "hidden",
+    scope: "all",
+    complete: false,
+    passed: failedCount === 0 && verifiedCount >= totalCount,
+    verifiedCount,
+    totalCount,
+    skippedCount: Math.max(0, totalCount - verifiedCount),
+    partial: true,
+    partialSummary: {
+      verifiedCount,
+      failedCount,
+      totalCount,
+    },
+    checks,
+  };
+  renderSolutionStatusViews();
 }
 /**
  * 솔루션 create 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
@@ -262,66 +362,236 @@ export async function renameSolution() {
   solutionCallbacks.closeModals();
   showResult("솔루션을 저장했습니다.", "summary success");
 }
-export async function verifySolutions(options = {}) {
-  if (!state.selectedProblem) throw new Error("Select a problem first.");
-  const allPaths = solutionFilePaths();
-  const requestedPaths = pathsNeedingSolutionVerification(options);
-  if (!requestedPaths.length && state.lastSolutionVerification) {
-    const cached = state.lastSolutionVerification;
-    showLastRun(
-      "솔루션 기대 결과 검증 생략",
-      `${cached.checks?.length || 0}개 솔루션은 변경된 소스가 없어 기존 결과를 유지했습니다.`,
-      cached.passed ? "success" : "error"
-    );
-    renderSolutionValidationSummary();
-    renderTabFiles();
-    return cached;
+function removeDeletedSolutionState(path) {
+  const normalizedPath = normalizedSolutionPath(path);
+  solutionCallbacks.removeSolutionChecks([normalizedPath]);
+  solutionCallbacks.setDirtySolutionPaths(
+    state.dirtySolutionPaths.filter(
+      (item) => normalizedSolutionPath(item) !== normalizedPath
+    )
+  );
+  if (state.activeSolutionTestsByPath?.[normalizedPath]) {
+    const next = { ...(state.activeSolutionTestsByPath || {}) };
+    delete next[normalizedPath];
+    state.activeSolutionTestsByPath = next;
   }
-  const partial = await runQueuedJob(
-    `/api/problems/${state.selectedProblem}/solutions/verify/jobs`,
+  state.lastSolutionStress = null;
+}
+function selectAfterSolutionDelete(path) {
+  const normalizedPath = normalizedSolutionPath(path);
+  if (normalizedSolutionPath(state.selectedFile) !== normalizedPath) return false;
+  const nextPath =
+    state.files.find((file) => file.path.startsWith("solutions/"))?.path || null;
+  if (nextPath) {
+    selectSolutionPath(nextPath);
+    return true;
+  }
+  state.selectedFile = null;
+  delete state.tabSelections[selectionKey()];
+  rememberView();
+  renderSolutionStatusViews();
+  return true;
+}
+export async function deleteSolution(path) {
+  const normalizedPath = normalizedSolutionPath(path);
+  if (!state.selectedProblem || !normalizedPath.startsWith("solutions/")) {
+    throw new Error("삭제할 솔루션 파일을 먼저 선택하세요.");
+  }
+  const confirmed = window.confirm(
+    `${normalizedPath} 솔루션 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`
+  );
+  if (!confirmed) return null;
+  const result = await api(
+    `/api/problems/${encodeURIComponent(state.selectedProblem)}/solutions`,
     {
-      profile: "hidden",
-      solutions: requestedPaths.length === allPaths.length ? null : requestedPaths,
-    },
-    { ...options, label: "솔루션 기대 결과 검증" }
+      method: "DELETE",
+      body: JSON.stringify({ path: normalizedPath }),
+    }
   );
-  clearSolutionDirty(requestedPaths);
-  const result =
-    requestedPaths.length === allPaths.length
-      ? { ...partial, incremental: false, complete: true, totalCount: allPaths.length }
-      : mergeSolutionVerification(state.lastSolutionVerification, partial);
-  const currentRunPassed = Boolean(partial.passed);
-  state.lastSolutionVerification = result;
-  solutionCallbacks.persistProblemLastResult?.({
-    solutionVerification: result,
-    dirtySolutionPaths: state.dirtySolutionPaths,
-  });
-  renderSolutionValidationSummary();
-  renderTabFiles();
-  if (!currentRunPassed && !options.silentFailureAlert) {
-    const failedCount = failedSolutionChecks(partial).length;
-    showAlert(`기대 결과와 다른 솔루션 ${failedCount}개를 찾았습니다. 각 솔루션의 채점 결과에서 상세를 확인하세요.`, "error", {
-      title: "솔루션 기대 결과 검증 실패",
-      timeout: 5000,
-    });
-  }
-  appendOutput(JSON.stringify(result, null, 2));
-  const failureSummary = formatSolutionFailureSummary(currentRunPassed ? result : partial);
-  const passedSummary = result.incremental
-    ? `${requestedPaths.length}개 솔루션을 개별 테스트했습니다.${
-        result.maintainedCount ? ` 기존 결과 ${result.maintainedCount}개를 함께 유지했습니다.` : ""
-      }`
-    : `${result.checks?.length || 0}개 솔루션이 기대 결과와 일치합니다.`;
-  showLastRun(
-    currentRunPassed ? "솔루션 기대 결과 검증 완료" : "솔루션 기대 결과 확인 필요",
-    currentRunPassed ? passedSummary : failureSummary,
-    currentRunPassed ? "success" : "error"
-  );
-  if (currentRunPassed) showResult("Solutions verified.", "summary success");
+  state.files = result.files || state.files;
+  if (state.detail && result.metadata) state.detail.metadata = result.metadata;
+  removeDeletedSolutionState(normalizedPath);
+  if (!selectAfterSolutionDelete(normalizedPath)) renderSolutionStatusViews();
+  solutionCallbacks.markFullTestDirty("솔루션 삭제로 전체 테스트가 다시 필요합니다.");
+  solutionCallbacks.renderTaskPanel();
+  showResult("솔루션 파일을 삭제했습니다.", "summary success");
   return result;
 }
+export async function verifySolutions(options = {}) {
+  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  const problemId = state.selectedProblem;
+  const repositoryName = state.activeRepository || null;
+  const token = solutionJobToken();
+  const allPaths = solutionFilePaths();
+  resetSolutionVerificationForRun(problemId, repositoryName, allPaths);
+  setActiveSolutionVerification(problemId, { repositoryName, token, status: "running" });
+  try {
+    const result = await runQueuedJob(
+      `/api/problems/${encodeURIComponent(problemId)}/solutions/verify/jobs`,
+      { profile: "hidden" },
+      {
+        ...options,
+        label: "솔루션 기대 결과 검증",
+        onProgress: (job) => {
+          setActiveSolutionVerification(problemId, {
+            repositoryName,
+            token,
+            jobId: job.jobId,
+            status: job.status,
+          });
+          applyPartialSolutionCheck(
+            problemId,
+            repositoryName,
+            token,
+            job.progress?.partialCheck,
+            job.progress?.partialSummary
+          );
+        },
+      }
+    );
+    const verification = {
+      ...result,
+      scope: "all",
+      complete: true,
+      totalCount: result.totalCount ?? allPaths.length,
+      checkedAt: Date.now(),
+    };
+    const currentRunPassed = Boolean(verification.passed);
+    const dirtySolutionPaths = dirtyPathsAfterClearing(problemId, repositoryName, allPaths);
+    solutionCallbacks.persistProblemLastResult?.(
+      {
+        solutionVerification: verification,
+        dirtySolutionPaths,
+      },
+      problemId,
+      repositoryName
+    );
+    if (!isCurrentProblemContext(problemId, repositoryName)) return verification;
+    state.lastSolutionVerification = verification;
+    solutionCallbacks.setDirtySolutionPaths(dirtySolutionPaths);
+    renderSolutionStatusViews();
+    if (!currentRunPassed && !options.silentFailureAlert) {
+      const failedCount = failedSolutionChecks(verification).length;
+      recordOperationFailure({
+        tabId: "solutions",
+        title: "솔루션 기대 결과 검증 실패",
+        detail: formatSolutionFailureSummary(verification),
+        source: "solutions",
+        key: "solution-verify:all",
+      });
+      showAlert(`기대 결과와 다른 솔루션 ${failedCount}개를 찾았습니다. 각 솔루션의 채점 결과에서 상세를 확인하세요.`, "error", {
+        title: "솔루션 기대 결과 검증 실패",
+        timeout: 5000,
+      });
+    } else if (currentRunPassed) {
+      resolveTabFeedback("solutions", (item) => item.key === "solution-verify:all");
+    }
+    appendOutput(JSON.stringify(verification, null, 2));
+    const summary = currentRunPassed
+      ? `${verification.checks?.length || 0}개 솔루션이 기대 결과와 일치합니다.`
+      : formatSolutionFailureSummary(verification);
+    showLastRun(
+      currentRunPassed ? "솔루션 기대 결과 검증 완료" : "솔루션 기대 결과 확인 필요",
+      summary,
+      currentRunPassed ? "success" : "error"
+    );
+    if (currentRunPassed) showResult("Solutions verified.", "summary success");
+    return verification;
+  } catch (error) {
+    if (!isCurrentProblemContext(problemId, repositoryName)) return null;
+    throw error;
+  } finally {
+    clearActiveSolutionVerification(problemId, token);
+  }
+}
 export async function verifySingleSolution(path) {
-  return verifySolutions({ paths: [path], clear: false });
+  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  const problemId = state.selectedProblem;
+  const repositoryName = state.activeRepository || null;
+  const token = solutionJobToken();
+  const normalizedPath = normalizedSolutionPath(path);
+  setActiveSolutionTest(problemId, normalizedPath, { repositoryName, token, status: "queued" });
+  const finishSingleTest = (result) => {
+    clearActiveSolutionTest(problemId, normalizedPath, token);
+    persistSolutionTestResult(problemId, normalizedPath, result, repositoryName);
+    if (!isCurrentProblemContext(problemId, repositoryName)) return;
+    renderSolutionStatusViews();
+    appendOutput(JSON.stringify(result, null, 2));
+    const passed = Boolean(result.passed);
+    const summary = passed
+      ? `${normalizedPath} 개별 테스트가 기대 결과와 일치합니다.`
+      : formatSolutionFailureSummary(result, { limit: 1 });
+    showLastRun(
+      passed ? "개별 테스트 완료" : "개별 테스트 확인 필요",
+      summary,
+      passed ? "success" : "error"
+    );
+    if (passed) {
+      resolveTabFeedback("solutions", (item) =>
+        item.source === normalizedPath && String(item.key || "").startsWith("solution-test:")
+      );
+      showResult("Single solution tested.", "summary success");
+    } else {
+      recordOperationFailure({
+        tabId: "solutions",
+        title: "개별 테스트 확인 필요",
+        detail: summary,
+        source: normalizedPath,
+        key: `solution-test:${normalizedPath}`,
+      });
+      showAlert("개별 테스트에서 기대 결과와 다른 항목을 찾았습니다. 채점 결과에서 상세를 확인하세요.", "error", {
+        title: "개별 테스트 확인 필요",
+        timeout: 5000,
+      });
+    }
+  };
+  const failSingleTest = (error) => {
+    clearActiveSolutionTest(problemId, normalizedPath, token);
+    if (!isCurrentProblemContext(problemId, repositoryName)) return;
+    recordOperationFailure({
+      tabId: "solutions",
+      title: "개별 테스트 실패",
+      detail: error.message,
+      source: normalizedPath,
+      key: `solution-test:${normalizedPath}`,
+    });
+    showAlert(error.message, "error", {
+      title: "개별 테스트 실패",
+      timeout: 7000,
+    });
+  };
+  try {
+    const job = await enqueueQueuedJob(
+      `/api/problems/${encodeURIComponent(problemId)}/solutions/test/jobs`,
+      {
+        profile: "hidden",
+        solution: normalizedPath,
+      },
+      {
+        label: "개별 테스트",
+        onProgress: (job) => {
+          setActiveSolutionTest(problemId, normalizedPath, {
+            repositoryName,
+            token,
+            jobId: job.jobId,
+            status: job.status,
+          });
+        },
+        onResult: finishSingleTest,
+        onFailure: failSingleTest,
+      }
+    );
+    setActiveSolutionTest(problemId, normalizedPath, {
+      repositoryName,
+      token,
+      jobId: job.jobId,
+      status: job.status,
+    });
+    return job;
+  } catch (error) {
+    clearActiveSolutionTest(problemId, normalizedPath, token);
+    throw error;
+  }
 }
 
 function selectedStressDuration() {

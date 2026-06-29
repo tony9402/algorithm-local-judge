@@ -8,6 +8,8 @@ import {
   appendOutput,
   clearOutput,
   formatOperationFailure,
+  recordOperationFailure,
+  resolveTabFeedback,
   showAlert,
   showResult,
 } from "../feedback.js";
@@ -36,6 +38,36 @@ const CASES_EXAMPLE_PREVIEW = [
   "        type: generate",
   "        seed: 1",
 ].join("\n");
+const TOOL_TAB_BY_NAME = {
+  generator: "generator",
+  validator: "validator",
+  checker: "checker",
+  solution: "checker",
+};
+const TOOL_SOURCE_BY_NAME = {
+  generator: "generator/generator.cpp",
+  validator: "validator/validator.cpp",
+  checker: "checker/judge.cpp",
+  solution: "solutions/main_solution.ac.cpp",
+};
+
+function recordFailure(tabId, title, detail, source, key = title) {
+  recordOperationFailure({
+    tabId,
+    title,
+    detail,
+    source,
+    key: `${key}:${source}`,
+  });
+}
+
+function resolveSource(tabId, source, key = "") {
+  resolveTabFeedback(tabId, (item) => {
+    if (source && item.source !== source) return false;
+    if (key && !String(item.key || "").startsWith(key)) return false;
+    return true;
+  });
+}
 function showCasesAlertDetails(result) {
   if (result.valid) return;
   const detail = (result.diagnostics || [])
@@ -85,6 +117,20 @@ export async function compileCases(options = {}) {
   );
   appendOutput(JSON.stringify(result, null, 2));
   showCasesAlertDetails(result);
+  if (result.valid) {
+    resolveSource("generator", "generator/cases.yml");
+  } else {
+    recordFailure(
+      "generator",
+      "Cases 검사 실패",
+      formatOperationFailure(
+        `cases.yml compile failed\n\n${formatCasesDiagnostics(result)}`,
+        ["대상: generator/cases.yml"]
+      ),
+      "generator/cases.yml",
+      "cases"
+    );
+  }
   showLastRun(
     result.valid ? "Cases 검사 완료" : "Cases 검사 실패",
     result.valid
@@ -116,12 +162,23 @@ export async function compileTool(tool, label, options = {}) {
       { label: `${label} 컴파일` }
     );
     appendOutput(JSON.stringify(result.labels || {}, null, 2));
+    resolveSource(TOOL_TAB_BY_NAME[tool] || "checker", TOOL_SOURCE_BY_NAME[tool] || tool);
     if (ownsProgress) setProgressStep(0, "success", `${label} 컴파일 완료`);
     showLastRun(`${label} 컴파일 완료`, `${label} 도구를 사용할 준비가 되었습니다.`, "success");
     showResult(`${label} compiled.`, "summary success");
     return result;
   } catch (error) {
     const detail = normalizeErrorDetail(error.message);
+    recordFailure(
+      TOOL_TAB_BY_NAME[tool] || "checker",
+      `${label} 컴파일 실패`,
+      formatOperationFailure(detail, [
+        `대상: ${tool}`,
+        state.lastStreamDetail ? `마지막 단계: ${state.lastStreamDetail}` : "",
+      ]),
+      TOOL_SOURCE_BY_NAME[tool] || tool,
+      `tool:${tool}`
+    );
     if (ownsProgress) setProgressStep(0, "error", detail);
     showLastRun(
       `${label} 컴파일 실패`,
@@ -149,6 +206,7 @@ export async function compileTools(options = {}) {
       { label: "전체 도구 컴파일" }
     );
     appendOutput(JSON.stringify(result.labels || {}, null, 2));
+    resolveSource("checker", "");
     const count = Object.keys(result.labels || {}).length;
     if (ownsProgress) setProgressStep(0, "success", `${count}개 도구 컴파일`);
     showLastRun(
@@ -160,6 +218,15 @@ export async function compileTools(options = {}) {
     return result;
   } catch (error) {
     const detail = normalizeErrorDetail(error.message);
+    recordFailure(
+      "checker",
+      "전체 도구 컴파일 실패",
+      formatOperationFailure(detail, [
+        "대상: generator, validator, checker, 기준 정답",
+      ]),
+      "generator, validator, checker, solutions/main_solution.ac.cpp",
+      "tools"
+    );
     if (ownsProgress) setProgressStep(0, "error", detail);
     showLastRun(
       "전체 도구 컴파일 실패",
@@ -226,6 +293,7 @@ export async function generateData(profile = "hidden", options = {}) {
       { ...options, label: `${profile} 데이터 생성+검증` }
     );
     appendOutput(JSON.stringify(result, null, 2));
+    resolveSource("generator", profile);
     if (ownsProgress) setProgressStep(0, "success", `${result.caseCount}개 데이터 생성 및 검증`);
     showLastRun(
       `${profile} 데이터 생성 완료`,
@@ -236,6 +304,17 @@ export async function generateData(profile = "hidden", options = {}) {
     return result;
   } catch (error) {
     const detail = normalizeErrorDetail(error.message);
+    recordFailure(
+      "generator",
+      `${profile} 데이터 생성 실패`,
+      formatOperationFailure(detail, [
+        `Profile: ${profile}`,
+        state.lastStreamDetail ? `마지막 단계: ${state.lastStreamDetail}` : "",
+        "관련 대상: generator/cases.yml, generator/generator.cpp, validator/validator.cpp",
+      ]),
+      profile,
+      `generate:${profile}`
+    );
     if (ownsProgress) setProgressStep(0, "error", detail);
     showLastRun(
       `${profile} 데이터 생성 실패`,
@@ -264,6 +343,7 @@ export async function validateAllData(options = {}) {
     appendOutput(JSON.stringify(result, null, 2));
     const profileCount = result.profileCount || 0;
     const caseCount = result.caseCount || 0;
+    resolveSource("validator", "validator/validator.cpp");
     if (ownsProgress) setProgressStep(0, "success", `${profileCount}개 profile · ${caseCount}개 데이터 검증`);
     showLastRun(
       "모든 데이터 생성+검증 완료",
@@ -274,6 +354,16 @@ export async function validateAllData(options = {}) {
     return result;
   } catch (error) {
     const detail = normalizeErrorDetail(error.message);
+    recordFailure(
+      "validator",
+      "모든 데이터 생성+검증 실패",
+      formatOperationFailure(detail, [
+        state.lastStreamDetail ? `마지막 단계: ${state.lastStreamDetail}` : "",
+        "관련 대상: generator/cases.yml, generator/generator.cpp, validator/validator.cpp",
+      ]),
+      "validator/validator.cpp",
+      "validate"
+    );
     if (ownsProgress) setProgressStep(0, "error", detail);
     showLastRun(
       "모든 데이터 생성+검증 실패",

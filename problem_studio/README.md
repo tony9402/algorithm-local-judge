@@ -124,15 +124,16 @@ uv run problem-studio web --host 127.0.0.1 --port 8775 --no-open
 - Stress mismatch의 input, expected, actual, diff 미리보기
 - mismatch 케이스를 `cases.yml`에 fixed 또는 generator case로 추가
 
-솔루션 파일은 C++, Python, Java를 지원합니다. 파일명에는 기대 결과 토큰을 붙일 수 있습니다.
+솔루션 파일은 C++, Python, PyPy, Java를 지원합니다. 파일명에는 기대 결과 토큰을 붙일 수 있습니다.
 
 ```text
 main_solution.ac.cpp
 wrong_solution.wa.py
+slow_pypy_solution.pypy.tle.py
 slow_solution.tle.java
 ```
 
-주요 토큰은 `ac`, `wa`, `tle`, `mle`입니다.
+주요 토큰은 `ac`, `wa`, `tle`, `mle`입니다. PyPy 솔루션은 `.pypy` marker를 기대 결과 토큰 앞에 둡니다. PyPy 실행 파일은 `ALJ_PYPY`로 지정하거나 PATH의 `pypy3`, `pypy`를 사용합니다.
 
 ### 검증/빌드
 

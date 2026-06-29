@@ -5,10 +5,19 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse, Response
 
-from judge.core.problem_folders import update_problem_folder
+from judge.core.problem_folders import (
+    create_problem_folder,
+    delete_problem_folder,
+    list_problem_folders,
+    update_problem_folder,
+)
 from judge.web import services
 from judge.web.routes.common import etag_matches, to_http_error
-from judge.web.schemas import ProblemFolderUpdateRequest
+from judge.web.schemas import (
+    ProblemFolderCreateRequest,
+    ProblemFolderDeleteRequest,
+    ProblemFolderUpdateRequest,
+)
 from judge.web.security_policy import ensure_local_web_action_allowed, ensure_remote_run_allowed
 
 router = APIRouter(prefix="/api", tags=["problems"])
@@ -23,6 +32,40 @@ def api_problems() -> list[dict]:
     """
     try:
         return services.list_problems()
+    except Exception as exc:
+        raise to_http_error(exc) from exc
+
+
+@router.get("/folders")
+def api_problem_folders() -> list[dict]:
+    try:
+        return list_problem_folders()
+    except Exception as exc:
+        raise to_http_error(exc) from exc
+
+
+@router.post("/folders")
+def api_problem_folder_create(request: Request, body: ProblemFolderCreateRequest) -> dict:
+    try:
+        ensure_local_web_action_allowed(request, "problem folder create")
+        return create_problem_folder(body.folder)
+    except Exception as exc:
+        raise to_http_error(exc) from exc
+
+
+@router.api_route("/folders", methods=["DELETE"], response_model=None)
+async def api_problem_folder_delete(request: Request):
+    try:
+        ensure_local_web_action_allowed(request, "problem folder delete")
+        payload = await request.json()
+        body = ProblemFolderDeleteRequest.model_validate(payload)
+        result = delete_problem_folder(
+            body.folder,
+            confirm_delete_problems=body.confirm_delete_problems,
+        )
+        if result.get("requiresConfirmation"):
+            return JSONResponse(result, status_code=409)
+        return result
     except Exception as exc:
         raise to_http_error(exc) from exc
 

@@ -15,7 +15,7 @@ import {
 import { renderTabFiles } from "../resources-view.js";
 import { persistProblemLastResult } from "../results.js";
 import { streamProgressDetail } from "../sse.js";
-import { state } from "../state.js";
+import { activePackJobList, state } from "../state.js";
 import { renderProblems } from "../workspace-view.js";
 import { streamRequest } from "./data.js";
 import { saveOpenFileIfDirty } from "./files.js";
@@ -305,7 +305,7 @@ export async function cancelActiveBulkJob() {
   updateGlobalActionState();
 }
 export async function buildAllPacksOnce(problemIds = bulkProblemIds()) {
-  if (state.activePackJob) throw new Error("팩 빌드 진행 중에는 전체 문제 빌드를 시작할 수 없습니다.");
+  if (activePackJobList().length) throw new Error("팩 빌드 진행 중에는 전체 문제 빌드를 시작할 수 없습니다.");
   return withProblemTaskLock(async () => {
     const lease = acquireRunAllLease("전체 문제");
     if (!lease) throw new Error("이미 다른 탭에서 전체 테스트가 실행 중입니다.");
@@ -316,5 +316,5 @@ export async function buildAllPacksOnce(problemIds = bulkProblemIds()) {
       releaseRunAllLease(lease);
       updateGlobalActionState();
     }
-  });
+  }, "전체 문제");
 }

@@ -35,6 +35,14 @@
   justify-content: flex-end;
 }
 
+#jobsPageLabel {
+  min-width: 56px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .jobs-panel-actions button.active {
   border-color: var(--accent);
   color: var(--accent);

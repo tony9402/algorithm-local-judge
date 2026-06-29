@@ -49,6 +49,7 @@ def save_uploaded_source(
     file_obj: BinaryIO,
     filename: str | None,
     problem_id: str,
+    language: str | None = None,
 ) -> Path:
     """uploaded 소스 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
@@ -60,7 +61,7 @@ def save_uploaded_source(
     Returns:
         Path: 검증된 uploaded 소스 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
-    source_id, target = create_source_target(problem_id, filename or "main.py")
+    source_id, target = create_source_target(problem_id, filename or "main.py", language)
     try:
         copy_limited(
             file_obj,
@@ -70,14 +71,19 @@ def save_uploaded_source(
         )
         if target.stat().st_size == 0:
             raise JudgeError("uploaded source file is empty")
-        write_source_history_metadata(source_id, target, problem_id, "upload")
+        write_source_history_metadata(source_id, target, problem_id, "upload", language)
     except Exception:
         shutil.rmtree(target.parent, ignore_errors=True)
         raise
     return target
 
 
-def save_text_source(source_text: str, filename: str | None, problem_id: str) -> Path:
+def save_text_source(
+    source_text: str,
+    filename: str | None,
+    problem_id: str,
+    language: str | None = None,
+) -> Path:
     """텍스트 소스 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
     Args:
@@ -88,7 +94,7 @@ def save_text_source(source_text: str, filename: str | None, problem_id: str) ->
     Returns:
         Path: 검증된 텍스트 소스 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
-    source_id, target = create_source_target(problem_id, filename)
+    source_id, target = create_source_target(problem_id, filename, language)
     try:
         write_text_limited(
             source_text,
@@ -96,14 +102,30 @@ def save_text_source(source_text: str, filename: str | None, problem_id: str) ->
             limit_bytes=security_limits.MAX_SOURCE_TEXT_BYTES,
             label="source text",
         )
-        write_source_history_metadata(source_id, target, problem_id, "text")
+        write_source_history_metadata(source_id, target, problem_id, "text", language)
     except Exception:
         shutil.rmtree(target.parent, ignore_errors=True)
         raise
     return target
 
 
-def save_existing_source(path: Path, problem_id: str, source_mode: str) -> Path:
+def source_language_id(source: Path) -> str | None:
+    source_id = source_id_from_path(source)
+    if source_id is None:
+        return None
+    metadata = source_entry_metadata(source_entry_dir(source_id))
+    if not metadata:
+        return None
+    value = metadata.get("languageId")
+    return str(value) if value else None
+
+
+def save_existing_source(
+    path: Path,
+    problem_id: str,
+    source_mode: str,
+    language: str | None = None,
+) -> Path:
     """existing 소스 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
     Args:
@@ -114,7 +136,7 @@ def save_existing_source(path: Path, problem_id: str, source_mode: str) -> Path:
     Returns:
         Path: 검증된 existing 소스 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
-    source_id, target = create_source_target(problem_id, path.name)
+    source_id, target = create_source_target(problem_id, path.name, language)
     try:
         with path.open("rb") as source:
             copy_limited(
@@ -125,7 +147,7 @@ def save_existing_source(path: Path, problem_id: str, source_mode: str) -> Path:
             )
         if target.stat().st_size == 0:
             raise JudgeError("source file is empty")
-        write_source_history_metadata(source_id, target, problem_id, source_mode)
+        write_source_history_metadata(source_id, target, problem_id, source_mode, language)
     except Exception:
         shutil.rmtree(target.parent, ignore_errors=True)
         raise

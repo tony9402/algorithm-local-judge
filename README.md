@@ -18,7 +18,7 @@ WSL Ubuntu 터미널을 열고 Linux와 같은 방식으로 실행합니다.
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential openjdk-17-jdk python3
+sudo apt install -y build-essential openjdk-17-jdk python3 pypy3
 tar -xzf algorithm-local-judge-0.1.0-linux-amd64.tar.gz
 ./algorithm-local-judge/bin/judge problem install tony9402/algorithm-package
 ./algorithm-local-judge/bin/judge web
@@ -28,7 +28,7 @@ tar -xzf algorithm-local-judge-0.1.0-linux-amd64.tar.gz
 
 ## Docker로 실행하기
 
-Ubuntu 기반 Docker 이미지로도 실행할 수 있습니다. 이미지에는 `judge`, `problem-studio`, C++/Java/Python 제출 실행 도구가 함께 들어갑니다.
+Ubuntu 기반 Docker 이미지로도 실행할 수 있습니다. 이미지에는 `judge`, `problem-studio`, C++/Java/Python/PyPy 제출 실행 도구가 함께 들어갑니다.
 
 ```bash
 docker build -t algorithm-local-judge .
@@ -80,20 +80,28 @@ algorithm-local-judge/bin/judge
 
 아래 예시는 macOS/Linux/WSL 기준으로 `./algorithm-local-judge/bin/judge`를 사용합니다.
 
-## C++과 Java 설치
+## C++/Java/Python/PyPy 설치
 
 채점기 실행 자체는 standalone 파일로 동작하지만, 제출 언어에 따라 로컬 도구가 필요합니다.
 
 - C++ 제출: `g++`
 - Java 제출: `javac`, `java`
 - Python 제출: `python3` 또는 `python`
+- PyPy 제출: `pypy3` 또는 `pypy`
 
 ### macOS
 
 ```bash
 xcode-select --install
 brew install --cask temurin@17
+brew install python pypy3
 ```
+
+명령별 설치 대상:
+
+- `xcode-select --install`: C++ 제출 실행에 필요한 `g++`와 기본 개발 도구를 설치합니다.
+- `brew install --cask temurin@17`: Java 제출 실행에 필요한 JDK, `javac`, `java`를 설치합니다.
+- `brew install python pypy3`: Python 제출용 `python3`와 PyPy 제출용 `pypy3`를 설치합니다.
 
 설치 확인:
 
@@ -101,14 +109,21 @@ brew install --cask temurin@17
 g++ --version
 javac -version
 java -version
+python3 --version
+pypy3 --version
 ```
 
 ### Ubuntu/Debian
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential openjdk-17-jdk python3
+sudo apt install -y build-essential openjdk-17-jdk python3 pypy3
 ```
+
+명령별 설치 대상:
+
+- `sudo apt update`: Ubuntu/Debian 패키지 목록을 갱신합니다.
+- `sudo apt install -y build-essential openjdk-17-jdk python3 pypy3`: C++ 제출용 `g++`, Java 제출용 `javac`/`java`, Python 제출용 `python3`, PyPy 제출용 `pypy3`를 설치합니다.
 
 설치 확인:
 
@@ -117,13 +132,18 @@ g++ --version
 javac -version
 java -version
 python3 --version
+pypy3 --version
 ```
 
 ### Fedora
 
 ```bash
-sudo dnf install gcc-c++ java-17-openjdk-devel python3
+sudo dnf install gcc-c++ java-17-openjdk-devel python3 pypy
 ```
+
+명령별 설치 대상:
+
+- `sudo dnf install gcc-c++ java-17-openjdk-devel python3 pypy`: C++ 제출용 `g++`, Java 제출용 `javac`/`java`, Python 제출용 `python3`, PyPy 제출용 `pypy` 또는 `pypy3`를 설치합니다.
 
 설치 확인:
 
@@ -132,16 +152,22 @@ g++ --version
 javac -version
 java -version
 python3 --version
+pypy3 --version || pypy --version
 ```
 
 ### Windows WSL
 
-WSL Ubuntu 터미널을 열고, Ubuntu/Debian과 같은 명령으로 C++/Java/Python 도구를 설치합니다.
+WSL Ubuntu 터미널을 열고, Ubuntu/Debian과 같은 명령으로 C++/Java/Python/PyPy 도구를 설치합니다.
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential openjdk-17-jdk python3
+sudo apt install -y build-essential openjdk-17-jdk python3 pypy3
 ```
+
+명령별 설치 대상:
+
+- `sudo apt update`: WSL Ubuntu 패키지 목록을 갱신합니다.
+- `sudo apt install -y build-essential openjdk-17-jdk python3 pypy3`: C++ 제출용 `g++`, Java 제출용 `javac`/`java`, Python 제출용 `python3`, PyPy 제출용 `pypy3`를 설치합니다.
 
 Ubuntu 터미널에서 설치 확인:
 
@@ -150,6 +176,7 @@ g++ --version
 javac -version
 java -version
 python3 --version
+pypy3 --version
 ```
 
 설치가 잘 되었는지 채점기에서도 확인할 수 있습니다.

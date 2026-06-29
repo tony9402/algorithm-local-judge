@@ -7,7 +7,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from judge.core.errors import JudgeError
+from alj_core.errors import JudgeError
 from problem_studio.commands.web import handle as handle_web
 
 

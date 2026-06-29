@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, Response
 
 from commons.job_queue import BackgroundJobStore
 from judge.web.routes import API_ROUTERS
+from judge.web.submission_rate_limit import SubmissionRateLimiter
 
 WEB_ROOT = Path(__file__).resolve().parent
 PACKAGE_STATIC_ROOT = WEB_ROOT / "static"
@@ -44,6 +45,7 @@ def create_app(
     app.state.remote_warning = remote_warning
     app.state.allow_remote_run = allow_remote_run
     app.state.jobs = BackgroundJobStore(max_running_jobs=4)
+    app.state.submission_rate_limiter = SubmissionRateLimiter()
     register_api_routes(app)
 
     @app.get("/")

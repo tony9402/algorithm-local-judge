@@ -13,6 +13,8 @@
 }
 
 .sidebar {
+  height: 100vh;
+  max-height: 100vh;
   border-right: 1px solid var(--line);
   background: var(--sidebar);
   color: #eff6ff;
@@ -21,7 +23,10 @@
   align-content: start;
   gap: 18px;
   min-width: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .sidebar-header {

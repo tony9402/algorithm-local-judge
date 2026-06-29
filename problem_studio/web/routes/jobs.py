@@ -65,8 +65,14 @@ def api_job(request: Request, job_id: str) -> dict:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
     jobs = jobs_from_request(request)
+    repository_scope = request.query_params.get("repository_scope")
     job = jobs.get(job_id)
-    if job is None or not job_matches_active_repository(request, job):
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    if repository_scope is not None:
+        if (job.target or {}).get("repositoryScope") != repository_scope:
+            raise HTTPException(status_code=404, detail="job not found")
+    elif not job_matches_active_repository(request, job):
         raise HTTPException(status_code=404, detail="job not found")
     return jobs.job_dict(job)
 

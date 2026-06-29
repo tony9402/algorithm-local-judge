@@ -3,6 +3,7 @@
  */
 
 import { $, escapeHtml, optional, setText } from "./dom.js";
+import { currentProblemResult } from "./results.js";
 import { state } from "./state.js";
 import { rememberView } from "./view-persistence.js";
 
@@ -56,6 +57,35 @@ export function problemLabel(problem) {
 }
 export function folderLabel(folder) {
   return String(folder || "").trim() || "기본";
+}
+function problemValidationStatus(problem) {
+  const result = currentProblemResult(problem.problemId, state.activeRepository || null);
+  const fullTest = result?.fullTest || null;
+  if (fullTest?.passed === false) {
+    return {
+      className: "problem-status-failed",
+      badgeClass: "failed",
+      label: "문제 있음",
+      title: `${problemLabel(problem)} · ${fullTest.failureStageLabel || fullTest.failureStage || "검증"} 확인 필요`,
+    };
+  }
+  if (result?.dirtyAfterFullTest) {
+    return {
+      className: "problem-status-stale",
+      badgeClass: "stale",
+      label: "재검증",
+      title: `${problemLabel(problem)} · ${result.dirtyReason || "전체 테스트 재검증 필요"}`,
+    };
+  }
+  if (fullTest?.passed === true) {
+    return {
+      className: "problem-status-passed",
+      badgeClass: "passed",
+      label: "통과",
+      title: `${problemLabel(problem)} · 전체 테스트 통과`,
+    };
+  }
+  return null;
 }
 
 function problemFolderKey(folder) {
@@ -235,11 +265,20 @@ export function renderProblems(problems) {
     if (collapsed) continue;
     for (const problem of folderProblems) {
       const item = document.createElement("button");
-      item.className = "list-item";
+      const validationStatus = problemValidationStatus(problem);
+      item.className = ["list-item", validationStatus?.className].filter(Boolean).join(" ");
       item.type = "button";
+      if (validationStatus?.title) item.title = validationStatus.title;
       item.innerHTML = `
-        <strong>${escapeHtml(problemLabel(problem))}</strong>
-        <span>${escapeHtml(problem.defaultProfile || "hidden")} · v${escapeHtml(problem.version || "-")}</span>
+        <span class="problem-title-row">
+          <strong>${escapeHtml(problemLabel(problem))}</strong>
+          ${
+            validationStatus
+              ? `<span class="problem-status-badge ${escapeHtml(validationStatus.badgeClass)}">${escapeHtml(validationStatus.label)}</span>`
+              : ""
+          }
+        </span>
+        <span class="problem-meta-row">${escapeHtml(problem.defaultProfile || "hidden")} · v${escapeHtml(problem.version || "-")}</span>
       `;
       item.classList.toggle("active", problem.problemId === state.selectedProblem);
       if (problem.problemId === state.selectedProblem) item.setAttribute("aria-current", "page");

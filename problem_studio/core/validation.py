@@ -7,11 +7,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from judge.core.cases_compile import compile_problem_cases, format_compile_result
-from judge.core.errors import JudgeError
-from judge.core.generation import generate
-from judge.core.paths import rel
-from judge.utils.fs import read_json
+from alj_core.cases_compile import compile_problem_cases, format_compile_result
+from alj_core.errors import JudgeError
+from alj_core.generation import generate
+from alj_core.paths import rel
+from alj_core.utils.fs import read_json
 
 CASE_PROGRESS_RE = re.compile(r"Validating generated case .+ \((\d+)/(\d+)\)\.")
 

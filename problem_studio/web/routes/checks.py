@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from judge.core.compiler import compile_problem_tools
+from alj_core.compiler import compile_problem_tools
 from problem_studio.core.diagnostics import verification_failure_payload
 from problem_studio.core.packflow import verify_solutions
 from problem_studio.core.validation import compile_cases, validate_all_data
@@ -19,6 +19,7 @@ from problem_studio.web.schemas import DataValidateRequest
 from problem_studio.web.security_policy import ensure_local_write_allowed
 
 router = APIRouter(prefix="/api/problems/{problem_id}/checks", tags=["checks"])
+DEFAULT_FULL_CHECK_SOLUTION_WORKERS = 4
 
 
 @router.post("/jobs")
@@ -71,12 +72,35 @@ def api_run_all_checks_job(
                 total=4,
                 label="솔루션 검증",
             )
+            summary = {"verifiedCount": 0, "failedCount": 0}
+
+            def on_check(check, index: int, total: int) -> None:
+                payload = check.to_dict(workspace)
+                summary["verifiedCount"] = index
+                if not check.passed:
+                    summary["failedCount"] += 1
+                progress(
+                    f"{payload['source']} verified: {payload['actualStatus']}",
+                    current=4,
+                    total=4,
+                    label="솔루션 검증",
+                    partialCheck=payload,
+                    partialSummary={
+                        **summary,
+                        "totalCount": total,
+                        "maxWorkers": DEFAULT_FULL_CHECK_SOLUTION_WORKERS,
+                    },
+                )
+
             verification = verify_solutions(
                 workspace,
                 problem_id,
                 "hidden",
                 progress=progress,
                 raise_on_failure=False,
+                on_check=on_check,
+                max_workers=DEFAULT_FULL_CHECK_SOLUTION_WORKERS,
+                cancel_check=cancel_token.check,
             )
             cancel_token.check()
             failure_payload = verification_failure_payload(verification)

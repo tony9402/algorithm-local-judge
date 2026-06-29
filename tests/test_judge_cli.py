@@ -96,6 +96,31 @@ class JudgeCliSmokeTest(unittest.TestCase):
         )
         self.assertIn("Accepted", result.stdout)
 
+    def test_pypy_solution_is_accepted_with_configured_runtime(self) -> None:
+        """PyPy 언어 선택이 ALJ_PYPY 런타임을 사용하고 결과 언어를 보존하는지 검증합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-fake-pypy-") as tmp:
+            fake_pypy = Path(tmp) / "pypy3"
+            fake_pypy.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n', encoding="utf-8")
+            fake_pypy.chmod(0o755)
+
+            result = run_judge(
+                "--problem",
+                "06",
+                "--profile",
+                "sample",
+                "--language",
+                "pypy",
+                "tests/fixtures/accepted.py",
+                check=True,
+                extra_env={"ALJ_PYPY": str(fake_pypy)},
+            )
+
+        self.assertIn("Accepted", result.stdout)
+        run_line = next(line for line in result.stdout.splitlines() if line.startswith("run: "))
+        run_dir = ROOT / run_line.removeprefix("run: ").strip()
+        payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
+        self.assertEqual(payload["language"], "pypy")
+
     @unittest.skipUnless(
         shutil.which("javac") and shutil.which("java"),
         "Java toolchain is not installed",
@@ -348,6 +373,7 @@ profiles:
         self.assertIn("Tools:", result.stdout)
         self.assertIn("C++ compiler:", result.stdout)
         self.assertIn("Java compiler:", result.stdout)
+        self.assertIn("PyPy runtime:", result.stdout)
         self.assertIn("Git:", result.stdout)
         self.assertIn("Paths:", result.stdout)
         self.assertIn("Installed packs: 0", result.stdout)
@@ -370,7 +396,9 @@ profiles:
         self.assertIn(payload["status"], {"ok", "warning"})
         self.assertEqual(payload["python"]["status"], "ok")
         self.assertIn("cpp", payload["tools"])
+        self.assertIn("pypyRuntime", payload["tools"])
         self.assertIn(payload["tools"]["cpp"]["status"], {"ok", "missing"})
+        self.assertIn(payload["tools"]["pypyRuntime"]["status"], {"ok", "missing"})
         self.assertIn("projectRoot", payload["paths"])
         self.assertEqual(payload["installedPacks"]["count"], 0)
         self.assertEqual(

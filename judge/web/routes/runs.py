@@ -8,7 +8,12 @@ from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from judge.web import services
-from judge.web.routes.common import enqueue_background_job, jobs_from_request, to_http_error
+from judge.web.routes.common import (
+    enqueue_background_job,
+    jobs_from_request,
+    record_submission_or_429,
+    to_http_error,
+)
 from judge.web.schemas import RunRequest
 from judge.web.security_policy import ensure_remote_run_allowed
 
@@ -28,13 +33,20 @@ def api_run(http_request: Request, request: RunRequest) -> dict:
     """
     try:
         ensure_remote_run_allowed(http_request)
-        return services.run_problem(
+        source = services.source_path_from_request(
             request.problem_id,
-            request.profile,
             request.source_mode,
             request.source_path,
             request.source_text,
             request.filename,
+            request.language,
+        )
+        record_submission_or_429(http_request, request.problem_id)
+        return services.run_problem_source(
+            request.problem_id,
+            request.profile,
+            source,
+            request.language,
         )
     except Exception as exc:
         raise to_http_error(exc) from exc
@@ -46,6 +58,7 @@ def api_run_upload(
     problem_id: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
     profile: Annotated[str | None, Form()] = None,
+    language: Annotated[str | None, Form()] = None,
 ) -> dict:
     """업로드 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
 
@@ -60,12 +73,9 @@ def api_run_upload(
     """
     try:
         ensure_remote_run_allowed(request)
-        return services.run_uploaded_problem(
-            problem_id,
-            profile or None,
-            file.file,
-            file.filename,
-        )
+        source = services.save_uploaded_source(file.file, file.filename, problem_id, language)
+        record_submission_or_429(request, problem_id)
+        return services.run_problem_source(problem_id, profile or None, source, language)
     except Exception as exc:
         raise to_http_error(exc) from exc
 
@@ -77,6 +87,7 @@ def api_run_stream(
     source_mode: Annotated[str, Form()],
     profile: Annotated[str | None, Form()] = None,
     filename: Annotated[str | None, Form()] = None,
+    language: Annotated[str | None, Form()] = None,
     source_text: Annotated[str | None, Form()] = None,
     file: Annotated[UploadFile | None, File()] = None,
 ) -> StreamingResponse:
@@ -103,9 +114,11 @@ def api_run_stream(
             source_text,
             filename,
             problem_id,
+            language,
         )
+        record_submission_or_429(request, problem_id)
         return StreamingResponse(
-            services.run_problem_events(problem_id, profile or None, source),
+            services.run_problem_events(problem_id, profile or None, source, language),
             media_type="text/event-stream",
         )
     except Exception as exc:
@@ -119,6 +132,7 @@ def api_run_job(
     source_mode: Annotated[str, Form()],
     profile: Annotated[str | None, Form()] = None,
     filename: Annotated[str | None, Form()] = None,
+    language: Annotated[str | None, Form()] = None,
     source_text: Annotated[str | None, Form()] = None,
     file: Annotated[UploadFile | None, File()] = None,
 ) -> dict:
@@ -145,16 +159,19 @@ def api_run_job(
             source_text,
             filename,
             problem_id,
+            language,
         )
+        record_submission_or_429(request, problem_id)
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
-            progress("Starting judge run.", label="Run Tests")
+            progress("Starting judge run.", label="채점")
             result = services.run_problem_source_with_progress(
                 problem_id,
                 profile or None,
                 source,
                 progress,
+                language,
             )
             cancel_token.check()
             return result
@@ -162,7 +179,7 @@ def api_run_job(
         job = enqueue_background_job(
             jobs,
             kind="judge-run",
-            title=f"Run Tests · {problem_id}",
+            title=f"채점 · {problem_id}",
             problem_id=problem_id,
             lane=f"judge:{problem_id}:run",
             target={
@@ -170,6 +187,7 @@ def api_run_job(
                 "profile": profile,
                 "source": source.name,
                 "sourceMode": source_mode,
+                "language": language,
             },
             operation=operation,
             result_actions={"apply": True},

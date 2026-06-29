@@ -7,11 +7,11 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from judge.core.errors import JudgeError
-from judge.core.paths import ensure_inside, rel, repo_root, validate_safe_id
-from judge.core.problem import load_problem
-from judge.core.problem_discovery import problem_sort_key
-from judge.utils.fs import write_json
+from alj_core.errors import JudgeError
+from alj_core.paths import ensure_inside, rel, repo_root, validate_safe_id
+from alj_core.problem import load_problem
+from alj_core.problem_discovery import problem_sort_key
+from alj_core.utils.fs import write_json
 
 DELETE_CONFIRM_PHRASE = "확인했습니다"
 

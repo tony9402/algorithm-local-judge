@@ -29,6 +29,9 @@ def run_submission(
     progress: Callable[[str], None] | None = None,
     stop_on_first_failure: bool = True,
     warmup_profile: str | None = None,
+    prepared_data_dirs: dict[str, Path] | None = None,
+    prepared_tools: dict[str, Path] | None = None,
+    language: str | None = None,
 ) -> Path:
     """제출 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
 
@@ -50,8 +53,14 @@ def run_submission(
             progress(message)
 
     data_dirs: dict[str, Path] = {}
+    if prepared_data_dirs:
+        data_dirs.update(prepared_data_dirs)
 
     def profile_data_dir(target_profile: str) -> Path:
+        prepared_data_dir = data_dirs.get(target_profile)
+        if prepared_data_dir is not None:
+            emit(f"Using prepared data at {rel(prepared_data_dir, display_root)}.")
+            return prepared_data_dir
         cached_data_dir = latest_cache_for(problem_id, target_profile, root)
         if cached_data_dir is None:
             emit(f"No valid cached data for profile {target_profile}; generating test data.")
@@ -82,6 +91,7 @@ def run_submission(
         run_dir,
         metadata.get("limits", {}).get("compileTimeoutMs", 5000),
         display_root,
+        language=language,
     )
     emit(f"Submission language detected: {submission.language}.")
     warmup = None
@@ -101,7 +111,7 @@ def run_submission(
     manifest = read_json(data_dir / "manifest.json")
     emit(f"Loaded {len(manifest['cases'])} test case(s).")
     emit("Preparing checker and problem tools.")
-    tools = compile_problem_tools(problem_id, root)
+    tools = prepared_tools or compile_problem_tools(problem_id, root)
     outputs_dir = run_dir / "outputs"
     wrong_dir = run_dir / "wrong"
     case_run = run_submission_cases(

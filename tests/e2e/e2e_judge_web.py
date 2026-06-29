@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from judge.web.app import create_app
 from tests.e2e.helpers import (
     ROOT,
@@ -51,7 +53,15 @@ def route_jobs_list(page, jobs: dict[str, dict]) -> None:
         page (Any): 브라우저 상호작용을 수행할 Playwright 페이지입니다.
         jobs (dict[str, dict]): 브라우저 라우팅에 사용할 작업 목록 응답 데이터입니다.
     """
-    page.route("**/api/jobs", lambda route: route.fulfill(json={"jobs": list(jobs.values())}))
+    page.route(re.compile(r"/api/jobs(?:\?.*)?$"), lambda route: route.fulfill(json={"jobs": list(jobs.values())}))
+
+
+def wait_for_captured_body(page, captured: dict[str, str], *, timeout_ms: int = 5000) -> str:
+    for _ in range(max(1, timeout_ms // 100)):
+        if captured.get("body"):
+            return captured["body"]
+        page.wait_for_timeout(100)
+    return captured.get("body", "")
 
 
 def completed_job(
@@ -133,7 +143,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     ),
                 )
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("persist")
                 wait_for_text(page, "#problemList", "Persisted")
                 page.wait_for_function(
@@ -144,7 +154,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 )
 
                 page.reload()
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.wait_for_function(
                     "() => document.querySelector('#problemSelect')?.value === 'persist'"
                 )
@@ -214,7 +224,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     ),
                 )
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 wait_for_text(page, "#problemList", "Math")
                 wait_for_text(page, "#problemList", "Graph")
 
@@ -246,18 +256,231 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         }));
                     }"""
                 )
-                wait_for_text(page, "#toastHost", "alpha folder moved to Graph")
+                wait_for_text(page, "#toastHost", "alpha 문제를 Graph 폴더로 옮겼습니다.")
                 self.assertEqual(captured, {"problemId": "alpha", "folder": "Graph"})
                 self.assertEqual(
                     page.locator('.problem-folder-group[data-folder="Graph"] .list-item').count(),
                     2,
                 )
 
-                page.locator("#problemSelect").select_option("alpha")
                 page.locator("#problemFolderInput").fill("Dynamic")
                 page.locator("#problemFolderSaveButton").click()
-                wait_for_text(page, "#toastHost", "alpha folder moved to Dynamic")
+                wait_for_text(page, "#toastHost", "폴더 생성: Dynamic")
+                page.evaluate(
+                    """() => {
+                        const source = document.querySelector('[data-problem-id="alpha"]');
+                        const target = [...document.querySelectorAll('.problem-folder-group')]
+                          .find((group) => group.dataset.folder === 'Dynamic');
+                        const dataTransfer = new DataTransfer();
+                        source.dispatchEvent(new DragEvent('dragstart', {
+                          bubbles: true,
+                          cancelable: true,
+                          dataTransfer,
+                        }));
+                        target.dispatchEvent(new DragEvent('drop', {
+                          bubbles: true,
+                          cancelable: true,
+                          dataTransfer,
+                        }));
+                        source.dispatchEvent(new DragEvent('dragend', {
+                          bubbles: true,
+                          cancelable: true,
+                          dataTransfer,
+                        }));
+                    }"""
+                )
+                wait_for_text(page, "#toastHost", "alpha 문제를 Dynamic 폴더로 옮겼습니다.")
                 self.assertEqual(captured, {"problemId": "alpha", "folder": "Dynamic"})
+                self.assert_no_browser_errors()
+
+    def test_problem_folder_create_collapse_and_delete_confirmation_in_browser(self) -> None:
+        """폴더 생성, 접기, 빈 폴더 삭제, 문제 포함 폴더 삭제 확인창을 브라우저에서 검증합니다."""
+        problems = [
+            {
+                "problemId": "alpha",
+                "title": "Alpha",
+                "version": 1,
+                "defaultProfile": "full",
+                "profiles": ["sample"],
+                "folder": "",
+                "folderEditable": True,
+            },
+            {
+                "problemId": "beta",
+                "title": "Beta",
+                "version": 1,
+                "defaultProfile": "full",
+                "profiles": ["sample"],
+                "folder": "Graph",
+                "folderEditable": True,
+            },
+        ]
+        folders = [
+            {"folder": "", "label": "미분류", "problemCount": 1},
+            {"folder": "Graph", "label": "Graph", "problemCount": 1},
+        ]
+        dialogs: list[str] = []
+
+        def folders_route(route):
+            """브라우저 폴더 관리 테스트용 폴더 API 응답을 제공합니다."""
+            request = route.request
+            if request.method == "GET":
+                route.fulfill(json=folders)
+                return
+            body = request.post_data_json
+            if request.method == "POST":
+                folder = body["folder"]
+                folders.append({"folder": folder, "label": folder, "problemCount": 0})
+                route.fulfill(json={"folder": folder, "folders": folders})
+                return
+            if request.method == "DELETE":
+                folder = body["folder"]
+                folders[:] = [item for item in folders if item["folder"] != folder]
+                if body.get("confirm_delete_problems"):
+                    problems[:] = [problem for problem in problems if problem["folder"] != folder]
+                route.fulfill(
+                    json={
+                        "deleted": True,
+                        "folder": folder,
+                        "deletedProblems": ["beta"] if folder == "Graph" else [],
+                        "folders": folders,
+                    }
+                )
+                return
+            route.fulfill(status=405, json={"detail": "method not allowed"})
+
+        with isolated_runtime("alj-judge-web-folder-delete-e2e-") as (_directory, runtime):
+            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+                page = self.new_page(server.url)
+                page.route("**/api/problems", lambda route: route.fulfill(json=problems))
+                page.route("**/api/folders", folders_route)
+                page.route(
+                    "**/api/problems/*/samples**",
+                    lambda route: route.fulfill(
+                        json={"profile": "sample", "caseCount": 0, "label": "folder", "cases": []}
+                    ),
+                )
+                page.on("dialog", lambda dialog: (dialogs.append(dialog.message), dialog.accept()))
+                page.goto(server.url)
+                page.locator("#sampleRunButton").wait_for(state="visible")
+
+                page.locator("#problemFolderInput").fill("Empty")
+                page.locator("#problemFolderSaveButton").click()
+                wait_for_text(page, "#problemList", "Empty")
+                self.assertEqual(dialogs, [])
+
+                page.locator('[data-folder-toggle="Graph"]').click()
+                self.assertTrue(
+                    page.locator('.problem-folder-group[data-folder="Graph"] .problem-folder-items')
+                    .evaluate("node => node.classList.contains('hidden')")
+                )
+                page.reload()
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                self.assertTrue(
+                    page.locator('.problem-folder-group[data-folder="Graph"] .problem-folder-items')
+                    .evaluate("node => node.classList.contains('hidden')")
+                )
+
+                page.locator('[data-folder-delete="Empty"]').click()
+                page.wait_for_function(
+                    "() => !document.querySelector('[data-folder-delete=\"Empty\"]')"
+                )
+                self.assertEqual(dialogs, [])
+
+                page.locator('[data-folder-delete="Graph"]').click()
+                page.wait_for_function(
+                    "() => !document.querySelector('[data-problem-id=\"beta\"]')"
+                )
+                self.assertTrue(any("폴더 내 문제들이 모두 삭제됩니다" in text for text in dialogs))
+                self.assert_no_browser_errors()
+
+    def test_submission_language_buttons_jobs_and_case_results_in_browser(self) -> None:
+        """제출 언어 자동 변경, 전체 채점 버튼, 제출 기록 페이지네이션, testcase 결과 렌더링을 검증합니다."""
+        jobs: dict[str, dict] = {}
+        captured_run_request = {"body": ""}
+        base_result = {
+            "runId": "run-newest",
+            "problemId": "06",
+            "profile": "full",
+            "language": "C++",
+            "status": "wrong_answer",
+            "caseCount": 2,
+            "cases": [
+                {"case": "001", "status": "ok", "timeMs": 1, "memoryBytes": 1024},
+                {
+                    "case": "002",
+                    "status": "wrong_answer",
+                    "message": "expected 2, got 1",
+                    "timeMs": 2,
+                    "memoryBytes": 2048,
+                },
+            ],
+            "metrics": {"maxTimeLabel": "2 ms", "maxMemoryLabel": "2 KiB"},
+            "firstFailedCase": None,
+        }
+        for index in range(6):
+            job_id = f"run-{index}"
+            result = dict(base_result)
+            result["runId"] = job_id
+            jobs[job_id] = completed_job(
+                job_id,
+                "judge-run",
+                f"채점 · {index}",
+                result,
+                target={"problemId": "06", "profile": "full", "source": f"main-{index}.cpp"},
+            )
+            jobs[job_id]["queuedAt"] = f"2026-06-01T00:00:0{index}+00:00"
+
+        def create_cases_job(route):
+            job = completed_job(
+                "cases-language",
+                "judge-cases-compile",
+                "Check Cases · 06",
+                VALID_CASES_COMPILE,
+            )
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
+        def create_run_job(route):
+            captured_run_request["body"] = route.request.post_data or ""
+            newest = jobs["run-5"]
+            route.fulfill(json=newest)
+
+        with isolated_runtime("alj-judge-web-result-list-e2e-") as (_directory, runtime):
+            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+                page = self.new_page(server.url)
+                stub_samples(page)
+                route_jobs_list(page, jobs)
+                page.route("**/api/cases/jobs", create_cases_job)
+                page.route("**/api/run/jobs", create_run_job)
+                page.goto(server.url)
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.locator("#problemSelect").select_option("06")
+                page.locator("#filenameInput").fill("main.cpp")
+                page.wait_for_function("() => document.querySelector('#languageHint')?.value === 'cpp'")
+                wait_for_text(page, "#languageBadge", "C++")
+                page.locator("#sourceTextInput").fill("int main(){return 0;}\n")
+                page.locator("#fullRunButton").click()
+
+                page.wait_for_function(
+                    "() => document.querySelector('#jobsPageLabel')?.textContent === '1 / 2'"
+                )
+                wait_for_text(page, "#jobsPanel", "채점 · 5")
+                run_body = wait_for_captured_body(page, captured_run_request)
+                self.assertIn('name="profile"', run_body)
+                self.assertIn("full", run_body)
+                self.assertNotIn("Active", page.locator("#jobsPanel").inner_text())
+                self.assertNotIn("Done", page.locator("#jobsPanel").inner_text())
+                self.assertNotIn("Failed", page.locator("#jobsPanel").inner_text())
+
+                page.locator("#jobsNextButton").click()
+                wait_for_text(page, "#jobsPanel", "채점 · 0")
+                page.locator("#jobsPrevButton").click()
+                page.locator('[data-job-result="run-5"]').click()
+                wait_for_text(page, "#resultModal", "테스트케이스 결과")
+                wait_for_text(page, "#resultModal", "맞음")
+                wait_for_text(page, "#resultModal", "틀림")
+                wait_for_text(page, "#resultModal", "expected 2, got 1")
                 self.assert_no_browser_errors()
 
     def test_pasted_source_runs_and_updates_history_in_browser(self) -> None:
@@ -269,18 +492,18 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page = self.new_page(server.url)
                 page.goto(server.url)
 
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.wait_for_function(
                     """() => document.querySelector("#problemSelect")?.options.length > 0"""
                 )
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
-                page.locator("#textModeButton").click()
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("main.py")
                 page.locator("#sourceTextInput").fill(source)
 
-                wait_for_text(page, "#sourceReadiness", "main.py ready")
-                page.locator("#runButton").click()
+                wait_for_text(page, "#sourceReadiness", "main.py 준비됨")
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "accepted", timeout=120_000)
                 wait_for_text(page, "#resultSummary", "Accepted", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "main.py", timeout=120_000)
@@ -297,7 +520,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#themeToggleButton").click()
                 theme = page.evaluate("() => document.documentElement.dataset.theme")
                 page.reload()
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 reloaded_theme = page.evaluate("() => document.documentElement.dataset.theme")
                 self.assertEqual(reloaded_theme, theme)
                 self.assert_no_browser_errors()
@@ -310,28 +533,28 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page = self.new_page(server.url)
                 stub_samples(page)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.wait_for_function(
                     """() => document.querySelector("#problemSelect")?.options.length > 0"""
                 )
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#sourceFileInput").set_input_files(str(source_path))
-                wait_for_text(page, "#sourceReadiness", "accepted.py ready")
-                page.locator("#runButton").click()
+                wait_for_text(page, "#sourceReadiness", "accepted.py 준비됨")
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "accepted", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "accepted.py", timeout=120_000)
 
                 page.reload()
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.wait_for_function(
                     """() => document.querySelector("#problemSelect")?.options.length > 0"""
                 )
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 wait_for_text(page, "#sourceHistoryList", "accepted.py", timeout=120_000)
                 page.get_by_role("button", name="Use Code").first.click()
-                wait_for_text(page, "#sourceReadiness", "accepted.py ready")
+                wait_for_text(page, "#sourceReadiness", "accepted.py 준비됨")
                 page.wait_for_function(
                     """() => document
                         .querySelector("#sourceTextInput")
@@ -362,14 +585,14 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
             with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
                 page = self.new_page(server.url)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
-                page.locator("#textModeButton").click()
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("wrong.py")
                 page.locator("#sourceTextInput").fill(wrong_source)
-                wait_for_text(page, "#sourceReadiness", "wrong.py ready")
-                page.locator("#runButton").click()
+                wait_for_text(page, "#sourceReadiness", "wrong.py 준비됨")
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "wrong answer", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "wrong.py", timeout=120_000)
                 page.locator("#sourceHistoryStatusFilter").select_option("wrong_answer")
@@ -410,15 +633,15 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page = self.new_page(server.url)
                 stub_samples(page)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator(".advanced-run-options > summary").click()
                 page.locator("#forceGenerateInput").check()
                 page.locator("#generateButton").click()
                 wait_for_text(page, "#statusBadge", "Generated", timeout=120_000)
                 wait_for_text(page, "#dataStatusValue", "Generated", timeout=120_000)
-                wait_for_text(page, "#resultSummary", "sample test data ready", timeout=120_000)
+                wait_for_text(page, "#resultSummary", "test data ready", timeout=120_000)
                 wait_for_text(page, "#generationProgress", "/")
                 self.assert_no_browser_errors()
 
@@ -465,7 +688,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
             job = {
                 "jobId": "run-1",
                 "kind": "judge-run",
-                "title": "Run Tests · 06",
+                "title": "채점 · 06",
                 "problemId": "06",
                 "status": "running",
                 "cancelSupported": True,
@@ -486,7 +709,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
             job = jobs["run-1"]
             job["status"] = "cancelled"
             job["cancelRequested"] = True
-            job["lastLog"] = "Cancel requested."
+            job["lastLog"] = "취소를 요청했습니다."
             route.fulfill(json=job)
 
         with isolated_runtime("alj-judge-web-job-cancel-e2e-") as (_directory, runtime):
@@ -495,22 +718,22 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 stub_samples(page)
                 page.route("**/api/cases/jobs", create_cases_job)
                 page.route("**/api/run/jobs", create_run_job)
+                page.route(re.compile(r"/api/jobs(?:\?.*)?$"), lambda route: route.fulfill(json=listed_jobs()))
                 page.route("**/api/jobs/run-1/cancel", cancel_job)
-                page.route("**/api/jobs", lambda route: route.fulfill(json=listed_jobs()))
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
-                page.locator("#textModeButton").click()
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("main.py")
                 page.locator("#sourceTextInput").fill(source)
-                page.locator("#runButton").click()
-                wait_for_text(page, "#jobsPanel", "Run Tests")
-                wait_for_text(page, "#jobsPanel", "Running")
+                page.locator("#sampleRunButton").click()
+                wait_for_text(page, "#jobsPanel", "채점")
+                wait_for_text(page, "#jobsPanel", "채점 중")
                 self.assertFalse(page.locator("#sourceTextInput").is_disabled())
                 page.locator('[data-job-cancel="run-1"]').click()
-                page.locator('[data-job-filter="done"]').click()
-                wait_for_text(page, "#jobsPanel", "Cancelled")
+                page.locator("#jobsPanel").wait_for(state="visible")
+                wait_for_text(page, "#jobsPanel", "취소됨")
                 self.assert_no_browser_errors()
 
     def test_cases_compile_failure_blocks_run_stream_in_browser(self) -> None:
@@ -573,13 +796,13 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
 
                 page.route("**/api/run/jobs", fail_if_run_job)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
-                page.locator("#textModeButton").click()
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("main.py")
                 page.locator("#sourceTextInput").fill(source)
-                page.locator("#runButton").click()
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "Cases Invalid")
                 wait_for_text(page, "#resultSummary", "forced compile failure")
                 self.assertFalse(run_stream_called["value"])
@@ -600,7 +823,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
             job = completed_job(
                 "run-error",
                 "judge-run",
-                "Run Tests · 06",
+                "채점 · 06",
                 {},
                 target={"problemId": "06", "profile": "sample", "source": "main.cpp"},
             )
@@ -632,18 +855,19 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 )
                 page.route("**/api/run/jobs", run_job_handler)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
-                page.locator("#textModeButton").click()
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("main.cpp")
                 page.locator("#sourceTextInput").fill("int main( { return 0; }\n")
 
-                page.locator("#runButton").click()
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "Error")
                 wait_for_text(page, "#resultSummary", "compile failed: main.cpp")
-                self.assertIn('name="profile"', captured_run_request["body"])
-                self.assertIn("sample", captured_run_request["body"])
+                run_body = wait_for_captured_body(page, captured_run_request)
+                self.assertIn('name="profile"', run_body)
+                self.assertIn("sample", run_body)
                 self.assert_no_browser_errors()
 
     def test_runtime_and_time_limit_result_states_render_in_browser(self) -> None:
@@ -700,7 +924,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         job = completed_job(
                             f"run-{status_value}",
                             "judge-run",
-                            "Run Tests · 06",
+                            "채점 · 06",
                             result,
                         )
                         job["lastLog"] = "Running case 001 (1/1)."
@@ -740,13 +964,13 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                             make_run_job_handler(status, message),
                         )
                         page.goto(server.url)
-                        page.locator("#runButton").wait_for(state="visible")
+                        page.locator("#sampleRunButton").wait_for(state="visible")
                         page.locator("#problemSelect").select_option("06")
-                        page.locator("#textModeButton").click()
+                        page.locator("#sourceTextInput").wait_for(state="visible")
                         page.locator("#filenameInput").fill("main.py")
                         page.locator("#sourceTextInput").fill("raise SystemExit(1)\n")
 
-                        page.locator("#runButton").click()
+                        page.locator("#sampleRunButton").click()
                         wait_for_text(page, "#statusBadge", status.replace("_", " "))
                         wait_for_text(page, "#judgeStatusValue", status.replace("_", " "))
                         wait_for_text(page, "#resultSummary", status.replace("_", " "))
@@ -798,7 +1022,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     ),
                 )
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
 
                 page.locator("#addProblemButton").click()
                 page.locator("#officialRepoInput").fill("owner/problems")
@@ -850,7 +1074,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 route_jobs_list(page, jobs)
                 page.route("**/api/packs/download/jobs", fail_download)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
 
                 page.locator("#addProblemButton").click()
                 page.locator("#officialRepoInput").fill("owner/problems")
@@ -873,13 +1097,13 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page = self.new_page(server.url)
                 stub_samples(page)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#textModeButton").click()
+                page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("main.cpp")
                 page.locator("#sourceTextInput").fill("int main( { return 0; }\n")
 
-                page.locator("#runButton").click()
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "Error", timeout=120_000)
                 wait_for_text(page, "#resultSummary", "compile failed", timeout=120_000)
                 self.assert_no_browser_errors()
@@ -895,9 +1119,9 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page = self.new_page(server.url)
                 stub_samples(page)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#debugToggle").wait_for(state="visible")
                 page.locator("#debugModeInput").check()
                 page.evaluate(
@@ -914,9 +1138,9 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     }""",
                     ["#uploadSourcePanel", "drop_accepted.py", source],
                 )
-                wait_for_text(page, "#sourceReadiness", "drop_accepted.py ready")
+                wait_for_text(page, "#sourceReadiness", "drop_accepted.py 준비됨")
 
-                page.locator("#runButton").click()
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "accepted", timeout=120_000)
                 wait_for_text(page, "#resultOutput", "Starting judge run.", timeout=120_000)
                 self.assert_no_browser_errors()
@@ -936,7 +1160,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     ),
                 )
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.wait_for_load_state("networkidle")
                 self.assertTrue(any(url.endswith("/static/app/state.js") for url in static_urls))
                 self.assertTrue(any(url.endswith("/static/app/run.js") for url in static_urls))
@@ -1037,7 +1261,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
             with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
                 page = self.new_page(server.url)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#addProblemButton").click()
                 page.locator("#packFileInput").set_input_files(str(invalid_pack))
                 page.locator("#uploadPackButton").click()
@@ -1118,7 +1342,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                             completed_job(
                                 "run-big-job",
                                 "judge-run",
-                                "Run Tests · 06",
+                                "채점 · 06",
                                 run_result,
                             ),
                         ),
@@ -1130,13 +1354,13 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     lambda route: route.fulfill(json=wrong_payload),
                 )
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
-                page.locator("#textModeButton").click()
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("wrong.py")
                 page.locator("#sourceTextInput").fill(source)
-                page.locator("#runButton").click()
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "wrong answer")
                 page.get_by_role("button", name="Actual").click()
                 wait_for_text(page, "#artifactNotice", "긴 데이터")
@@ -1162,14 +1386,14 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page = self.new_page(server.url, width=390, height=844)
                 stub_samples(page)
                 page.goto(server.url)
-                page.locator("#runButton").wait_for(state="visible")
+                page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
-                page.locator("#runProfileSelect").select_option("sample")
-                page.locator("#textModeButton").click()
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("main.py")
                 page.locator("#sourceTextInput").fill(source)
-                assert_visible_in_viewport(self, page.locator("#runButton"))
-                page.locator("#runButton").click()
+                assert_visible_in_viewport(self, page.locator("#sampleRunButton"))
+                page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "accepted", timeout=120_000)
                 page.locator("#resultSummary").scroll_into_view_if_needed()
                 assert_visible_in_viewport(self, page.locator("#resultSummary"))
@@ -1182,16 +1406,16 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 for width, height in [(1440, 900), (900, 900), (390, 844)]:
                     page = self.new_page(server.url, width=width, height=height)
                     page.goto(server.url)
-                    page.locator("#runButton").wait_for(state="visible")
+                    page.locator("#sampleRunButton").wait_for(state="visible")
                     page.wait_for_function(
                         """() => {
                             const button = document.querySelector("#cacheManageButton");
                             return button && !button.disabled;
                         }"""
                     )
-                    assert_visible_in_viewport(self, page.locator("#runButton"))
+                    assert_visible_in_viewport(self, page.locator("#sampleRunButton"))
                     assert_visible_in_viewport(self, page.locator("#problemSelect"))
-                    assert_visible_in_viewport(self, page.locator("#runProfileSelect"))
+                    assert_visible_in_viewport(self, page.locator("#fullRunButton"))
                     assert_visible_in_viewport(self, page.locator("#sourceReadiness"))
                     page.locator(".advanced-run-options > summary").click()
                     assert_visible_in_viewport(self, page.locator(".advanced-actions"))

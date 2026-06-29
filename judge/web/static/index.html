@@ -24,7 +24,7 @@
             Dark
           </button>
           <button id="cacheManageButton" type="button">Cache 정리</button>
-          <button id="jobsButton" type="button" aria-expanded="false">Jobs 0</button>
+          <button id="jobsButton" type="button" aria-expanded="false">채점 결과 0</button>
         </div>
       </header>
 
@@ -38,10 +38,10 @@
             <div class="section-title">Problems</div>
             <div class="problem-folder-tools">
               <label>
-                Folder
-                <input id="problemFolderInput" type="text" placeholder="Uncategorized" />
+                새 폴더
+                <input id="problemFolderInput" type="text" placeholder="예: Graph" />
               </label>
-              <button id="problemFolderSaveButton" type="button">Move</button>
+              <button id="problemFolderSaveButton" type="button">생성</button>
             </div>
             <div id="problemList" class="list muted">Loading...</div>
           </section>
@@ -62,7 +62,7 @@
             <div class="panel-heading">
               <div>
                 <h2>Run</h2>
-                <p>Upload or paste a source, then run selected cases.</p>
+                <p>코드를 붙여넣거나 파일을 불러온 뒤 채점합니다.</p>
               </div>
               <span id="languageBadge" class="badge neutral">No source</span>
             </div>
@@ -72,20 +72,22 @@
                 Problem
                 <select id="problemSelect"></select>
               </label>
-              <label>
-                Run Profile
+              <label class="hidden">
+                프로필
                 <select id="runProfileSelect"></select>
               </label>
             </div>
 
-            <div class="mode-tabs" role="tablist">
-              <button id="uploadModeButton" class="active" type="button">Upload File</button>
-              <button id="textModeButton" type="button">Paste Code</button>
+            <div class="mode-tabs hidden" role="tablist">
+              <button id="uploadModeButton" type="button">파일 선택</button>
+              <button id="textModeButton" class="active" type="button">코드 입력</button>
             </div>
 
             <div class="actions">
-              <span id="sourceReadiness" class="source-readiness" role="status">Source needed</span>
-              <button id="runButton" class="primary" type="button">Run Tests</button>
+              <span id="sourceReadiness" class="source-readiness" role="status">코드 입력이 필요합니다</span>
+              <button id="sampleRunButton" class="primary" type="button">예제 채점</button>
+              <button id="fullRunButton" class="primary" type="button">전체 채점</button>
+              <button id="runButton" class="hidden" type="button">채점</button>
               <details class="advanced-run-options">
                 <summary>Advanced</summary>
                 <div class="advanced-actions">
@@ -99,29 +101,28 @@
               </details>
             </div>
 
-            <div id="uploadSourcePanel" class="drop-zone">
-              <label>
-                Source File
-                <input id="sourceFileInput" type="file" accept=".cpp,.cc,.cxx,.py,.java" />
-              </label>
-              <div class="drop-hint">Drop a source file here</div>
-            </div>
+            <div id="uploadSourcePanel" class="drop-zone hidden"></div>
 
-            <div id="textSourcePanel" class="hidden">
+            <div id="textSourcePanel">
               <div class="grid two">
                 <label>
                   Filename
                   <input id="filenameInput" type="text" placeholder="main.cpp" />
                 </label>
                 <label>
-                  Language Hint
+                  제출 언어
                   <select id="languageHint">
-                    <option value="main.cpp">C++</option>
-                    <option value="main.py">Python</option>
-                    <option value="Main.java">Java</option>
+                    <option value="cpp">C++</option>
+                    <option value="python" selected>Python</option>
+                    <option value="pypy">PyPy</option>
+                    <option value="java">Java</option>
                   </select>
                 </label>
               </div>
+              <label class="source-upload-button">
+                파일 업로드
+                <input id="sourceFileInput" type="file" accept=".cpp,.cc,.cxx,.py,.java" />
+              </label>
               <label class="source-code-label" for="sourceTextInput">Source Code</label>
               <div class="code-editor">
                 <div class="editor-toolbar">
@@ -221,17 +222,18 @@
               </div>
             </div>
             <div id="resultSummary" class="result-summary muted">Ready.</div>
-            <section id="jobsPanel" class="jobs-panel hidden" aria-label="Jobs">
+            <div id="caseResults" class="case-results hidden" aria-live="polite"></div>
+            <section id="jobsPanel" class="jobs-panel hidden" aria-label="채점 결과">
               <div class="jobs-panel-heading">
                 <div>
-                  <strong>Jobs</strong>
+                  <strong>채점 결과</strong>
                   <p id="jobsMeta">No queued jobs.</p>
                 </div>
                 <div class="jobs-panel-actions">
-                  <button data-job-filter="active" class="active" type="button">Active</button>
-                  <button data-job-filter="done" type="button">Done</button>
-                  <button data-job-filter="failed" type="button">Failed</button>
-                  <button id="jobsClearButton" type="button">Clear Done</button>
+                  <button id="jobsPrevButton" type="button">이전</button>
+                  <span id="jobsPageLabel">1 / 1</span>
+                  <button id="jobsNextButton" type="button">다음</button>
+                  <button id="jobsClearButton" type="button">완료 기록 정리</button>
                 </div>
               </div>
               <div id="jobsList" class="jobs-list muted">No jobs.</div>
@@ -332,6 +334,17 @@
         <button id="cacheClearAllButton" class="danger" type="button">Clear All</button>
       </div>
       <div id="cacheOutput" class="modal-status muted">Ready.</div>
+    </section>
+
+    <section id="resultModal" class="modal result-modal hidden" role="dialog" aria-modal="true" aria-labelledby="resultModalTitle">
+      <div class="modal-heading">
+        <div>
+          <h2 id="resultModalTitle">채점 결과</h2>
+          <p id="resultModalMeta">제출 기록을 선택하세요.</p>
+        </div>
+        <button class="icon-button" type="button" data-modal-close aria-label="Close">×</button>
+      </div>
+      <div id="resultCaseResults" class="case-results" aria-live="polite"></div>
     </section>
 
     <script type="module" src="/static/app.js?v=20260522-01"></script>

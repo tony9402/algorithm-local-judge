@@ -34,13 +34,16 @@
 }
 
 .studio-layout.solutions-mode .task-panel {
-  max-height: none;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .studio-layout.solutions-mode .resource-list {
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
-  max-height: min(720px, 68vh);
+  max-height: none;
+  overflow: visible;
 }
 
 .studio-layout.solutions-mode .solution-validation-summary {
@@ -99,6 +102,12 @@
   background: #fff9eb;
 }
 
+.resource-item.verifying,
+.resource-item.test-running {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--line));
+  background: #eef6ff;
+}
+
 .resource-item.match.active {
   border-color: var(--good);
   background: #e4f7ea;
@@ -112,6 +121,12 @@
 .resource-item.stale.active {
   border-color: var(--warn);
   background: #fff1cc;
+}
+
+.resource-item.verifying.active,
+.resource-item.test-running.active {
+  border-color: var(--accent);
+  background: #dbeafe;
 }
 
 .resource-item.match .resource-path {

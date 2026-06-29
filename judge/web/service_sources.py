@@ -21,6 +21,7 @@ from judge.web.source_history_store import (
     save_existing_source,
     save_text_source,
     save_uploaded_source,
+    source_language_id,
     source_history_detail,
 )
 from judge.web.source_request import source_path_from_request
@@ -41,6 +42,7 @@ __all__ = [
     "source_history_metadata",
     "source_history_root",
     "source_history_run_summary",
+    "source_language_id",
     "source_id_from_path",
     "source_path_from_request",
     "write_source_history_metadata",

@@ -15,9 +15,11 @@ async function api(path, options = {}) {
   const body = contentType.includes("application/json") ? await response.json() : await response.text();
   if (!response.ok) {
     const detail = typeof body === "object" && body.detail ? body.detail : body;
-    const error = new Error(detail || `HTTP ${response.status}`);
+    const message = typeof detail === "object" ? detail.message || JSON.stringify(detail) : detail;
+    const error = new Error(message || `HTTP ${response.status}`);
     error.status = response.status;
     error.body = body;
+    error.detail = detail;
     throw error;
   }
   return body;
@@ -36,9 +38,11 @@ async function apiResponse(path, options = {}) {
       ? await response.json()
       : await response.text();
     const detail = typeof body === "object" && body.detail ? body.detail : body;
-    const error = new Error(detail || `HTTP ${response.status}`);
+    const message = typeof detail === "object" ? detail.message || JSON.stringify(detail) : detail;
+    const error = new Error(message || `HTTP ${response.status}`);
     error.status = response.status;
     error.body = body;
+    error.detail = detail;
     throw error;
   }
   return response;

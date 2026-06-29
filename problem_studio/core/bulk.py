@@ -8,10 +8,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from judge.core.cases_compile import compile_problem_cases, format_compile_result
-from judge.core.compiler import compile_problem_tools
-from judge.core.errors import JudgeError
-from judge.core.paths import validate_safe_id
+from alj_core.cases_compile import compile_problem_cases, format_compile_result
+from alj_core.compiler import compile_problem_tools
+from alj_core.errors import JudgeError
+from alj_core.paths import validate_safe_id
 from problem_studio.core.diagnostics import (
     exception_failure_payload,
     infer_failure_stage,
@@ -87,6 +87,8 @@ def run_problem_full_test(
         verify_profile,
         progress=progress,
         raise_on_failure=False,
+        max_workers=DEFAULT_MAX_WORKERS,
+        cancel_check=cancel_token.check if cancel_token else None,
     )
     failed_checks = [check for check in verification.get("checks", []) if not check.get("passed")]
     summary = (

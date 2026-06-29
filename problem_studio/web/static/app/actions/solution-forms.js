@@ -8,6 +8,7 @@ import { EXTENSIONS, SAFE_SOLUTION_NAME } from "../state.js";
 
 function formatSolutionFilename(name, expected, language) {
   const normalizedName = name.trim().replaceAll(" ", "_") || "solution";
+  if (language === "pypy") return `${normalizedName}.pypy.${expected}.py`;
   return `${normalizedName}.${expected}${EXTENSIONS[language] || ".cpp"}`;
 }
 

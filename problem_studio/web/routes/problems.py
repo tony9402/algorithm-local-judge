@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from judge.core.problem import load_problem
+from alj_core.problem import load_problem
 from problem_studio.core.editor import list_problem_files, update_problem_metadata
 from problem_studio.core.templates import create_problem
 from problem_studio.core.workspace import (

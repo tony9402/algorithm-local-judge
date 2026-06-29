@@ -14,6 +14,7 @@ def add_parser(subparsers: argparse._SubParsersAction, name: str) -> argparse.Ar
 def add_common_run_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--problem", dest="run_problem")
     parser.add_argument("--profile", dest="run_profile")
+    parser.add_argument("--language", dest="run_language", choices=["cpp", "python", "pypy", "java"])
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="judge", allow_abbrev=False)
     parser.add_argument("--problem")
     parser.add_argument("--profile")
+    parser.add_argument("--language", choices=["cpp", "python", "pypy", "java"])
     subparsers = parser.add_subparsers(dest="command")
 
     compile_parser = add_parser(subparsers, "compile")

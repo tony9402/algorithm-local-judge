@@ -23,13 +23,13 @@ function formatCasesCompile(result) {
   }
   return lines.join("\n");
 }
-async function compileCasesData({ showSuccess = true } = {}) {
-  app.setStatusCard("cases", "Checking", `${app.judgeProfile()} cases.yml`);
+async function compileCasesData({ showSuccess = true, profile = app.judgeProfile() } = {}) {
+  app.setStatusCard("cases", "Checking", `${profile} cases.yml`);
   const result = await app.runQueuedJob("/api/cases/jobs", {
     method: "POST",
     body: JSON.stringify({
       problem_id: app.$("problemSelect").value,
-      profile: app.judgeProfile(),
+      profile,
     }),
   });
   if (showSuccess || !result.valid) {
@@ -38,8 +38,8 @@ async function compileCasesData({ showSuccess = true } = {}) {
     app.setBadge(result.valid ? "Cases OK" : "Cases Invalid", result.valid ? "accepted" : "wrong");
     if (result.valid) {
       const caseCount = compiledCaseCount(result);
-      app.setStatusCard("cases", "OK", app.profileCaseText(caseCount));
-      app.setSummary(`${app.judgeProfile()} cases.yml expanded successfully.`, "result-summary success");
+      app.setStatusCard("cases", "OK", app.profileCaseText(caseCount, profile));
+      app.setSummary(`${profile} cases.yml expanded successfully.`, "result-summary success");
     } else {
       const first = result.diagnostics[0];
       app.setStatusCard("cases", "Invalid", first?.location || "-");
@@ -47,7 +47,7 @@ async function compileCasesData({ showSuccess = true } = {}) {
     }
   } else if (result.valid) {
     const caseCount = compiledCaseCount(result);
-    app.setStatusCard("cases", "OK", app.profileCaseText(caseCount));
+    app.setStatusCard("cases", "OK", app.profileCaseText(caseCount, profile));
   } else {
     const first = result.diagnostics[0];
     state.debugLogs = formatCasesCompile(result).split("\n");

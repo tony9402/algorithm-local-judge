@@ -9,8 +9,13 @@ const { state } = app;
  */
 async function refresh() {
   app.setText("subtitle", "Connecting to local server");
-  const [config, problems] = await Promise.all([app.api("/api/config"), app.api("/api/problems")]);
+  const [config, problems, folders] = await Promise.all([
+    app.api("/api/config"),
+    app.api("/api/problems"),
+    app.api("/api/folders"),
+  ]);
   state.config = { ...state.config, ...config };
+  state.folders = folders || [];
   app.renderProblems(problems);
   app.configureDebugUi();
   const officialRepoInput = app.optional("officialRepoInput");

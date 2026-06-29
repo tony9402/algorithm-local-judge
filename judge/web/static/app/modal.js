@@ -23,6 +23,7 @@ function closeModals() {
   app.optional("modalBackdrop")?.classList.add("hidden");
   app.optional("packModal")?.classList.add("hidden");
   app.optional("cacheModal")?.classList.add("hidden");
+  app.optional("resultModal")?.classList.add("hidden");
 }
 
 Object.assign(app, {
