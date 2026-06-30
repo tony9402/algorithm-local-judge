@@ -50,6 +50,9 @@ export function bindAppEvents(actions) {
   $("sidebarToggle").addEventListener("click", actions.toggleSidebar);
   $("sidebarClose").addEventListener("click", actions.closeSidebar);
   $("sidebarBackdrop").addEventListener("click", actions.closeSidebar);
+  optional("problemFilterInput")?.addEventListener("input", (event) => {
+    actions.setProblemFilter(event.target.value);
+  });
   $("newProblemButton").addEventListener("click", () => actions.openModal("newProblemModal"));
   $("workspaceBuildAllButton").addEventListener("click", () => {
     void actions.withErrors(actions.openWorkspaceBuildModal, "전체 문제 팩 빌드를 준비하는 중입니다.");

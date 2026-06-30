@@ -86,6 +86,51 @@ function problemsByFolder(problems) {
     problemFolderLabel(left).localeCompare(problemFolderLabel(right))
   );
 }
+
+function problemMatchesSearch(problem) {
+  const query = String(state.problemSearch || "").trim().toLowerCase();
+  if (!query) return true;
+  return [
+    problem.problemId,
+    problem.title,
+    problemFolder(problem),
+  ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query));
+}
+
+function filteredProblems(problems) {
+  return problems.filter(problemMatchesSearch);
+}
+
+function currentSourceDraft() {
+  return {
+    filename: app.optional("filenameInput")?.value || "",
+    language: app.optional("languageHint")?.value || "",
+    sourceText: app.optional("sourceTextInput")?.value || "",
+    sourceMode: state.sourceMode || "text",
+  };
+}
+
+function saveProblemDraft(problemId) {
+  if (!problemId) return;
+  state.problemDrafts[problemId] = currentSourceDraft();
+}
+
+function restoreProblemDraft(problemId) {
+  const draft = state.problemDrafts[problemId];
+  app.clearSourceInputs();
+  if (!draft) return;
+  app.setMode(draft.sourceMode || "text");
+  const filenameInput = app.optional("filenameInput");
+  const languageInput = app.optional("languageHint");
+  const sourceInput = app.optional("sourceTextInput");
+  if (filenameInput) filenameInput.value = draft.filename || "";
+  if (languageInput && draft.language) languageInput.value = draft.language;
+  if (sourceInput) sourceInput.value = draft.sourceText || "";
+  app.updateLanguageBadge();
+  app.updateEditorView();
+  app.syncEditorScroll();
+}
+
 /**
  * 문제 폴더 controls 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
@@ -181,6 +226,10 @@ function renderProblems(problems) {
   document.body.classList.toggle("has-problems", problems.length > 0);
   const list = app.$("problemList");
   const select = app.$("problemSelect");
+  const searchInput = app.optional("problemSearchInput");
+  if (searchInput && searchInput.value !== state.problemSearch) {
+    searchInput.value = state.problemSearch || "";
+  }
   list.innerHTML = "";
   select.innerHTML = "";
   if (!problems.length) {
@@ -194,8 +243,14 @@ function renderProblems(problems) {
     return;
   }
   list.classList.remove("muted");
-  for (const [folder, items] of problemsByFolder(problems)) {
-    list.appendChild(createProblemFolderGroup(folder, items, select));
+  const visibleProblems = filteredProblems(problems);
+  if (!visibleProblems.length) {
+    list.textContent = "검색 결과가 없습니다.";
+    list.classList.add("muted");
+  } else {
+    for (const [folder, items] of problemsByFolder(visibleProblems)) {
+      list.appendChild(createProblemFolderGroup(folder, items, select));
+    }
   }
   for (const problem of problems) {
     const option = document.createElement("option");
@@ -259,16 +314,23 @@ function problemSupportsProfile(profile) {
  * 문제 change 명령이나 이벤트를 받아 필요한 검증과 서비스 호출을 수행합니다.
  */
 async function handleProblemChange() {
+  const previousProblem = state.selectedProblem;
+  saveProblemDraft(previousProblem);
   const problemId = app.$("problemSelect").value;
   state.selectedProblem = problemId;
   rememberProblemId(problemId);
   renderProblemSelection();
-  app.clearSourceInputs();
+  restoreProblemDraft(problemId);
   state.artifacts = null;
   app.$("wrongPanel").classList.add("hidden");
   app.renderSourceHistory({ sources: state.sources });
-  app.resetRunStatus(`Problem changed. ${app.judgeProfile()} cases will be used for Run.`);
+  app.resetRunStatus(`문제를 변경했습니다. ${app.judgeProfile()} 케이스를 채점에 사용합니다.`);
   await app.loadSamples();
+}
+
+function updateProblemSearch() {
+  state.problemSearch = app.optional("problemSearchInput")?.value || "";
+  renderProblems(state.problems);
 }
 /**
  * 문제 폴더 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
@@ -339,7 +401,9 @@ Object.assign(app, {
   renderProblemSelection,
   renderRunProfiles,
   renderProblems,
+  saveProblemDraft,
   toggleFolderCollapsed,
   updateProblemFolder,
+  updateProblemSearch,
   updateSelectedProblemFolder: createProblemFolderFromInput,
 });

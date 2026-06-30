@@ -14,7 +14,6 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from tests.e2e.helpers import (
-    ROOT,
     create_runnable_minimal_pack,
     create_source_archive,
     create_source_package,
@@ -22,12 +21,11 @@ from tests.e2e.helpers import (
     create_unsafe_tar_link,
     create_unsafe_zip,
     create_unsafe_zip_symlink,
+    e2e_project_root,
     isolated_runtime,
     run_dir_from_stdout,
     run_judge_cli,
 )
-
-PROBLEM_SOURCE_ROOT = ROOT / "problems" / "algorithm-package" / "problems"
 
 
 class QuietDirectoryHandler(http.server.SimpleHTTPRequestHandler):
@@ -79,11 +77,12 @@ class JudgePackInstallE2ETest(unittest.TestCase):
         """패키지 빌드 검증 설치 및 생성 설치된 패키지 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-pack-e2e-") as (_directory, runtime):
             output_dir = runtime / "dist"
+            problem_root = e2e_project_root(runtime) / "problems" / "06"
             build = run_judge_cli(
                 runtime,
                 "pack",
                 "build",
-                str(PROBLEM_SOURCE_ROOT / "06"),
+                str(problem_root),
                 "--pack-id",
                 "e2e-basic",
                 "--out",

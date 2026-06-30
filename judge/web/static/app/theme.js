@@ -13,8 +13,12 @@ function applyTheme(theme) {
   localStorage.setItem("alj-theme", theme);
   const button = app.optional("themeToggleButton");
   if (button) {
-    button.textContent = theme === "dark" ? "Light" : "Dark";
+    button.textContent = theme === "dark" ? "다크 모드" : "라이트 모드";
     button.setAttribute("aria-pressed", String(theme === "dark"));
+    button.setAttribute(
+      "aria-label",
+      theme === "dark" ? "현재 다크 모드, 라이트 모드로 전환" : "현재 라이트 모드, 다크 모드로 전환"
+    );
   }
 }
 

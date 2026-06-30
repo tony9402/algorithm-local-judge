@@ -8,6 +8,7 @@ from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from alj_core.artifacts import wrong_artifacts, wrong_diff_text
+from problem_studio.core.diagnostics import verification_failure_payload
 from problem_studio.core.editor import (
     create_solution_file,
     delete_solution_file,
@@ -303,7 +304,7 @@ def api_solutions_verify_job(
                 max_workers=worker_count,
                 cancel_check=cancel_token.check,
             )
-            result = {**result, "scope": "all"}
+            result = {**result, "scope": "all", **verification_failure_payload(result)}
             cancel_token.check()
             progress(
                 "Solution expectation verification finished."
@@ -388,7 +389,12 @@ def api_solution_test_job(
                 if result.get("passed")
                 else "Single solution test finished with mismatches."
             )
-            return {**result, "scope": "single", "solution": body.solution}
+            return {
+                **result,
+                "scope": "single",
+                "solution": body.solution,
+                **verification_failure_payload(result),
+            }
 
         job = enqueue_background_job(
             jobs,

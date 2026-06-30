@@ -139,6 +139,8 @@ import {
   folderLabel,
   renderProblems,
   renderWorkspace,
+  setProblemFilter,
+  syncSidebarAccessibility,
   syncWorkspaceProblemSummaries,
   toggleSidebar,
   updateMobileHeader,
@@ -341,6 +343,7 @@ bindAppEvents({
   runGitAction,
   saveFile,
   selectTab,
+  setProblemFilter,
   selectRepository,
   selectedBulkProblemIdsFromModal,
   setEditorMode,
@@ -360,6 +363,8 @@ bindAppEvents({
   withErrors,
   withInlineErrors,
 });
+syncSidebarAccessibility();
+window.addEventListener("resize", syncSidebarAccessibility);
 restoreEditorSettings();
 updateSolutionPreview();
 syncPackJobFromStorage();

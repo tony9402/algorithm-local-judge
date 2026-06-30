@@ -28,9 +28,13 @@
 
 .source-history-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(144px, auto);
+  grid-template-columns: auto minmax(0, 1fr) minmax(144px, auto);
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.source-history-scope {
+  align-self: stretch;
 }
 
 .source-history-filters input,

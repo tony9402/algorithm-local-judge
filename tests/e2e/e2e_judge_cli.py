@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.e2e.helpers import isolated_runtime, run_judge_cli
+from tests.e2e.helpers import ROOT, e2e_project_root, isolated_runtime, judge_env, run_judge_cli
 
 
 def run_dir_from_stdout(runtime: Path, stdout: str) -> Path:
@@ -51,6 +51,19 @@ def show_command_from_stdout(stdout: str) -> tuple[str, str]:
 
 class JudgeCliE2ETest(unittest.TestCase):
     """채점기 명령줄 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+
+    def test_judge_env_defaults_to_isolated_project_root(self) -> None:
+        """judge_env 기본 project root가 실제 저장소가 아닌 임시 프로젝트인지 검증합니다."""
+        with isolated_runtime("alj-judge-cli-env-e2e-") as (_directory, runtime):
+            env = judge_env(runtime)
+            project_root = Path(env["ALJ_PROJECT_ROOT"])
+
+            self.assertEqual(project_root, e2e_project_root(runtime).resolve())
+            self.assertNotEqual(project_root, ROOT.resolve())
+            self.assertTrue((project_root / "problems" / "06" / "problem.json").exists())
+
+            with self.assertRaises(RuntimeError):
+                judge_env(runtime, project_root=ROOT)
 
     def test_generate_reuses_sample_cache(self) -> None:
         """생성 재사용 샘플 캐시 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -261,13 +274,20 @@ profiles:
     def test_cpp_accepted_run_is_supported_by_cli_e2e(self) -> None:
         """C++ 정답 실행 지원 명령줄 종단 간 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-cli-cpp-e2e-") as (_directory, runtime):
+            source = (
+                e2e_project_root(runtime)
+                / "problems"
+                / "06"
+                / "solutions"
+                / "main_solution.ac.cpp"
+            )
             result = run_judge_cli(
                 runtime,
                 "--problem",
                 "06",
                 "--profile",
                 "sample",
-                "problems/algorithm-package/problems/06/solutions/main_solution.ac.cpp",
+                str(source),
                 check=True,
             )
             self.assertIn("Accepted", result.stdout)

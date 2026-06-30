@@ -9,7 +9,7 @@
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 110;
+  z-index: 10040;
   display: flex;
   width: min(520px, 100vw);
   height: 100vh;
@@ -132,6 +132,11 @@
   background: #fff7f6;
 }
 
+.job-row.attention {
+  border-color: rgba(194, 65, 59, 0.42);
+  background: #fff7f6;
+}
+
 .job-row.running,
 .job-row.cancelling {
   border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
@@ -186,6 +191,167 @@
 
 .job-cancel-reason {
   white-space: normal;
+}
+
+.job-outcome {
+  color: var(--bad);
+  font-weight: 800;
+  white-space: normal;
+}
+
+.job-failure-detail {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(194, 65, 59, 0.2);
+  border-radius: 8px;
+  background: #fff;
+  list-style: none;
+}
+
+.job-failure-detail li {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.job-failure-detail strong,
+.job-failure-detail span,
+.job-failure-detail p,
+.job-log-list li {
+  overflow-wrap: anywhere;
+}
+
+.job-failure-detail strong {
+  color: var(--bad);
+  font-size: 12px;
+}
+
+.job-failure-detail span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.job-failure-detail p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.job-log-list {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.job-log-list summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.job-log-list ol {
+  display: grid;
+  gap: 4px;
+  max-height: 160px;
+  margin: 6px 0 0;
+  overflow: auto;
+  padding-left: 18px;
+  white-space: pre-wrap;
+}
+
+.job-result-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.job-result-panel:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+  outline-offset: 2px;
+}
+
+.job-result-panel.error {
+  border-color: rgba(194, 65, 59, 0.24);
+  border-left-color: var(--bad);
+}
+
+.job-result-panel.success {
+  border-left-color: var(--good);
+}
+
+.job-result-heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.job-result-heading strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.job-result-heading span,
+.job-result-panel p,
+.job-result-detail-list span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.job-result-panel p {
+  margin: 0;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.job-result-detail-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-result-detail-list li {
+  display: grid;
+  gap: 3px;
+  border-left: 3px solid rgba(194, 65, 59, 0.24);
+  background: var(--panel-soft);
+  padding: 8px 9px;
+}
+
+.job-result-detail-list strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.job-result-raw,
+.job-result-raw-block pre {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f172a;
+  color: #dbeafe;
+  padding: 9px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.job-result-raw-block summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .job-row-actions {
@@ -321,6 +487,14 @@
 }
 
 .job-row.failed .job-progress-fill {
+  background: linear-gradient(90deg, var(--bad), #f87171);
+}
+
+.job-row.attention .job-progress-track {
+  background: color-mix(in srgb, var(--bad) 18%, #fff);
+}
+
+.job-row.attention .job-progress-fill {
   background: linear-gradient(90deg, var(--bad), #f87171);
 }
 

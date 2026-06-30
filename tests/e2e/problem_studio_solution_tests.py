@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from problem_studio.core.templates import create_problem
@@ -14,7 +16,7 @@ from tests.e2e.helpers import (
     set_solution_modal_editor_value,
     wait_for_text,
 )
-from tests.e2e.problem_studio_fakes import git
+from tests.e2e.problem_studio_fakes import fake_verify_solutions, git
 
 
 def completed_solution_job(
@@ -146,6 +148,304 @@ def accepted_solution_result(
 
 class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
     """Problem Studio 솔루션 브라우저 흐름을 검증합니다."""
+
+    def test_full_solution_verify_cold_start_first_click_succeeds(self) -> None:
+        """새 작업공간의 첫 기대 결과 검증 클릭이 실제 큐 경로에서 바로 성공해야 합니다."""
+        calls = {"count": 0}
+
+        def verify_with_count(*args, **kwargs) -> dict:
+            """실제 작업 큐를 통과하되 검증 실행만 결정적인 fake로 대체합니다."""
+            calls["count"] += 1
+            return fake_verify_solutions(*args, **kwargs)
+
+        with isolated_runtime("alj-problem-studio-solution-cold-start-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Cold Verify", "E2E")
+            with (
+                patch("problem_studio.web.routes.solutions.verify_solutions", verify_with_count),
+                run_app(create_app(workspace)) as server,
+            ):
+                page = self.new_page(server.url)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#alertStack", "Solutions verified.", timeout=30_000)
+                wait_for_text(page, "#tabFiles", "e2e-run", timeout=30_000)
+                self.assertEqual(calls["count"], 1)
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                page.wait_for_function(
+                    """async () => {
+                        const response = await fetch("/api/jobs", { cache: "no-store" });
+                        const payload = await response.json();
+                        const jobs = payload.jobs || [];
+                        const verifies = jobs.filter((job) => job.kind === "solution-verify");
+                        return verifies.filter((job) => job.status === "succeeded").length >= 2
+                            && !verifies.some((job) => job.status === "failed");
+                    }""",
+                    timeout=30_000,
+                )
+                self.assertEqual(calls["count"], 2)
+                page.locator("#jobCenterButton").click()
+                page.locator('[data-job-filter="done"]').click()
+                wait_for_text(page, "#jobCenterList", "기대 결과 검증 · alpha")
+                wait_for_text(page, "#jobCenterList", "완료")
+                self.assertNotIn("검증중", page.locator("#tabFiles").inner_text())
+                self.assert_no_browser_errors()
+
+    def test_verify_retry_after_failed_job_clears_active_state_and_uses_new_job(self) -> None:
+        """실패한 검증 job 직후 재시도해도 이전 waiter/active 상태가 새 job을 막지 않아야 합니다."""
+        calls = {"count": 0}
+
+        def fail_then_succeed(*args, **kwargs) -> dict:
+            """첫 큐 작업은 예외로 실패시키고 두 번째 작업은 정상 결과를 반환합니다."""
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise RuntimeError("forced cold-start verify failure")
+            return fake_verify_solutions(*args, **kwargs)
+
+        with isolated_runtime("alj-problem-studio-solution-retry-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Retry Verify", "E2E")
+            with (
+                patch("problem_studio.web.routes.solutions.verify_solutions", fail_then_succeed),
+                run_app(create_app(workspace)) as server,
+            ):
+                page = self.new_page(server.url)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(
+                    page,
+                    "#alertStack",
+                    "forced cold-start verify failure",
+                    timeout=30_000,
+                )
+                page.wait_for_function(
+                    """async () => {
+                        const response = await fetch("/api/jobs", { cache: "no-store" });
+                        const payload = await response.json();
+                        return (payload.jobs || []).some(
+                            (job) => job.kind === "solution-verify"
+                                && job.status === "failed"
+                                && String(job.error || "").includes("forced cold-start")
+                        );
+                    }""",
+                    timeout=30_000,
+                )
+                page.locator("#jobCenterButton").click()
+                page.locator('[data-job-filter="failed"]').click()
+                wait_for_text(page, "#jobCenterList", "forced cold-start verify failure")
+                page.locator("#jobCenterCloseButton").click()
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                page.wait_for_function(
+                    """async () => {
+                        const response = await fetch("/api/jobs", { cache: "no-store" });
+                        const payload = await response.json();
+                        const verifies = (payload.jobs || []).filter(
+                            (job) => job.kind === "solution-verify"
+                        );
+                        return verifies.some((job) => job.status === "failed")
+                            && verifies.some((job) => job.status === "succeeded");
+                    }""",
+                    timeout=30_000,
+                )
+                wait_for_text(page, "#tabFiles", "e2e-run", timeout=30_000)
+                self.assertEqual(calls["count"], 2)
+                self.assertNotIn("검증중", page.locator("#tabFiles").inner_text())
+                self.assert_no_browser_errors()
+
+    def test_double_click_solution_verify_keeps_latest_result_and_clears_running_state(
+        self,
+    ) -> None:
+        """빠르게 시작한 검증 job 중 오래된 결과가 최신 성공 결과를 덮지 않아야 합니다."""
+        jobs: dict[str, dict] = {}
+        request_count = 0
+
+        latest_result = accepted_solution_result(
+            problem_id="alpha",
+            path="solutions/main_solution.ac.cpp",
+            run_id="second-success-run",
+            scope="all",
+        )
+        older_failure_detail = {
+            "type": "solution",
+            "label": "솔루션 기대 결과",
+            "source": "solutions/main_solution.ac.cpp",
+            "expectedStatus": "accepted",
+            "actualStatus": "wrong_answer",
+            "runId": "older-failed-run",
+            "message": "older job mismatch must not overwrite latest success",
+        }
+        older_failed_result = {
+            "problemId": "alpha",
+            "profile": "hidden",
+            "scope": "all",
+            "passed": False,
+            "verifiedCount": 1,
+            "totalCount": 1,
+            "skippedCount": 0,
+            "failureStage": "solutions",
+            "failureStageLabel": "솔루션 기대 결과",
+            "failureDetails": [older_failure_detail],
+            "checks": [
+                {
+                    "path": "solutions/main_solution.ac.cpp",
+                    "sourcePath": "solutions/main_solution.ac.cpp",
+                    "expectedStatus": "accepted",
+                    "actualStatus": "wrong_answer",
+                    "passed": False,
+                    "runId": "older-failed-run",
+                    "message": "older job mismatch must not overwrite latest success",
+                    "cases": [],
+                }
+            ],
+        }
+
+        def verify_job(route):
+            """두 검증 요청을 running job으로 시작해 완료 순서를 테스트 본문에서 제어합니다."""
+            nonlocal request_count
+            request_count += 1
+            job_id = f"verify-double-{request_count}"
+            job = {
+                "jobId": job_id,
+                "kind": "solution-verify",
+                "title": "솔루션 기대 결과 검증",
+                "problemId": "alpha",
+                "status": "running",
+                "cancelSupported": True,
+                "target": {"problemId": "alpha", "profile": "hidden", "scope": "all"},
+                "progress": {"message": f"{job_id} running"},
+                "lastLog": f"{job_id} running",
+                "logs": [{"message": f"{job_id} running"}],
+                "result": None,
+            }
+            jobs[job_id] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-double-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Double Verify", "E2E")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/verify/jobs", verify_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#jobCenterButton", "작업 2개")
+
+                jobs["verify-double-2"] = completed_solution_job(
+                    "verify-double-2",
+                    latest_result,
+                    last_log="latest verify finished first",
+                )
+                wait_for_text(page, "#tabFiles", "second-success-run", timeout=30_000)
+
+                older_job = completed_solution_job(
+                    "verify-double-1",
+                    older_failed_result,
+                    last_log="older verify finished with mismatches",
+                )
+                older_job.update(
+                    {
+                        "outcome": "failed",
+                        "failureStage": "solutions",
+                        "failureStageLabel": "솔루션 기대 결과",
+                        "failureDetails": [older_failure_detail],
+                        "errorKind": "validation-mismatch",
+                    }
+                )
+                jobs["verify-double-1"] = older_job
+                wait_for_text(page, "#jobCenterButton", "실패 1개 확인", timeout=30_000)
+
+                tab_text = page.locator("#tabFiles").inner_text()
+                self.assertIn("second-success-run", tab_text)
+                self.assertNotIn("older-failed-run", tab_text)
+                self.assertNotIn("검증중", tab_text)
+                self.assertTrue(
+                    page.evaluate(
+                        """() => {
+                            const raw = localStorage.getItem(
+                                "problem-studio:last-results:v1"
+                            ) || "";
+                            return raw.includes("second-success-run")
+                                && !raw.includes("older-failed-run");
+                        }"""
+                    )
+                )
+                self.assert_no_browser_errors()
+
+    def test_solution_verify_cancel_from_job_center_allows_retry(self) -> None:
+        """작업 센터에서 검증 job을 취소한 뒤 row 상태가 풀리고 즉시 재시도할 수 있어야 합니다."""
+        calls = {"count": 0}
+
+        def cancel_then_success_verify(*args, cancel_check=None, progress=None, **kwargs) -> dict:
+            """첫 검증은 취소될 때까지 대기하고 두 번째 검증은 즉시 성공합니다."""
+            calls["count"] += 1
+            if calls["count"] == 1:
+                if progress:
+                    progress("slow verify waiting for cancellation")
+                for _ in range(120):
+                    if cancel_check:
+                        cancel_check()
+                    time.sleep(0.05)
+                return fake_verify_solutions(*args, progress=progress, **kwargs)
+            return fake_verify_solutions(*args, progress=progress, **kwargs)
+
+        with isolated_runtime("alj-problem-studio-solution-cancel-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Cancel Verify", "E2E")
+            with (
+                patch(
+                    "problem_studio.web.routes.solutions.verify_solutions",
+                    cancel_then_success_verify,
+                ),
+                run_app(create_app(workspace)) as server,
+            ):
+                page = self.new_page(server.url)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#jobCenterButton", "작업 1개", timeout=15_000)
+                page.locator("#jobCenterButton").click()
+                page.locator("[data-job-cancel]").first.wait_for(state="visible")
+                page.locator("[data-job-cancel]").first.click()
+                page.locator('[data-job-filter="done"]').click()
+                wait_for_text(page, "#jobCenterList", "취소됨", timeout=30_000)
+                page.wait_for_function(
+                    """() => !document.querySelector("#tabFiles")?.textContent
+                        .includes("검증중")"""
+                )
+                page.locator("#jobCenterCloseButton").click()
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#tabFiles", "e2e-run", timeout=30_000)
+                self.assertEqual(calls["count"], 2)
+                self.assertNotIn("검증중", page.locator("#tabFiles").inner_text())
+
+                page.locator("#jobCenterButton").click()
+                page.locator('[data-job-filter="failed"]').click()
+                wait_for_text(page, "#jobCenterList", "실패한 작업이 없습니다.")
+                self.assert_no_browser_errors()
 
     def test_solution_stress_mismatch_preview_and_append_in_browser(self) -> None:
         """스트레스 불일치 미리보기와 케이스 추가 흐름을 검증합니다."""
@@ -953,6 +1253,86 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 self.assertNotIn("previous-preserved", page.locator("#tabFiles").inner_text())
                 wait_for_text(page, "#alertStack", "forced verification failure")
                 self.assertNotIn("previous-preserved", page.locator("#tabFiles").inner_text())
+                self.assert_no_browser_errors()
+
+    def test_job_center_lists_succeeded_solution_mismatch_as_failure(self) -> None:
+        """job status가 succeeded여도 기대 결과 불일치 outcome은 작업 센터 실패 필터에 노출되어야 합니다."""
+        jobs: dict[str, dict] = {}
+        mismatch_detail = {
+            "type": "solution",
+            "label": "솔루션 기대 결과",
+            "source": "solutions/wrong.wa.cpp",
+            "expectedStatus": "wrong_answer",
+            "actualStatus": "accepted",
+            "runId": "mismatch-run",
+            "message": "expected WA but accepted",
+        }
+        result = {
+            "problemId": "alpha",
+            "profile": "hidden",
+            "scope": "all",
+            "passed": False,
+            "verifiedCount": 1,
+            "totalCount": 1,
+            "skippedCount": 0,
+            "failureStage": "solutions",
+            "failureStageLabel": "솔루션 기대 결과",
+            "failureDetails": [mismatch_detail],
+            "checks": [
+                {
+                    "path": "solutions/wrong.wa.cpp",
+                    "sourcePath": "solutions/wrong.wa.cpp",
+                    "expectedStatus": "wrong_answer",
+                    "actualStatus": "accepted",
+                    "passed": False,
+                    "runId": "mismatch-run",
+                    "message": "expected WA but accepted",
+                    "cases": [],
+                }
+            ],
+        }
+
+        def verify_job(route):
+            """검증 불일치가 있지만 큐 실행은 정상 종료된 작업 응답을 구성합니다."""
+            job = completed_solution_job(
+                "solution-mismatch",
+                result,
+                last_log="Solution expectation verification finished with mismatches.",
+            )
+            job.update(
+                {
+                    "outcome": "failed",
+                    "failureStage": "solutions",
+                    "failureStageLabel": "솔루션 기대 결과",
+                    "failureDetails": [mismatch_detail],
+                    "errorKind": "validation-mismatch",
+                }
+            )
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-job-center-mismatch-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Job Center", "E2E")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/verify/jobs", verify_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#alertStack", "솔루션 기대 결과 검증 실패")
+                wait_for_text(page, "#jobCenterButton", "실패 1개 확인")
+
+                page.locator("#jobCenterButton").click()
+                page.locator('[data-job-filter="failed"]').click()
+                wait_for_text(page, "#jobCenterList", "검증 실패")
+                wait_for_text(page, "#jobCenterList", "solutions/wrong.wa.cpp")
+                wait_for_text(page, "#jobCenterList", "기대 wrong_answer · 실제 accepted")
+                wait_for_text(page, "#jobCenterList", "expected WA but accepted")
                 self.assert_no_browser_errors()
 
     def test_solution_upload_rename_edit_full_verify_and_single_test(self) -> None:

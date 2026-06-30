@@ -8,16 +8,16 @@ const app = window.AljApp;
  */
 async function generateData() {
   app.clearDebugLog();
-  app.setBadge("Generating", "neutral");
-  app.setStatusCard("data", "Waiting", app.judgeProfile());
-  app.setStatusCard("judge", "Idle");
-  app.setStatusCard("run", "-", "No run");
-  app.setSummary(`Preparing ${app.judgeProfile()} test data.`, "result-summary");
+  app.setBadge("생성 중", "neutral");
+  app.setStatusCard("data", "대기 중", app.judgeProfile());
+  app.setStatusCard("judge", "대기");
+  app.setStatusCard("run", "-", "채점 기록 없음");
+  app.setSummary(`${app.judgeProfile()} 테스트 데이터를 준비하는 중입니다.`, "result-summary");
   const compileResult = await app.compileCasesData({ showSuccess: false });
   if (!compileResult.valid) return;
   const totalCases = app.compiledCaseCount(compileResult);
-  app.setGenerationProgress(0, totalCases, "Data generation");
-  app.setStatusCard("data", "Generating", `0 / ${app.profileCaseText(totalCases)}`);
+  app.setGenerationProgress(0, totalCases, "데이터 생성");
+  app.setStatusCard("data", "생성 중", `0 / ${app.profileCaseText(totalCases)}`);
   const result = await app.runQueuedJob("/api/generate/jobs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -27,10 +27,10 @@ async function generateData() {
       force: app.$("forceGenerateInput").checked,
     }),
   });
-  app.setGenerationProgress(result.caseCount, result.caseCount, "Data generation");
-  app.setStatusCard("data", "Generated", app.profileCaseText(result.caseCount, result.profile));
-  app.setSummary(`${result.profile} test data ready: ${result.label}`, "result-summary success");
-  app.setBadge("Generated", "accepted");
+  app.setGenerationProgress(result.caseCount, result.caseCount, "데이터 생성");
+  app.setStatusCard("data", "생성 완료", app.profileCaseText(result.caseCount, result.profile));
+  app.setSummary(`${result.profile} 테스트 데이터 준비 완료: ${result.label}`, "result-summary success");
+  app.setBadge("생성 완료", "accepted");
 }
 
 Object.assign(app, {

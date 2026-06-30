@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from judge.web import services
 from judge.web.app import create_app
 from tests.e2e.helpers import (
     ROOT,
@@ -11,6 +12,7 @@ from tests.e2e.helpers import (
     assert_no_overlap,
     assert_visible_in_viewport,
     create_minimal_pack,
+    create_runnable_minimal_pack,
     isolated_runtime,
     judge_env,
     run_app,
@@ -101,8 +103,62 @@ def completed_job(
     }
 
 
+def seed_judge_web_problem(runtime, problem_id: str = "e2e-cold") -> str:
+    """Judge 웹 테스트가 공식 문제 fixture 없이도 실행 가능한 문제를 갖도록 설치합니다."""
+    seed_pack = create_runnable_minimal_pack(
+        runtime / f"{problem_id}.aljpack",
+        pack_id=f"{problem_id}-pack",
+        problem_id=problem_id,
+    )
+    with temporary_env(judge_env(runtime)):
+        services.install_problem_pack(str(seed_pack))
+    return problem_id
+
+
 class JudgeWebE2ETest(BrowserE2ETestCase):
     """채점기 웹 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
+
+    def test_judge_cold_start_sample_run_first_click_succeeds_with_seed_pack(self) -> None:
+        """공식 문제 06 없이 새 런타임의 첫 예제 채점이 실제 큐 경로에서 성공해야 합니다."""
+        source = "print(1)\n"
+        with isolated_runtime("alj-judge-web-cold-start-e2e-") as (_directory, runtime):
+            problem_id = seed_judge_web_problem(runtime)
+            with temporary_env(judge_env(runtime)):
+                app = create_app()
+            with temporary_env(judge_env(runtime)), run_app(app) as server:
+                page = self.new_page(server.url)
+                page.goto(server.url)
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.wait_for_function(
+                    """problemId => Array.from(
+                        document.querySelector("#problemSelect")?.options || []
+                    ).some((option) => option.value === problemId)""",
+                    arg=problem_id,
+                )
+                page.locator("#problemSelect").select_option(problem_id)
+                page.locator("#filenameInput").fill("answer.py")
+                page.locator("#sourceTextInput").fill(source)
+                page.wait_for_function(
+                    """() => {
+                        const button = document.querySelector("#sampleRunButton");
+                        return button && !button.disabled;
+                    }"""
+                )
+
+                page.locator("#sampleRunButton").click()
+                wait_for_text(page, "#statusBadge", "맞았습니다", timeout=120_000)
+                wait_for_text(page, "#jobsButton", "작업 센터", timeout=120_000)
+                page.wait_for_function(
+                    """async () => {
+                        const response = await fetch("/api/jobs");
+                        const payload = await response.json();
+                        const jobs = payload.jobs || [];
+                        return jobs.some((job) => job.kind === "judge-run" && job.status === "succeeded")
+                            && !jobs.some((job) => job.status === "failed");
+                    }""",
+                    timeout=120_000,
+                )
+                self.assert_no_browser_errors()
 
     def test_selected_problem_is_restored_after_reload_in_browser(self) -> None:
         """선택된 문제 복원 이후 새로고침 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -503,9 +559,9 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sourceTextInput").fill(source)
 
                 wait_for_text(page, "#sourceReadiness", "main.py 준비됨")
-                page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "accepted", timeout=120_000)
-                wait_for_text(page, "#resultSummary", "Accepted", timeout=120_000)
+                page.locator("#fullRunButton").click()
+                wait_for_text(page, "#statusBadge", "맞았습니다", timeout=120_000)
+                wait_for_text(page, "#resultSummary", "채점 완료", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "main.py", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "accepted", timeout=120_000)
                 wait_for_text(page, "#sampleCases", "Input")
@@ -513,8 +569,8 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#cacheManageButton").click()
                 page.on("dialog", lambda dialog: dialog.accept())
                 page.locator("#cacheClearAllButton").click()
-                wait_for_text(page, "#cacheOutput", "Deleted", timeout=30_000)
-                wait_for_text(page, "#sourceHistoryList", "No cached sources")
+                wait_for_text(page, "#cacheOutput", "삭제했습니다", timeout=30_000)
+                wait_for_text(page, "#sourceHistoryList", "캐시 소스가 없습니다")
                 page.keyboard.press("Escape")
 
                 page.locator("#themeToggleButton").click()
@@ -528,10 +584,84 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
     def test_uploaded_source_history_load_delete_and_cache_modal_in_browser(self) -> None:
         """업로드된 소스 기록 로드 삭제 및 캐시 모달 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         source_path = ROOT / "tests" / "fixtures" / "accepted.py"
+        source_text = source_path.read_text(encoding="utf-8")
         with isolated_runtime("alj-judge-web-e2e-") as (_directory, runtime):
-            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+            seed_pack = create_minimal_pack(runtime / "seed-06.aljpack", "seed-06", "06")
+            with temporary_env(judge_env(runtime)):
+                services.install_problem_pack(str(seed_pack))
+                app = create_app()
+            with temporary_env(judge_env(runtime)), run_app(app) as server:
                 page = self.new_page(server.url)
                 stub_samples(page)
+                jobs: dict[str, dict] = {}
+                sources: dict[str, dict] = {}
+                route_jobs_list(page, jobs)
+                accepted_result = {
+                    "runId": "run-source-history",
+                    "problemId": "06",
+                    "profile": "full",
+                    "language": "python",
+                    "status": "accepted",
+                    "cases": [{"case": "001", "status": "ok", "timeMs": 1, "memoryBytes": 1}],
+                    "metrics": {"maxTimeLabel": "1 ms", "maxMemoryLabel": "1 B"},
+                    "firstFailedCase": None,
+                }
+                page.route(
+                    "**/api/cases/jobs",
+                    lambda route: (
+                        jobs.setdefault(
+                            "cases-source-history",
+                            completed_job(
+                                "cases-source-history",
+                                "judge-cases-compile",
+                                "Check Cases · 06",
+                                VALID_CASES_COMPILE,
+                            ),
+                        ),
+                        route.fulfill(json=jobs["cases-source-history"]),
+                    ),
+                )
+
+                def create_source_history_run(route):
+                    sources["src-1"] = {
+                        "sourceId": "src-1",
+                        "problemId": "06",
+                        "filename": "accepted.py",
+                        "language": "python",
+                        "sizeLabel": "1 KiB",
+                        "savedAt": 1,
+                        "lastRun": {"status": "accepted"},
+                    }
+                    job = completed_job(
+                        "run-source-history",
+                        "judge-run",
+                        "채점 · 06",
+                        {**accepted_result, "sourceId": "src-1"},
+                        target={"problemId": "06", "profile": "full", "source": "accepted.py"},
+                    )
+                    jobs[job["jobId"]] = job
+                    route.fulfill(json=job)
+
+                page.route("**/api/run/jobs", create_source_history_run)
+                page.route(
+                    re.compile(r"/api/sources(?:\?.*)?$"),
+                    lambda route: route.fulfill(json={"sources": list(sources.values())}),
+                )
+
+                def source_detail(route):
+                    if route.request.method == "DELETE":
+                        sources.pop("src-1", None)
+                        route.fulfill(json={"deleted": True, "sourceId": "src-1"})
+                        return
+                    route.fulfill(
+                        json={
+                            **sources["src-1"],
+                            "sourceText": source_text,
+                            "lastRunResult": {**accepted_result, "sourceId": "src-1"},
+                        }
+                    )
+
+                page.route("**/api/sources/src-1", source_detail)
                 page.goto(server.url)
                 page.locator("#sampleRunButton").wait_for(state="visible")
                 page.wait_for_function(
@@ -541,8 +671,8 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#sourceFileInput").set_input_files(str(source_path))
                 wait_for_text(page, "#sourceReadiness", "accepted.py 준비됨")
-                page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "accepted", timeout=120_000)
+                page.locator("#fullRunButton").click()
+                wait_for_text(page, "#statusBadge", "맞았습니다", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "accepted.py", timeout=120_000)
 
                 page.reload()
@@ -553,7 +683,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#problemSelect").select_option("06")
                 page.locator("#sampleRunButton").wait_for(state="visible")
                 wait_for_text(page, "#sourceHistoryList", "accepted.py", timeout=120_000)
-                page.get_by_role("button", name="Use Code").first.click()
+                page.get_by_role("button", name="코드 사용").first.click()
                 wait_for_text(page, "#sourceReadiness", "accepted.py 준비됨")
                 page.wait_for_function(
                     """() => document
@@ -562,45 +692,114 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 )
                 wait_for_text(page, "#sampleCases", "Input")
                 self.assertIn("def main", page.locator("#sourceTextInput").input_value())
-                wait_for_text(page, "#resultSummary", "Accepted")
+                wait_for_text(page, "#resultSummary", "채점 완료")
                 wait_for_text(page, "#resultMeta", "06")
 
-                page.get_by_role("button", name="Delete").first.click()
-                wait_for_text(page, "#toastHost", "Cached source deleted")
-                wait_for_text(page, "#sourceHistoryList", "No cached sources")
+                page.on("dialog", lambda dialog: dialog.accept())
+                page.locator(".source-history-actions .danger").first.click()
+                wait_for_text(page, "#toastHost", "캐시 소스 삭제됨")
+                wait_for_text(page, "#sourceHistoryList", "캐시 소스가 없습니다")
 
                 page.locator("#cacheManageButton").click()
                 page.locator("#cachePreviewButton").click()
-                wait_for_text(page, "#cacheOutput", "Will delete")
-                page.on("dialog", lambda dialog: dialog.accept())
+                wait_for_text(page, "#cacheOutput", "삭제할 예정")
                 page.locator("#cacheClearRunsButton").click()
-                wait_for_text(page, "#cacheOutput", "Deleted")
+                wait_for_text(page, "#cacheOutput", "삭제했습니다")
                 self.assert_no_browser_errors()
 
     def test_wrong_answer_artifacts_and_pack_install_ui_in_browser(self) -> None:
         """오답 답안 산출물 및 패키지 설치 화면 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         wrong_source = "print(42)\n"
+        valid_compile = {
+            "valid": True,
+            "path": "/tmp/cases.yml",
+            "profiles": [{"name": "full", "caseCount": 1, "cases": []}],
+            "diagnostics": [],
+        }
+        run_result = {
+            "runId": "run-wrong",
+            "problemId": "06",
+            "profile": "full",
+            "language": "python",
+            "status": "wrong_answer",
+            "cases": [
+                {
+                    "case": "001",
+                    "status": "wrong_answer",
+                    "message": "expected 1, got 42",
+                    "timeMs": 1,
+                    "memoryBytes": 1,
+                }
+            ],
+            "metrics": {"maxTimeLabel": "1 ms", "maxMemoryLabel": "1 B"},
+            "firstFailedCase": "001",
+        }
+        wrong_payload = {
+            "previewLimit": 12000,
+            "input": "1\n",
+            "expected": "1\n",
+            "actual": "42\n",
+            "diff": "-1\n+42\n",
+            "truncation": {
+                "input": {"truncated": False, "omittedChars": 0},
+                "expected": {"truncated": False, "omittedChars": 0},
+                "actual": {"truncated": False, "omittedChars": 0},
+                "diff": {"truncated": False, "omittedChars": 0},
+            },
+        }
         with isolated_runtime("alj-judge-web-e2e-") as (_directory, runtime):
             pack_path = create_minimal_pack(runtime / "e2e-pack.aljpack")
-            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+            seed_pack = create_minimal_pack(runtime / "seed-06.aljpack", "seed-06", "06")
+            with temporary_env(judge_env(runtime)):
+                services.install_problem_pack(str(seed_pack))
+                app = create_app()
+            with temporary_env(judge_env(runtime)), run_app(app) as server:
                 page = self.new_page(server.url)
+                stub_samples(page)
+                jobs: dict[str, dict] = {}
+                route_jobs_list(page, jobs)
+                page.route(
+                    "**/api/cases/jobs",
+                    lambda route: (
+                        jobs.setdefault(
+                            "cases-wrong",
+                            completed_job(
+                                "cases-wrong",
+                                "judge-cases-compile",
+                                "Check Cases · 06",
+                                valid_compile,
+                            ),
+                        ),
+                        route.fulfill(json=jobs["cases-wrong"]),
+                    ),
+                )
+                page.route(
+                    "**/api/run/jobs",
+                    lambda route: (
+                        jobs.setdefault(
+                            "run-wrong-job",
+                            completed_job("run-wrong-job", "judge-run", "채점 · 06", run_result),
+                        ),
+                        route.fulfill(json=jobs["run-wrong-job"]),
+                    ),
+                )
+                page.route(
+                    "**/api/runs/run-wrong/wrong/001",
+                    lambda route: route.fulfill(json=wrong_payload),
+                )
                 page.goto(server.url)
                 page.locator("#sampleRunButton").wait_for(state="visible")
+                page.wait_for_function(
+                    """() => document.querySelector("#problemSelect")?.options.length > 0"""
+                )
                 page.locator("#problemSelect").select_option("06")
                 page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#sourceTextInput").wait_for(state="visible")
                 page.locator("#filenameInput").fill("wrong.py")
                 page.locator("#sourceTextInput").fill(wrong_source)
                 wait_for_text(page, "#sourceReadiness", "wrong.py 준비됨")
-                page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "wrong answer", timeout=120_000)
-                wait_for_text(page, "#sourceHistoryList", "wrong.py", timeout=120_000)
-                page.locator("#sourceHistoryStatusFilter").select_option("wrong_answer")
-                wait_for_text(page, "#sourceHistoryList", "wrong.py")
-                page.locator("#sourceHistoryFilterInput").fill("not-present")
-                wait_for_text(page, "#sourceHistoryList", "No cached sources match filters")
-                page.locator("#sourceHistoryFilterInput").fill("wrong")
-                wait_for_text(page, "#sourceHistoryList", "wrong.py")
+                page.locator("#fullRunButton").click()
+                wait_for_text(page, "#statusBadge", "오답", timeout=120_000)
                 wait_for_text(page, "#wrongPanel", "Wrong Case", timeout=120_000)
                 page.get_by_role("button", name="Actual").click()
                 wait_for_text(page, "#artifactOutput", "42", timeout=120_000)
@@ -619,10 +818,11 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     page.locator("#artifactDownloadButton").click()
                 self.assertIn("diff", download_info.value.suggested_filename)
 
+                page.unroute(re.compile(r"/api/jobs(?:\?.*)?$"))
                 page.locator("#addProblemButton").click()
                 page.locator("#packFileInput").set_input_files(str(pack_path))
                 page.locator("#uploadPackButton").click()
-                wait_for_text(page, "#packStatus", "Installed pack:", timeout=30_000)
+                wait_for_text(page, "#packStatus", "문제 팩 설치 완료", timeout=30_000)
                 wait_for_text(page, "#problemList", "e2e", timeout=30_000)
                 self.assert_no_browser_errors()
 
@@ -639,9 +839,9 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator(".advanced-run-options > summary").click()
                 page.locator("#forceGenerateInput").check()
                 page.locator("#generateButton").click()
-                wait_for_text(page, "#statusBadge", "Generated", timeout=120_000)
-                wait_for_text(page, "#dataStatusValue", "Generated", timeout=120_000)
-                wait_for_text(page, "#resultSummary", "test data ready", timeout=120_000)
+                wait_for_text(page, "#statusBadge", "생성 완료", timeout=120_000)
+                wait_for_text(page, "#dataStatusValue", "생성 완료", timeout=120_000)
+                wait_for_text(page, "#resultSummary", "테스트 데이터 준비 완료", timeout=120_000)
                 wait_for_text(page, "#generationProgress", "/")
                 self.assert_no_browser_errors()
 
@@ -729,11 +929,169 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sourceTextInput").fill(source)
                 page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#jobsPanel", "채점")
-                wait_for_text(page, "#jobsPanel", "채점 중")
+                wait_for_text(page, "#jobsPanel", "실행 중")
                 self.assertFalse(page.locator("#sourceTextInput").is_disabled())
                 page.locator('[data-job-cancel="run-1"]').click()
                 page.locator("#jobsPanel").wait_for(state="visible")
                 wait_for_text(page, "#jobsPanel", "취소됨")
+                self.assert_no_browser_errors()
+
+    def test_judge_job_center_lists_all_job_kinds_and_failure_details_in_browser(self) -> None:
+        """작업 센터가 채점 외 작업과 domain 실패 상세를 필터별로 노출해야 합니다."""
+        run_result = {
+            "runId": "run-attention",
+            "problemId": "e2e",
+            "profile": "sample",
+            "language": "python",
+            "status": "wrong_answer",
+            "cases": [
+                {
+                    "case": "001",
+                    "status": "wrong_answer",
+                    "message": "expected 1, got 2",
+                    "timeMs": 1,
+                    "memoryBytes": 1,
+                }
+            ],
+            "metrics": {"maxTimeLabel": "1 ms", "maxMemoryLabel": "1 B"},
+            "firstFailedCase": "001",
+            "failureStage": "solutions",
+            "failureStageLabel": "채점 결과",
+            "failureDetails": [
+                {
+                    "label": "오답",
+                    "target": "case 001",
+                    "message": "expected 1, got 2",
+                    "status": "wrong_answer",
+                    "profile": "sample",
+                }
+            ],
+        }
+        cases_result = {
+            "valid": False,
+            "path": "/tmp/cases.yml",
+            "profiles": [],
+            "diagnostics": [
+                {
+                    "severity": "error",
+                    "path": "problems/e2e/generator/cases.yml",
+                    "line": 7,
+                    "profile": "sample",
+                    "location": "profiles.sample.cases[0]",
+                    "message": "forced cases compile failure",
+                }
+            ],
+            "failureStage": "cases",
+            "failureStageLabel": "cases.yml 검사",
+        }
+        jobs = {
+            "run-attention": {
+                **completed_job(
+                    "run-attention",
+                    "judge-run",
+                    "채점 · e2e",
+                    run_result,
+                    problem_id="e2e",
+                    target={"problemId": "e2e", "profile": "sample", "source": "answer.py"},
+                ),
+                "outcome": "failed",
+                "failureStage": "solutions",
+                "failureStageLabel": "채점 결과",
+                "failureDetails": run_result["failureDetails"],
+                "queuedAt": "2026-06-29T00:00:05+00:00",
+            },
+            "cases-attention": {
+                **completed_job(
+                    "cases-attention",
+                    "judge-cases-compile",
+                    "cases.yml 검사 · e2e",
+                    cases_result,
+                    problem_id="e2e",
+                    target={"problemId": "e2e", "profile": "sample"},
+                ),
+                "outcome": "failed",
+                "failureStage": "cases",
+                "failureStageLabel": "cases.yml 검사",
+                "queuedAt": "2026-06-29T00:00:04+00:00",
+            },
+            "generate-attention": {
+                **completed_job(
+                    "generate-attention",
+                    "judge-generate",
+                    "데이터 생성 · e2e",
+                    {},
+                    problem_id="e2e",
+                    target={"problemId": "e2e", "profile": "full"},
+                ),
+                "status": "failed",
+                "outcome": "failed",
+                "failureStage": "validation",
+                "failureStageLabel": "데이터 생성",
+                "error": "generator crashed on cold cache",
+                "lastLog": "generator crashed on cold cache",
+                "queuedAt": "2026-06-29T00:00:03+00:00",
+            },
+            "pack-ok": {
+                **completed_job(
+                    "pack-ok",
+                    "judge-pack-upload",
+                    "문제 팩 설치 · seed.aljpack",
+                    {"packId": "seed", "label": "seed.aljpack"},
+                    problem_id="__packs__",
+                    target={"filename": "seed.aljpack"},
+                ),
+                "queuedAt": "2026-06-29T00:00:02+00:00",
+            },
+            "run-active": {
+                "jobId": "run-active",
+                "kind": "judge-run",
+                "title": "채점 · active",
+                "problemId": "active",
+                "status": "running",
+                "cancelSupported": True,
+                "target": {"problemId": "active", "profile": "sample", "source": "main.py"},
+                "progress": {"message": "Running case 001.", "current": 1, "total": 2},
+                "lastLog": "Running case 001.",
+                "logs": [{"message": "Running case 001."}],
+                "result": None,
+                "queuedAt": "2026-06-29T00:00:01+00:00",
+            },
+        }
+
+        with isolated_runtime("alj-judge-web-job-center-all-kinds-e2e-") as (
+            _directory,
+            runtime,
+        ):
+            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+                page = self.new_page(server.url)
+                route_jobs_list(page, jobs)
+                page.goto(server.url)
+                wait_for_text(page, "#jobsButton", "주의 3")
+                page.locator("#jobsButton").click()
+                wait_for_text(page, "#jobsPanel", "전체 5개")
+                wait_for_text(page, "#jobsPanel", "채점 · e2e")
+                wait_for_text(page, "#jobsPanel", "cases.yml 검사 · e2e")
+                wait_for_text(page, "#jobsPanel", "데이터 생성 · e2e")
+                wait_for_text(page, "#jobsPanel", "문제 팩 설치 · seed.aljpack")
+
+                page.locator('[data-jobs-filter="attention"]').click()
+                wait_for_text(page, "#jobsList", "오답")
+                wait_for_text(page, "#jobsList", "case 001")
+                wait_for_text(page, "#jobsList", "expected 1, got 2")
+                wait_for_text(page, "#jobsList", "forced cases compile failure")
+                wait_for_text(page, "#jobsList", "generator crashed on cold cache")
+                self.assertNotIn("문제 팩 설치 · seed.aljpack", page.locator("#jobsList").inner_text())
+
+                page.locator('[data-jobs-filter="maintenance"]').click()
+                wait_for_text(page, "#jobsList", "cases.yml 검사 · e2e")
+                wait_for_text(page, "#jobsList", "데이터 생성 · e2e")
+                wait_for_text(page, "#jobsList", "문제 팩 설치 · seed.aljpack")
+                self.assertNotIn("채점 · e2e", page.locator("#jobsList").inner_text())
+
+                page.locator('[data-jobs-filter="runs"]').click()
+                wait_for_text(page, "#jobsList", "채점 · e2e")
+                wait_for_text(page, "#jobsList", "채점 · active")
+                self.assertNotIn("데이터 생성 · e2e", page.locator("#jobsList").inner_text())
                 self.assert_no_browser_errors()
 
     def test_cases_compile_failure_blocks_run_stream_in_browser(self) -> None:
@@ -803,7 +1161,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#filenameInput").fill("main.py")
                 page.locator("#sourceTextInput").fill(source)
                 page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "Cases Invalid")
+                wait_for_text(page, "#statusBadge", "Cases 오류")
                 wait_for_text(page, "#resultSummary", "forced compile failure")
                 self.assertFalse(run_stream_called["value"])
                 self.assert_no_browser_errors()
@@ -863,7 +1221,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sourceTextInput").fill("int main( { return 0; }\n")
 
                 page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "Error")
+                wait_for_text(page, "#statusBadge", "오류")
                 wait_for_text(page, "#resultSummary", "compile failed: main.cpp")
                 run_body = wait_for_captured_body(page, captured_run_request)
                 self.assertIn('name="profile"', run_body)
@@ -971,9 +1329,13 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         page.locator("#sourceTextInput").fill("raise SystemExit(1)\n")
 
                         page.locator("#sampleRunButton").click()
-                        wait_for_text(page, "#statusBadge", status.replace("_", " "))
-                        wait_for_text(page, "#judgeStatusValue", status.replace("_", " "))
-                        wait_for_text(page, "#resultSummary", status.replace("_", " "))
+                        label = {
+                            "runtime_error": "런타임 오류",
+                            "time_limit": "시간 초과",
+                        }[status]
+                        wait_for_text(page, "#statusBadge", label)
+                        wait_for_text(page, "#judgeStatusValue", label)
+                        wait_for_text(page, "#resultSummary", label)
                         self.assert_no_browser_errors()
 
     def test_official_pack_download_ui_uses_repository_asset_and_ref(self) -> None:
@@ -1031,7 +1393,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#downloadPackButton").click()
 
                 wait_for_text(page, "#packStatus", "official-e2e.aljpack")
-                wait_for_text(page, "#packStatus", "checksum verified")
+                wait_for_text(page, "#packStatus", "체크섬 확인됨")
                 wait_for_text(page, "#packList", "official-e2e")
                 self.assertEqual(
                     captured["body"],
@@ -1081,8 +1443,8 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#packAssetInput").fill("missing.aljpack")
                 page.locator("#downloadPackButton").click()
 
-                wait_for_text(page, "#packStatus", "repository, ref, or release asset")
-                wait_for_text(page, "#packStatus", "Check the repository")
+                wait_for_text(page, "#packStatus", "repository, ref 또는 release asset")
+                wait_for_text(page, "#packStatus", "저장소, branch/tag, asset 이름을 확인")
                 unexpected_errors = [
                     error
                     for error in self.browser_errors
@@ -1104,7 +1466,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sourceTextInput").fill("int main( { return 0; }\n")
 
                 page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "Error", timeout=120_000)
+                wait_for_text(page, "#statusBadge", "오류", timeout=120_000)
                 wait_for_text(page, "#resultSummary", "compile failed", timeout=120_000)
                 self.assert_no_browser_errors()
 
@@ -1141,7 +1503,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 wait_for_text(page, "#sourceReadiness", "drop_accepted.py 준비됨")
 
                 page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "accepted", timeout=120_000)
+                wait_for_text(page, "#statusBadge", "맞았습니다", timeout=120_000)
                 wait_for_text(page, "#resultOutput", "Starting judge run.", timeout=120_000)
                 self.assert_no_browser_errors()
 
@@ -1361,7 +1723,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#filenameInput").fill("wrong.py")
                 page.locator("#sourceTextInput").fill(source)
                 page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "wrong answer")
+                wait_for_text(page, "#statusBadge", "오답")
                 page.get_by_role("button", name="Actual").click()
                 wait_for_text(page, "#artifactNotice", "긴 데이터")
                 wait_for_text(page, "#artifactNotice", "생략된 문자")
@@ -1394,7 +1756,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sourceTextInput").fill(source)
                 assert_visible_in_viewport(self, page.locator("#sampleRunButton"))
                 page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "accepted", timeout=120_000)
+                wait_for_text(page, "#statusBadge", "맞았습니다", timeout=120_000)
                 page.locator("#resultSummary").scroll_into_view_if_needed()
                 assert_visible_in_viewport(self, page.locator("#resultSummary"))
                 self.assert_no_browser_errors()

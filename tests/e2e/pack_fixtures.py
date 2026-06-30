@@ -79,9 +79,15 @@ def create_minimal_pack(target: Path, pack_id: str = "e2e-pack", problem_id: str
             ).encode(),
             f"problems/{problem_id}/generator/cases.yml": (
                 b"profiles:\n"
-                b"  hidden:\n"
+                b"  sample:\n"
                 b"    cases:\n"
                 b"      - name: sample\n"
+                b"        type: fixed\n"
+                b"        content: |\n"
+                b"          1\n"
+                b"  hidden:\n"
+                b"    cases:\n"
+                b"      - name: hidden\n"
                 b"        type: fixed\n"
                 b"        content: |\n"
                 b"          1\n"

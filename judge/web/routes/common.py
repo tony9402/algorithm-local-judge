@@ -2,7 +2,6 @@
 """
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable
 
 from fastapi import HTTPException, Request
@@ -95,37 +94,11 @@ def enqueue_background_job(
             cancel_mode (str): background 작업을 계산하거나 검증할 때 필요한 cancel mode 입력입니다.
             cancel_blocked_reason (str | None): background 작업을 계산하거나 검증할 때 필요한 cancel blocked reason 입력입니다.
     """
-    holder: dict[str, str] = {}
-    ready = threading.Event()
-
-    def run(cancel_token: CancelToken | None = None) -> dict:
-        ready.wait(timeout=2)
-        token = cancel_token or CancelToken()
-
-        def progress(
-            message: str,
-            current: int | None = None,
-            total: int | None = None,
-            label: str | None = None,
-            **extra,
-        ) -> None:
-            token.check()
-            jobs.update_progress(
-                holder["job_id"],
-                message,
-                current=current,
-                total=total,
-                label=label,
-                extra=extra or None,
-            )
-
-        return operation(token, progress)
-
-    job = jobs.start(
+    return jobs.start_with_progress(
         kind=kind,
         title=title,
         problem_id=problem_id,
-        operation=run,
+        operation=operation,
         cancel_supported=cancel_supported,
         app=app,
         lane=lane,
@@ -135,9 +108,6 @@ def enqueue_background_job(
         cancel_mode=cancel_mode,
         cancel_blocked_reason=cancel_blocked_reason,
     )
-    holder["job_id"] = job.job_id
-    ready.set()
-    return job
 
 
 def etag_matches(header: str | None, etag: str) -> bool:

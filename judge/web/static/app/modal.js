@@ -4,17 +4,56 @@
 
 const app = window.AljApp;
 const { state } = app;
+
+let activeModalId = null;
+let modalReturnFocus = null;
+const FOCUSABLE = [
+  "button:not([disabled])",
+  "[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "summary",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+function setAppInert(isInert) {
+  const shell = document.querySelector(".shell");
+  if (!shell) return;
+  if (isInert) {
+    shell.setAttribute("inert", "");
+    shell.setAttribute("aria-hidden", "true");
+  } else {
+    shell.removeAttribute("inert");
+    shell.removeAttribute("aria-hidden");
+  }
+}
+
+function focusFirstModalControl(modal) {
+  const focusable = [...modal.querySelectorAll(FOCUSABLE)]
+    .filter((element) => element instanceof HTMLElement && element.offsetParent !== null);
+  const target = focusable[0] || modal;
+  window.setTimeout(() => target.focus(), 0);
+}
+
 /**
  * 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  *
  * @param {any} id 모달을 계산하거나 검증할 때 필요한 ID 입력입니다.
  */
 function openModal(id) {
+  const modal = app.optional(id);
+  if (!modal) return;
+  modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  activeModalId = id;
   app.optional("modalBackdrop")?.classList.remove("hidden");
-  app.optional(id)?.classList.remove("hidden");
+  modal.classList.remove("hidden");
+  modal.setAttribute("tabindex", "-1");
+  setAppInert(true);
   if (id === "cacheModal") {
     app.renderCacheModalSummary(state.cache);
   }
+  focusFirstModalControl(modal);
 }
 /**
  * modals 모달이나 열린 상태를 닫고 관련 임시 상태를 정리합니다.
@@ -24,9 +63,47 @@ function closeModals() {
   app.optional("packModal")?.classList.add("hidden");
   app.optional("cacheModal")?.classList.add("hidden");
   app.optional("resultModal")?.classList.add("hidden");
+  activeModalId = null;
+  setAppInert(false);
+  const target = modalReturnFocus;
+  modalReturnFocus = null;
+  if (target && document.contains(target)) target.focus();
+}
+
+function handleModalKeydown(event) {
+  if (!activeModalId) return false;
+  if (event.key === "Escape") {
+    closeModals();
+    event.preventDefault();
+    return true;
+  }
+  if (event.key !== "Tab") return false;
+  const modal = app.optional(activeModalId);
+  if (!modal || modal.classList.contains("hidden")) return false;
+  const focusable = [...modal.querySelectorAll(FOCUSABLE)]
+    .filter((element) => element instanceof HTMLElement && element.offsetParent !== null);
+  if (!focusable.length) {
+    event.preventDefault();
+    modal.focus();
+    return true;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+    return true;
+  }
+  if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+    return true;
+  }
+  return false;
 }
 
 Object.assign(app, {
   closeModals,
+  handleModalKeydown,
   openModal,
 });

@@ -49,6 +49,14 @@
 
     <section>
       <div class="section-title">문제</div>
+      <input
+        id="problemFilterInput"
+        class="problem-filter"
+        type="search"
+        placeholder="문제 검색"
+        autocomplete="off"
+        aria-label="문제 ID, 제목, 폴더 검색"
+      />
       <div id="problemList" class="list muted">Loading...</div>
     </section>
 
@@ -62,10 +70,10 @@
       <div id="gitStatus" class="status-text muted">Loading...</div>
       <input id="gitCommitMessage" type="text" placeholder="커밋 메시지" aria-label="Git 커밋 메시지" />
       <div class="git-actions">
-        <button id="gitFetchButton" type="button">Fetch</button>
-        <button id="gitPullButton" type="button">Pull</button>
-        <button id="gitCommitButton" type="button">Commit</button>
-        <button id="gitPushButton" type="button">Push</button>
+        <button id="gitFetchButton" type="button">가져오기</button>
+        <button id="gitPullButton" type="button">당겨오기</button>
+        <button id="gitCommitButton" type="button">커밋</button>
+        <button id="gitPushButton" type="button">푸시</button>
       </div>
     </section>
   </aside>

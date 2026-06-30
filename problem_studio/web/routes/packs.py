@@ -10,10 +10,10 @@ from fastapi.responses import FileResponse, StreamingResponse
 from commons.job_queue import ACTIVE_STATUSES
 from problem_studio.core.packflow import build_problem_pack
 from problem_studio.web.routes.common import (
+    enqueue_background_job,
     jobs_from_request,
     job_matches_active_repository,
     scoped_lane,
-    scoped_target,
     stream_operation,
     to_http_error,
     workspace_from_request,
@@ -98,8 +98,13 @@ def api_pack_build(request: Request, problem_id: str, body: PackBuildRequest) ->
         workspace = workspace_from_request(request)
         jobs = jobs_from_request(request)
 
-        def operation(cancel_token) -> dict:
-            return build_problem_pack(
+        def operation(cancel_token, progress) -> dict:
+            progress(
+                f"Building pack {body.pack_id} for problem {problem_id}.",
+                label="팩 생성",
+                failureStage="pack",
+            )
+            result = build_problem_pack(
                 workspace,
                 problem_id,
                 body.pack_id,
@@ -108,24 +113,27 @@ def api_pack_build(request: Request, problem_id: str, body: PackBuildRequest) ->
                 body.verify_profile,
                 cancel_token=cancel_token,
             )
+            progress(
+                f"Built pack: {result['archiveLabel']}",
+                label="팩 생성",
+                failureStage="pack",
+            )
+            return result
 
-        job = jobs.start(
+        job = enqueue_background_job(
+            jobs,
+            request=request,
             kind="pack-build",
             title=f"팩 빌드 · {problem_id}",
             problem_id=problem_id,
-            operation=operation,
-            cancel_supported=True,
-            app="problem_studio",
             lane=scoped_lane(request, problem_id, "pack"),
-            target=scoped_target(
-                request,
-                {
-                    "problemId": problem_id,
-                    "packId": body.pack_id,
-                    "verifyProfile": body.verify_profile,
-                },
-            ),
+            target={
+                "problemId": problem_id,
+                "packId": body.pack_id,
+                "verifyProfile": body.verify_profile,
+            },
             result_actions={"download": True},
+            operation=operation,
         )
         return pack_job_dict(jobs, job, problem_id)
     except Exception as exc:

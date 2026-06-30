@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -11,6 +12,151 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 JUDGE_COMMAND = [sys.executable, "-m", "judge"]
+ENV_ALLOW_REAL_PROJECT_ROOT = "ALJ_ALLOW_E2E_REAL_PROJECT_ROOT"
+
+
+def write_e2e_workspace_problem(project_root: Path, problem_id: str = "06") -> Path:
+    """Create a self-contained workspace problem for E2E tests.
+
+    The E2E suite must never use the repository's real problem workspace by
+    default. This fixture is deliberately tiny but exercises the same generate,
+    run, checker, validator, and pack-build paths as a normal source problem.
+    """
+    problem_root = project_root / "problems" / problem_id
+    if (problem_root / "problem.json").exists():
+        return problem_root
+
+    (problem_root / "generator").mkdir(parents=True, exist_ok=True)
+    (problem_root / "validator").mkdir(parents=True, exist_ok=True)
+    (problem_root / "checker").mkdir(parents=True, exist_ok=True)
+    (problem_root / "solutions").mkdir(parents=True, exist_ok=True)
+
+    (problem_root / "problem.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "problemId": problem_id,
+                "title": "E2E Workspace Problem",
+                "version": 1,
+                "defaultProfile": "sample",
+                "profiles": ["sample", "full"],
+                "tools": {
+                    "generator": "generator/generator.cpp",
+                    "generatorConfig": "generator/cases.yml",
+                    "validator": "validator/validator.cpp",
+                    "checker": "checker/checker.cpp",
+                    "solution": "solutions/main_solution.ac.cpp",
+                },
+                "limits": {
+                    "compileTimeoutMs": 5000,
+                    "generationTimeoutMs": 5000,
+                    "solutionTimeoutMs": 2000,
+                    "userTimeoutMs": 2000,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (problem_root / "generator" / "cases.yml").write_text(
+        """
+profiles:
+  sample:
+    cases:
+      - name: sample-1
+        type: fixed
+        content: |
+          1 1
+  full:
+    cases:
+      - name: full-1
+        type: fixed
+        content: |
+          1 1
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (problem_root / "generator" / "generator.cpp").write_text(
+        """
+#include <iostream>
+
+int main() {
+    std::cout << "1 1\\n";
+    return 0;
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (problem_root / "validator" / "validator.cpp").write_text(
+        """
+#include <iostream>
+
+int main() {
+    int n = 0;
+    int m = 0;
+    if (!(std::cin >> n >> m)) return 1;
+    if (n != 1 || m != 1) return 1;
+    return 0;
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (problem_root / "checker" / "checker.cpp").write_text(
+        """
+#include <fstream>
+#include <string>
+#include <vector>
+
+static std::vector<std::string> tokens(const char* path) {
+    std::ifstream input(path);
+    std::vector<std::string> values;
+    std::string value;
+    while (input >> value) values.push_back(value);
+    return values;
+}
+
+int main(int argc, char** argv) {
+    if (argc < 4) return 1;
+    return tokens(argv[2]) == tokens(argv[3]) ? 0 : 1;
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (problem_root / "solutions" / "main_solution.ac.cpp").write_text(
+        """
+#include <iostream>
+
+int main() {
+    int n = 0;
+    int m = 0;
+    std::cin >> n >> m;
+    std::cout << "1\\n";
+    return 0;
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+    return problem_root
+
+
+def e2e_project_root(runtime: Path) -> Path:
+    """Return the isolated project root used by E2E tests."""
+    project_root = runtime / "project"
+    write_e2e_workspace_problem(project_root)
+    return project_root
+
+
+def _resolve_project_root(runtime: Path, project_root: Path | None) -> Path:
+    resolved = e2e_project_root(runtime) if project_root is None else Path(project_root)
+    resolved = resolved.expanduser().resolve()
+    if resolved == ROOT.resolve() and os.environ.get(ENV_ALLOW_REAL_PROJECT_ROOT) != "1":
+        raise RuntimeError(
+            "E2E tests must not use the repository root as ALJ_PROJECT_ROOT. "
+            f"Set {ENV_ALLOW_REAL_PROJECT_ROOT}=1 only for an intentional manual run."
+        )
+    return resolved
 
 
 def judge_env(runtime: Path, *, project_root: Path | None = None) -> dict[str, str]:
@@ -23,13 +169,14 @@ def judge_env(runtime: Path, *, project_root: Path | None = None) -> dict[str, s
     Returns:
         dict[str, str]: judge 명령줄 테스트에 사용할 환경 변수 사전입니다.
     """
+    resolved_project_root = _resolve_project_root(runtime, project_root)
     return {
         **os.environ,
         "ALJ_CACHE_HOME": str(runtime / "cache"),
         "ALJ_DATA_HOME": str(runtime / "data"),
         "ALJ_PACK_HOME": str(runtime / "packs"),
         "ALJ_SOURCE_HOME": str(runtime / "sources"),
-        "ALJ_PROJECT_ROOT": str(project_root) if project_root is not None else str(ROOT),
+        "ALJ_PROJECT_ROOT": str(resolved_project_root),
         "ALJ_PYTHON": sys.executable,
     }
 

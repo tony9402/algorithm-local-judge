@@ -61,7 +61,12 @@ def api_pack_install_job(http_request: Request, request: PackInstallRequest) -> 
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
-            progress("Installing local problem pack.", label="Pack install")
+            progress(
+                "Installing local problem pack.",
+                label="문제 팩 설치",
+                failureStage="pack",
+                failureStageLabel="문제 팩 설치",
+            )
             cancel_token.check()
             result = services.install_problem_pack(request.archive_path)
             cancel_token.check()
@@ -120,7 +125,12 @@ def api_pack_upload_job(request: Request, file: Annotated[UploadFile, File()]) -
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
-            progress("Installing uploaded problem pack.", label="Pack upload")
+            progress(
+                "Installing uploaded problem pack.",
+                label="문제 팩 업로드",
+                failureStage="pack",
+                failureStageLabel="문제 팩 설치",
+            )
             cancel_token.check()
             result = services.install_problem_pack(str(uploaded))
             result["uploadedPath"] = str(uploaded)
@@ -186,7 +196,12 @@ def api_pack_download_job(http_request: Request, request: PackDownloadRequest) -
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
-            progress("Downloading official problem pack.", label="Official pack install")
+            progress(
+                "Downloading official problem pack.",
+                label="공식 문제 팩 설치",
+                failureStage="pack",
+                failureStageLabel="문제 팩 설치",
+            )
             cancel_token.check()
             result = services.download_official_problem_pack(
                 request.repository,

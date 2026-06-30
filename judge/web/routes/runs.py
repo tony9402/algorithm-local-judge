@@ -165,7 +165,12 @@ def api_run_job(
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
-            progress("Starting judge run.", label="채점")
+            progress(
+                "Starting judge run.",
+                label="채점",
+                failureStage="solutions",
+                failureStageLabel="채점",
+            )
             result = services.run_problem_source_with_progress(
                 problem_id,
                 profile or None,

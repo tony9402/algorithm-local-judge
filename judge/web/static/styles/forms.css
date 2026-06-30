@@ -138,6 +138,31 @@
   color: var(--accent-ink);
 }
 
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-muted);
+  padding: 4px;
+}
+
+.segmented button {
+  min-height: 30px;
+  border-color: transparent;
+  background: transparent;
+  padding: 0 9px;
+}
+
+.segmented button.active,
+.segmented button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+  background: var(--panel);
+  color: var(--accent);
+}
+
 .check {
   display: flex;
   grid-template-columns: none;

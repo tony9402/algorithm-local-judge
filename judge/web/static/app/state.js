@@ -14,6 +14,7 @@ const state = {
   cache: null,
   sources: [],
   sourceHistoryFilter: "",
+  sourceHistoryScope: "problem",
   sourceHistoryStatusFilter: "all",
   debugLogs: [],
   generationProgress: { current: 0, total: 0 },
@@ -23,10 +24,13 @@ const state = {
   cooldownTimer: null,
   jobsPage: 1,
   jobsPageSize: 5,
+  jobsFilter: "all",
   jobsTotal: 0,
   jobsTotalPages: 1,
   jobsServerPaged: false,
   isBusy: false,
+  pendingJobAction: false,
+  problemDrafts: {},
   config: {
     sampleProfile: "sample",
     judgeProfile: "full",
@@ -45,7 +49,7 @@ function judgeProfile() {
 }
 
 function profileCaseText(count, profile = judgeProfile()) {
-  return `${count} ${profile} case(s)`;
+  return `${count}개 ${profile} 케이스`;
 }
 
 window.AljApp = {

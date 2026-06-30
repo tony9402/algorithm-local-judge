@@ -32,6 +32,58 @@ from judge.web.service_sources import (
     source_path_from_request,
 )
 
+RUN_STATUS_LABELS = {
+    "accepted": "맞았습니다",
+    "wrong_answer": "오답",
+    "compile_error": "컴파일 오류",
+    "runtime_error": "런타임 오류",
+    "time_limit": "시간 초과",
+    "memory_limit": "메모리 초과",
+}
+
+
+def run_status_label(status: str | None) -> str:
+    return RUN_STATUS_LABELS.get(status or "", status or "알 수 없는 결과")
+
+
+def run_failure_stage(status: str | None) -> str:
+    if status == "compile_error":
+        return "tools"
+    return "solutions"
+
+
+def run_failure_details(
+    result: dict[str, Any],
+    first_failed: dict[str, Any] | None,
+    run_dir: Path | None,
+    source: Path | None,
+) -> list[dict[str, Any]]:
+    status = str(result.get("status") or "")
+    label = run_status_label(status)
+    message = str(result.get("message") or "").strip()
+    detail: dict[str, Any] = {
+        "type": status or "judge-run",
+        "status": status,
+        "label": label,
+        "message": message or f"채점 결과가 {label}입니다.",
+    }
+    if first_failed:
+        case_id = first_failed.get("case")
+        detail["case"] = case_id
+        detail["target"] = f"case {case_id}" if case_id else "실패 케이스"
+        detail["message"] = str(first_failed.get("message") or detail["message"])
+    elif result.get("compileLog"):
+        detail["target"] = result.get("compileLog")
+    elif source is not None:
+        detail["target"] = source.name
+    if run_dir is not None:
+        detail["runDir"] = str(run_dir)
+    for key in ("problemId", "profile", "language", "runId"):
+        value = result.get(key)
+        if value:
+            detail[key] = value
+    return [detail]
+
 
 def enrich_run_result(
     result: dict[str, Any],
@@ -59,6 +111,14 @@ def enrich_run_result(
         result["message"] = message.strip()
     result["firstFailedCase"] = first_failed["case"] if first_failed else None
     result["metrics"] = metrics
+    status = result.get("status")
+    result["passed"] = status == "accepted"
+    result["statusLabel"] = run_status_label(status)
+    if status and status != "accepted":
+        result["errorKind"] = "judge-verdict"
+        result["failureStage"] = run_failure_stage(status)
+        result["failureStageLabel"] = "채점 결과"
+        result["failureDetails"] = run_failure_details(result, first_failed, run_dir, source)
     return result
 
 

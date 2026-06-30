@@ -15,16 +15,16 @@ function formatCaseDiagnostic(diagnostic) {
 
 function formatCasesCompile(result) {
   if (!result.valid) {
-    return `cases.yml: invalid\n\n${result.diagnostics.map(formatCaseDiagnostic).join("\n\n")}`;
+    return `cases.yml: 유효하지 않음\n\n${result.diagnostics.map(formatCaseDiagnostic).join("\n\n")}`;
   }
-  const lines = ["cases.yml: ok"];
+  const lines = ["cases.yml: 정상"];
   for (const profile of result.profiles) {
-    lines.push(`profile ${profile.name}: ${profile.caseCount} case(s)`);
+    lines.push(`profile ${profile.name}: ${profile.caseCount}개 케이스`);
   }
   return lines.join("\n");
 }
 async function compileCasesData({ showSuccess = true, profile = app.judgeProfile() } = {}) {
-  app.setStatusCard("cases", "Checking", `${profile} cases.yml`);
+  app.setStatusCard("cases", "검사 중", `${profile} cases.yml`);
   const result = await app.runQueuedJob("/api/cases/jobs", {
     method: "POST",
     body: JSON.stringify({
@@ -35,26 +35,26 @@ async function compileCasesData({ showSuccess = true, profile = app.judgeProfile
   if (showSuccess || !result.valid) {
     state.debugLogs = formatCasesCompile(result).split("\n");
     app.renderDebugLog();
-    app.setBadge(result.valid ? "Cases OK" : "Cases Invalid", result.valid ? "accepted" : "wrong");
+    app.setBadge(result.valid ? "Cases 정상" : "Cases 오류", result.valid ? "accepted" : "wrong");
     if (result.valid) {
       const caseCount = compiledCaseCount(result);
-      app.setStatusCard("cases", "OK", app.profileCaseText(caseCount, profile));
-      app.setSummary(`${profile} cases.yml expanded successfully.`, "result-summary success");
+      app.setStatusCard("cases", "정상", app.profileCaseText(caseCount, profile));
+      app.setSummary(`${profile} cases.yml 전개가 완료되었습니다.`, "result-summary success");
     } else {
       const first = result.diagnostics[0];
-      app.setStatusCard("cases", "Invalid", first?.location || "-");
-      app.setSummary(first?.message || "cases.yml compile failed.", "result-summary error");
+      app.setStatusCard("cases", "오류", first?.location || "-");
+      app.setSummary(first?.message || "cases.yml 검사에 실패했습니다.", "result-summary error");
     }
   } else if (result.valid) {
     const caseCount = compiledCaseCount(result);
-    app.setStatusCard("cases", "OK", app.profileCaseText(caseCount, profile));
+    app.setStatusCard("cases", "정상", app.profileCaseText(caseCount, profile));
   } else {
     const first = result.diagnostics[0];
     state.debugLogs = formatCasesCompile(result).split("\n");
     app.renderDebugLog();
-    app.setBadge("Cases Invalid", "wrong");
-    app.setStatusCard("cases", "Invalid", first?.location || "-");
-    app.setSummary(first?.message || "cases.yml compile failed.", "result-summary error");
+    app.setBadge("Cases 오류", "wrong");
+    app.setStatusCard("cases", "오류", first?.location || "-");
+    app.setSummary(first?.message || "cases.yml 검사에 실패했습니다.", "result-summary error");
   }
   return result;
 }

@@ -86,6 +86,15 @@ function solutionJobToken() {
 function isCurrentProblemContext(problemId, repositoryName) {
   return state.selectedProblem === problemId && (state.activeRepository || null) === repositoryName;
 }
+function isActiveSolutionVerificationRun(problemId, repositoryName, token) {
+  const active = state.activeSolutionVerification;
+  return Boolean(
+    active
+      && active.problemId === problemId
+      && (active.repositoryName || null) === repositoryName
+      && active.token === token
+  );
+}
 function setActiveSolutionVerification(problemId, patch = {}) {
   const active = state.activeSolutionVerification;
   if (active?.token && patch.token && active.token !== patch.token && patch.jobId) return;
@@ -456,6 +465,7 @@ export async function verifySolutions(options = {}) {
       totalCount: result.totalCount ?? allPaths.length,
       checkedAt: Date.now(),
     };
+    if (!isActiveSolutionVerificationRun(problemId, repositoryName, token)) return verification;
     const currentRunPassed = Boolean(verification.passed);
     const dirtySolutionPaths = dirtyPathsAfterClearing(problemId, repositoryName, allPaths);
     solutionCallbacks.persistProblemLastResult?.(
@@ -498,6 +508,7 @@ export async function verifySolutions(options = {}) {
     if (currentRunPassed) showResult("Solutions verified.", "summary success");
     return verification;
   } catch (error) {
+    if (!isActiveSolutionVerificationRun(problemId, repositoryName, token)) return null;
     if (!isCurrentProblemContext(problemId, repositoryName)) return null;
     throw error;
   } finally {

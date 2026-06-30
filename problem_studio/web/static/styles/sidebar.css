@@ -70,6 +70,18 @@
   color: #eff6ff;
 }
 
+.problem-filter {
+  min-height: 36px;
+  margin-bottom: 8px;
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.1);
+  color: #eff6ff;
+}
+
+.problem-filter::placeholder {
+  color: #9fb0c5;
+}
+
 .repository-panel option {
   color: #0f172a;
 }

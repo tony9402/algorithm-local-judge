@@ -64,6 +64,7 @@ function activeSourceName() {
 }
 function sourceReadinessText() {
   if (!hasSelectedProblem()) return "문제를 먼저 설치하세요";
+  if (state.pendingJobAction) return "작업을 대기열에 추가하는 중입니다";
   if (!hasRunnableSource()) {
     return "코드 입력이 필요합니다";
   }
@@ -78,7 +79,7 @@ function updateActionState() {
   app.setDisabled("casesCompileButton", state.isBusy || !hasProblem);
   app.setDisabled("generateButton", state.isBusy || !hasProblem);
   const cooldown = app.submissionCooldownRemaining?.() || 0;
-  const blocked = state.isBusy || !hasProblem || !hasSource || cooldown > 0;
+  const blocked = state.isBusy || state.pendingJobAction || !hasProblem || !hasSource || cooldown > 0;
   app.setDisabled("runButton", blocked);
   app.setDisabled("sampleRunButton", blocked || !app.problemSupportsProfile?.("sample"));
   app.setDisabled("fullRunButton", blocked);

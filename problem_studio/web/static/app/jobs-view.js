@@ -13,6 +13,7 @@ let jobs = [];
 let filter = "active";
 let pollTimer = null;
 const waiters = new Map();
+const expandedJobIds = new Set();
 
 const ACTIVE = new Set(["queued", "running", "cancelling"]);
 const DONE = new Set(["succeeded", "cancelled", "stale"]);
@@ -35,14 +36,51 @@ function jobCounts() {
     done: jobs.filter((job) => DONE.has(job.status)).length,
     running: jobs.filter((job) => job.status === "running" || job.status === "cancelling").length,
     queued: jobs.filter((job) => job.status === "queued").length,
-    failed: jobs.filter((job) => job.status === "failed").length,
+    failed: jobs.filter(jobNeedsAttention).length,
   };
 }
 
 function visibleJobs() {
   if (filter === "active") return jobs.filter((job) => ACTIVE.has(job.status));
-  if (filter === "failed") return jobs.filter((job) => job.status === "failed");
+  if (filter === "failed") return jobs.filter(jobNeedsAttention);
   return jobs.filter((job) => DONE.has(job.status));
+}
+
+function failureDetails(job) {
+  if (Array.isArray(job.failureDetails) && job.failureDetails.length) {
+    return job.failureDetails;
+  }
+  if (Array.isArray(job.result?.failureDetails) && job.result.failureDetails.length) {
+    return job.result.failureDetails;
+  }
+  return [];
+}
+
+function jobOutcome(job) {
+  if (job.outcome) return job.outcome;
+  if (ACTIVE.has(job.status)) return "pending";
+  if (job.status === "cancelled") return "cancelled";
+  if (job.status === "stale") return "stale";
+  if (job.status === "failed" || job.result?.passed === false || failureDetails(job).length) {
+    return "failed";
+  }
+  if (job.status === "succeeded") return "passed";
+  return job.status || "pending";
+}
+
+function jobNeedsAttention(job) {
+  return jobOutcome(job) === "failed";
+}
+
+function jobDisplayStatus(job) {
+  if (jobNeedsAttention(job)) return "failed";
+  return job.status || "queued";
+}
+
+function jobDisplayLabel(job) {
+  if (jobNeedsAttention(job) && job.status === "succeeded") return "검증 실패";
+  if (jobNeedsAttention(job)) return "실패";
+  return statusLabel(job.status);
 }
 
 function formatTarget(job) {
@@ -79,10 +117,10 @@ function progressTrackClass(job, percent) {
 
 function progressAriaAttrs(job, percent, active) {
   if (percent !== null) {
-    return `role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}" aria-label="${escapeHtml(statusLabel(job.status))}"`;
+    return `role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}" aria-label="${escapeHtml(jobDisplayLabel(job))}"`;
   }
   if (active && job.status !== "queued") {
-    return `role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="${escapeHtml(statusLabel(job.status))}"`;
+    return `role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="${escapeHtml(jobDisplayLabel(job))}"`;
   }
   return `aria-hidden="true"`;
 }
@@ -109,6 +147,119 @@ function progressDetails(job, percent) {
   if (progress.seed !== undefined && progress.seed !== null) details.push(`seed ${progress.seed}`);
   if (progress.mismatches !== undefined) details.push(`mismatch ${progress.mismatches}`);
   return details.filter(Boolean).join(" · ");
+}
+
+function detailTarget(detail) {
+  return [
+    detail.problemId,
+    detail.source || detail.path || detail.sourcePath,
+    detail.target,
+    detail.expectedStatus && detail.actualStatus
+      ? `기대 ${detail.expectedStatus} · 실제 ${detail.actualStatus}`
+      : "",
+    detail.runId ? `run ${detail.runId}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+function failureSummary(job) {
+  const detail = failureDetails(job)[0] || {};
+  return [
+    job.failureStageLabel || job.result?.failureStageLabel || detail.label,
+    detailTarget(detail),
+    detail.message || job.error,
+  ].filter(Boolean).join(" · ");
+}
+function safeDomId(value) {
+  return String(value || "job").replace(/[^A-Za-z0-9_-]/g, "-");
+}
+function jobResultPanelId(job) {
+  return `job-result-${safeDomId(job.jobId)}`;
+}
+function jobResultSummary(job) {
+  const result = job.result || {};
+  return (
+    failureSummary(job)
+    || result.summary
+    || result.message
+    || job.lastLog
+    || job.error
+    || "작업 결과가 준비되었습니다."
+  );
+}
+function renderJobResultPanel(job, expanded) {
+  if (!expanded) return "";
+  const details = failureDetails(job);
+  const result = job.result ? JSON.stringify(job.result, null, 2) : "";
+  const title = jobNeedsAttention(job) ? "실패 상세" : "결과 상세";
+  return `
+    <section
+      id="${escapeHtml(jobResultPanelId(job))}"
+      class="job-result-panel ${jobNeedsAttention(job) ? "error" : "success"}"
+      tabindex="-1"
+      aria-label="${escapeHtml(`${job.title || "작업"} ${title}`)}"
+    >
+      <div class="job-result-heading">
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(formatTarget(job) || job.kind || "")}</span>
+      </div>
+      <p>${escapeHtml(jobResultSummary(job))}</p>
+      ${
+        details.length
+          ? `<ul class="job-result-detail-list">
+              ${details.map((detail) => `
+                <li>
+                  <strong>${escapeHtml(detail.label || job.failureStageLabel || "실패 상세")}</strong>
+                  ${detailTarget(detail) ? `<span>${escapeHtml(detailTarget(detail))}</span>` : ""}
+                  ${detail.message ? `<p>${escapeHtml(detail.message)}</p>` : ""}
+                </li>
+              `).join("")}
+            </ul>`
+          : ""
+      }
+      ${
+        job.error && !details.length
+          ? `<pre class="job-result-raw">${escapeHtml(job.error)}</pre>`
+          : ""
+      }
+      ${
+        result
+          ? `<details class="job-result-raw-block">
+              <summary>원본 결과</summary>
+              <pre>${escapeHtml(result)}</pre>
+            </details>`
+          : ""
+      }
+    </section>
+  `;
+}
+
+function renderFailureDetails(job) {
+  const details = failureDetails(job);
+  if (!jobNeedsAttention(job) && !details.length) return "";
+  const items = details.length
+    ? details.map((detail) => `
+        <li>
+          <strong>${escapeHtml(detail.label || job.failureStageLabel || "실패 상세")}</strong>
+          ${detailTarget(detail) ? `<span>${escapeHtml(detailTarget(detail))}</span>` : ""}
+          ${detail.message ? `<p>${escapeHtml(detail.message)}</p>` : ""}
+        </li>
+      `).join("")
+    : `<li><strong>${escapeHtml(job.failureStageLabel || "실패 상세")}</strong><p>${escapeHtml(job.error || "작업이 실패했습니다.")}</p></li>`;
+  return `<ul class="job-failure-detail">${items}</ul>`;
+}
+
+function renderJobLogs(job) {
+  const logs = Array.isArray(job.logs) ? job.logs.filter((item) => item?.message) : [];
+  if (!logs.length) return "";
+  const ordered = logs.slice().reverse();
+  return `
+    <details class="job-log-list">
+      <summary>로그 ${escapeHtml(logs.length)}개</summary>
+      <ol>
+        ${ordered.map((item) => `<li>${escapeHtml(item.message)}</li>`).join("")}
+      </ol>
+    </details>
+  `;
 }
 /**
  * summary 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
@@ -166,8 +317,16 @@ function renderJobRow(job) {
   const terminal = ["succeeded", "failed", "cancelled", "stale"].includes(job.status);
   const visualPercent = visualProgressPercent(job, percent);
   const progressClass = progressTrackClass(job, percent);
-  const resultButton = job.status === "succeeded"
-    ? `<button type="button" data-job-result="${escapeHtml(job.jobId)}">결과 보기</button>`
+  const attention = jobNeedsAttention(job);
+  const displayStatus = jobDisplayStatus(job);
+  const expanded = expandedJobIds.has(job.jobId);
+  const resultButton = terminal && (job.result || job.error || failureDetails(job).length)
+    ? `<button
+        type="button"
+        data-job-result="${escapeHtml(job.jobId)}"
+        aria-expanded="${expanded ? "true" : "false"}"
+        aria-controls="${escapeHtml(jobResultPanelId(job))}"
+      >${expanded ? "상세 닫기" : attention ? "상세 보기" : "결과 보기"}</button>`
     : "";
   const cancelButton = canCancel || cancelling
     ? `<button type="button" data-job-cancel="${escapeHtml(job.jobId)}" ${cancelling ? "disabled" : ""}>${cancelling ? "취소 요청됨" : "취소"}</button>`
@@ -182,11 +341,12 @@ function renderJobRow(job) {
     : "";
   const progressAttrs = progressAriaAttrs(job, percent, active);
   const details = progressDetails(job, percent);
+  const summary = attention ? failureSummary(job) : "";
   return `
-    <article class="job-row ${escapeHtml(job.status)}" data-job-id="${escapeHtml(job.jobId)}">
+    <article class="job-row ${escapeHtml(job.status)} ${attention ? "attention" : ""}" data-job-id="${escapeHtml(job.jobId)}">
       <div class="job-row-header">
         <span class="job-row-title">
-          <span class="job-status ${escapeHtml(job.status)}" aria-label="${escapeHtml(statusLabel(job.status))}">${escapeHtml(statusLabel(job.status))}</span>
+          <span class="job-status ${escapeHtml(displayStatus)}" aria-label="${escapeHtml(jobDisplayLabel(job))}">${escapeHtml(jobDisplayLabel(job))}</span>
           ${escapeHtml(job.title || job.kind)}
         </span>
         <span class="job-row-time">${escapeHtml(formatTime(job.startedAt || job.queuedAt))}</span>
@@ -196,7 +356,11 @@ function renderJobRow(job) {
       </div>
       <div class="${escapeHtml(progressClass)}" ${progressAttrs}><span class="job-progress-fill" style="width:${visualPercent}%"></span></div>
       ${details ? `<div class="job-progress-meta">${escapeHtml(details)}</div>` : ""}
+      ${summary ? `<div class="job-row-log job-outcome">${escapeHtml(summary)}</div>` : ""}
       <div class="job-row-log">${escapeHtml(job.lastLog || job.progress?.message || job.error || "")}</div>
+      ${renderFailureDetails(job)}
+      ${renderJobLogs(job)}
+      ${renderJobResultPanel(job, expanded)}
       ${cancelReason}
       <div class="job-row-actions">${cancelButton}${resultButton}${dismissButton}</div>
     </article>
@@ -319,6 +483,7 @@ async function cancelJob(jobId) {
   await refreshJobs();
 }
 async function dismissJob(jobId) {
+  expandedJobIds.delete(jobId);
   await api(`/api/jobs/${encodeURIComponent(jobId)}`, { method: "DELETE" });
   await refreshJobs();
 }
@@ -326,6 +491,7 @@ async function dismissJob(jobId) {
  * completed 캐시, 선택 상태, 또는 화면 표시를 초기화합니다.
  */
 async function clearCompleted() {
+  expandedJobIds.clear();
   await api("/api/jobs/completed", { method: "DELETE" });
   await refreshJobs();
 }
@@ -369,12 +535,14 @@ export function bindJobCenter() {
     const resultId = target.getAttribute("data-job-result");
     if (resultId) {
       const job = jobs.find((item) => item.jobId === resultId);
-      if (job?.result) {
-        showAlert(job.lastLog || "작업 결과가 준비되었습니다.", "success", {
-          title: job.title || "작업 완료",
-          timeout: 4500,
-        });
+      if (!job) return;
+      if (expandedJobIds.has(resultId)) {
+        expandedJobIds.delete(resultId);
+      } else {
+        expandedJobIds.add(resultId);
       }
+      renderJobs();
+      optional(jobResultPanelId(job))?.focus({ preventScroll: true });
     }
   });
   void refreshJobs();

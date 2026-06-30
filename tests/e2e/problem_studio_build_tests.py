@@ -89,6 +89,223 @@ def route_studio_jobs(page, jobs: dict[str, dict]) -> None:
 class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
     """문제 스튜디오 빌드 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
+    def test_pack_build_cold_start_first_click_succeeds_after_full_test(self) -> None:
+        """새 작업공간에서 전체 테스트 후 첫 팩 빌드 클릭이 실패 job 없이 완료되어야 합니다."""
+        with isolated_runtime("alj-problem-studio-pack-cold-start-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Pack Cold", "E2E")
+            patches = [
+                patch(
+                    "problem_studio.web.routes.checks.compile_problem_tools",
+                    fake_compile_problem_tools,
+                ),
+                patch("problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data),
+                patch(
+                    "problem_studio.web.routes.checks.verify_solutions",
+                    fake_verify_solutions,
+                ),
+                patch(
+                    "problem_studio.web.routes.packs.build_problem_pack",
+                    fake_build_runnable_pack,
+                ),
+            ]
+            with ExitStack() as stack:
+                for patcher in patches:
+                    stack.enter_context(patcher)
+                with run_app(create_app(workspace)) as server:
+                    page = self.new_page(server.url)
+                    page.goto(server.url)
+                    page.locator("#newProblemButton").wait_for(state="visible")
+                    page.locator('[data-tab="build"]').click()
+
+                    click_by_text(page, "#tabActions button", "전체 테스트")
+                    wait_for_text(page, "#buildDashboardTitle", "전체 테스트 통과", timeout=30_000)
+                    page.locator("#packButton").click()
+                    wait_for_text(page, "#buildDashboardPack", ".aljpack", timeout=30_000)
+                    page.wait_for_function(
+                        """async () => {
+                            const response = await fetch("/api/jobs", { cache: "no-store" });
+                            const payload = await response.json();
+                            const jobs = payload.jobs || [];
+                            return jobs.some((job) => job.kind === "full-check"
+                                    && job.status === "succeeded")
+                                && jobs.some((job) => job.kind === "pack-build"
+                                    && job.status === "succeeded")
+                                && !jobs.some((job) => job.status === "failed");
+                        }""",
+                        timeout=30_000,
+                    )
+
+                    page.locator("#packButton").click()
+                    page.wait_for_function(
+                        """async () => {
+                            const response = await fetch("/api/jobs", { cache: "no-store" });
+                            const payload = await response.json();
+                            const packJobs = (payload.jobs || []).filter(
+                                (job) => job.kind === "pack-build"
+                            );
+                            return packJobs.filter((job) => job.status === "succeeded").length >= 2
+                                && !packJobs.some((job) => job.status === "failed");
+                        }""",
+                        timeout=30_000,
+                    )
+                    self.assert_no_browser_errors()
+
+    def test_pack_build_retry_after_failed_job_clears_pack_lock(self) -> None:
+        """실패한 팩 빌드 job 이후 localStorage lock이 정리되어 즉시 재시도할 수 있어야 합니다."""
+        pack_calls = {"count": 0}
+
+        def fail_then_success_pack(*args, **kwargs) -> dict:
+            """첫 팩 빌드만 실패시키고 두 번째 빌드는 정상 아카이브를 생성합니다."""
+            pack_calls["count"] += 1
+            if pack_calls["count"] == 1:
+                raise RuntimeError("forced cold-start pack failure")
+            return fake_build_runnable_pack(*args, **kwargs)
+
+        with isolated_runtime("alj-problem-studio-pack-retry-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Pack Retry", "E2E")
+            patches = [
+                patch(
+                    "problem_studio.web.routes.checks.compile_problem_tools",
+                    fake_compile_problem_tools,
+                ),
+                patch("problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data),
+                patch(
+                    "problem_studio.web.routes.checks.verify_solutions",
+                    fake_verify_solutions,
+                ),
+                patch(
+                    "problem_studio.web.routes.packs.build_problem_pack",
+                    fail_then_success_pack,
+                ),
+            ]
+            with ExitStack() as stack:
+                for patcher in patches:
+                    stack.enter_context(patcher)
+                with run_app(create_app(workspace)) as server:
+                    page = self.new_page(server.url)
+                    page.goto(server.url)
+                    page.locator("#newProblemButton").wait_for(state="visible")
+                    page.locator('[data-tab="build"]').click()
+                    click_by_text(page, "#tabActions button", "전체 테스트")
+                    wait_for_text(page, "#buildDashboardTitle", "전체 테스트 통과", timeout=30_000)
+
+                    page.locator("#packButton").click()
+                    wait_for_text(page, "#alertStack", "forced cold-start pack failure", timeout=30_000)
+                    page.wait_for_function(
+                        """async () => {
+                            const response = await fetch("/api/jobs", { cache: "no-store" });
+                            const payload = await response.json();
+                            return (payload.jobs || []).some(
+                                (job) => job.kind === "pack-build"
+                                    && job.status === "failed"
+                                    && String(job.error || "").includes("forced cold-start")
+                            ) && !localStorage.getItem("problem-studio:pack-job:v1");
+                        }""",
+                        timeout=30_000,
+                    )
+
+                    page.locator("#packButton").click()
+                    page.wait_for_function(
+                        """async () => {
+                            const response = await fetch("/api/jobs", { cache: "no-store" });
+                            const payload = await response.json();
+                            const packJobs = (payload.jobs || []).filter(
+                                (job) => job.kind === "pack-build"
+                            );
+                            return packJobs.some((job) => job.status === "failed")
+                                && packJobs.some((job) => job.status === "succeeded")
+                                && !localStorage.getItem("problem-studio:pack-job:v1");
+                        }""",
+                        timeout=30_000,
+                    )
+                    wait_for_text(page, "#buildDashboardPack", ".aljpack", timeout=30_000)
+                    self.assertEqual(pack_calls["count"], 2)
+                    self.assert_no_browser_errors()
+
+    def test_full_check_cancel_from_job_center_releases_run_all_lock_and_allows_retry(
+        self,
+    ) -> None:
+        """작업 센터에서 전체 테스트를 취소해도 run-all lock이 풀리고 즉시 재시도/팩 빌드가 가능해야 합니다."""
+        verify_calls = {"count": 0}
+
+        def cancel_then_success_verify(*args, cancel_check=None, progress=None, **kwargs) -> dict:
+            """첫 전체 테스트의 솔루션 검증은 취소될 때까지 대기하고 두 번째는 성공합니다."""
+            verify_calls["count"] += 1
+            if verify_calls["count"] == 1:
+                if progress:
+                    progress("slow full check verify waiting for cancellation")
+                for _ in range(120):
+                    if cancel_check:
+                        cancel_check()
+                    time.sleep(0.05)
+                return fake_verify_solutions(*args, progress=progress, **kwargs)
+            return fake_verify_solutions(*args, progress=progress, **kwargs)
+
+        with isolated_runtime("alj-problem-studio-full-check-cancel-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Full Cancel", "E2E")
+            patches = [
+                patch(
+                    "problem_studio.web.routes.checks.compile_problem_tools",
+                    fake_compile_problem_tools,
+                ),
+                patch("problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data),
+                patch(
+                    "problem_studio.web.routes.checks.verify_solutions",
+                    cancel_then_success_verify,
+                ),
+                patch(
+                    "problem_studio.web.routes.packs.build_problem_pack",
+                    fake_build_runnable_pack,
+                ),
+            ]
+            with ExitStack() as stack:
+                for patcher in patches:
+                    stack.enter_context(patcher)
+                with run_app(create_app(workspace)) as server:
+                    page = self.new_page(server.url)
+                    page.goto(server.url)
+                    page.locator("#newProblemButton").wait_for(state="visible")
+                    page.locator('[data-tab="build"]').click()
+
+                    click_by_text(page, "#tabActions button", "전체 테스트")
+                    wait_for_text(page, "#jobCenterButton", "작업 1개", timeout=15_000)
+                    page.locator("#jobCenterButton").click()
+                    wait_for_text(
+                        page,
+                        "#jobCenterList",
+                        "slow full check verify waiting for cancellation",
+                        timeout=30_000,
+                    )
+                    page.locator("[data-job-cancel]").first.click()
+                    page.locator('[data-job-filter="done"]').click()
+                    wait_for_text(page, "#jobCenterList", "취소됨", timeout=30_000)
+                    page.wait_for_function(
+                        """() => !localStorage.getItem("problem-studio:run-all-lock:v1")"""
+                    )
+                    page.locator("#jobCenterCloseButton").click()
+                    self.assertFalse(page.locator("#runAllButton").is_disabled())
+
+                    click_by_text(page, "#tabActions button", "전체 테스트")
+                    wait_for_text(page, "#buildDashboardTitle", "전체 테스트 통과", timeout=30_000)
+                    self.assertEqual(verify_calls["count"], 2)
+                    page.wait_for_function(
+                        """() => !localStorage.getItem("problem-studio:run-all-lock:v1")"""
+                    )
+
+                    page.locator("#packButton").click()
+                    wait_for_text(page, "#buildDashboardPack", ".aljpack", timeout=30_000)
+                    self.assertTrue(page.locator("#buildDashboardDownloadLink").is_visible())
+                    self.assert_no_browser_errors()
+
     def test_validation_actions_are_queued_without_blocking_workspace_in_browser(self) -> None:
         """검증 동작 대기 중 없이 차단 작업공간 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         active_jobs = {"count": 0, "max": 0, "total": 0}
@@ -313,6 +530,50 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 wait_for_text(page, "#alertStack", "전체 테스트를 통과하지 못해")
                 self.assertFalse(pack_build_called["value"])
                 self.assertFalse(page.locator("#buildDashboardDownloadLink").is_visible())
+                page.locator("#jobCenterButton").click()
+                self.assertEqual(
+                    page.locator("#jobCenterButton").get_attribute("aria-expanded"),
+                    "true",
+                )
+                page.locator('[data-job-filter="failed"]').click()
+                self.assertIn(
+                    "active",
+                    page.locator('[data-job-filter="failed"]').get_attribute("class") or "",
+                )
+                wait_for_text(page, "#jobCenterList", "검증 실패")
+                wait_for_text(page, "#jobCenterList", "solutions/main_solution.ac.cpp")
+                detail_button = page.locator('[data-job-result="full-check-gate"]')
+                self.assertEqual(detail_button.get_attribute("aria-expanded"), "false")
+                self.assertEqual(
+                    detail_button.get_attribute("aria-controls"),
+                    "job-result-full-check-gate",
+                )
+                detail_button.click()
+                page.locator("#job-result-full-check-gate").wait_for(state="visible")
+                self.assertEqual(
+                    page.locator('[data-job-result="full-check-gate"]').get_attribute(
+                        "aria-expanded"
+                    ),
+                    "true",
+                )
+                page.wait_for_function(
+                    """() => document.activeElement?.id === "job-result-full-check-gate" """
+                )
+                wait_for_text(page, "#jobCenterList", "원본 결과")
+                wait_for_text(page, "#jobCenterList", "forced mismatch")
+                page.locator('[data-job-result="full-check-gate"]').click()
+                self.assertEqual(
+                    page.locator('[data-job-result="full-check-gate"]').get_attribute(
+                        "aria-expanded"
+                    ),
+                    "false",
+                )
+                self.assertEqual(page.locator("#job-result-full-check-gate").count(), 0)
+                page.locator("#jobCenterCloseButton").click()
+                self.assertEqual(
+                    page.locator("#jobCenterButton").get_attribute("aria-expanded"),
+                    "false",
+                )
                 self.assert_no_browser_errors()
 
     def test_problem_studio_pack_installs_and_runs_in_judge(self) -> None:

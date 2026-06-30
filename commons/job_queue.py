@@ -15,10 +15,38 @@ DEFAULT_RECENT_LOG_LIMIT = 25
 
 TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 ACTIVE_STATUSES = {"queued", "running", "cancelling"}
+STAGE_KEYWORDS = [
+    ("cases", ("cases.yml", "cases", "case compilation", "cases 검사")),
+    ("tools", ("tool", "compile", "compiling", "도구", "컴파일")),
+    ("validation", ("validation", "validating", "generated data", "데이터", "벨리데이션")),
+    ("solutions", ("solution", "expected", "verifying", "솔루션", "기대 결과")),
+    ("pack", ("pack", ".aljpack", "팩", "빌드")),
+]
+STAGE_LABELS = {
+    "cases": "cases.yml 검사",
+    "tools": "도구 컴파일",
+    "validation": "데이터 생성+검증",
+    "solutions": "솔루션 기대 결과",
+    "pack": "팩 생성",
+    "unknown": "검증",
+}
 
 
 class JobCancelledError(Exception):
     """협력적 취소가 요청된 작업 실행을 중단하기 위해 작업 함수 안에서 발생시키는 예외입니다."""
+
+
+def infer_failure_stage(*values: Any) -> str:
+    """작업 종류, 단계 라벨, 메시지에서 공통 실패 단계 키를 추론합니다."""
+    text = " ".join(str(value or "") for value in values).lower()
+    for stage, keywords in STAGE_KEYWORDS:
+        if any(keyword.lower() in text for keyword in keywords):
+            return stage
+    return "unknown"
+
+
+def stage_label(stage: str | None) -> str:
+    return STAGE_LABELS.get(stage or "unknown", STAGE_LABELS["unknown"])
 
 
 class CancelToken:
@@ -65,6 +93,11 @@ class BackgroundJob:
     status: str = "queued"
     result: dict[str, Any] | None = None
     error: str | None = None
+    outcome: str | None = None
+    failure_stage: str | None = None
+    failure_stage_label: str | None = None
+    failure_details: list[dict[str, Any]] = field(default_factory=list)
+    error_kind: str | None = None
     cancel_supported: bool = False
     cancel_requested: bool = False
     cancel_mode: str = "cooperative"
@@ -129,16 +162,23 @@ class BackgroundJob:
         """
         is_stale = self.stale(ttl_seconds, now)
         expires_at = self.expires_at(ttl_seconds)
+        status = "stale" if is_stale else self.status
+        outcome = self._effective_outcome(status)
         return {
             "jobId": self.job_id,
             "kind": self.kind,
             "title": self.title,
             "problemId": self.problem_id,
-            "status": "stale" if is_stale else self.status,
+            "status": status,
             "previousStatus": self.status if is_stale else None,
             "stale": is_stale,
             "result": self.result,
             "error": self.error,
+            "outcome": outcome,
+            "failureStage": self.failure_stage,
+            "failureStageLabel": self.failure_stage_label,
+            "failureDetails": self.failure_details,
+            "errorKind": self.error_kind,
             "cancelSupported": self.cancel_supported,
             "cancelRequested": self.cancel_requested,
             "cancelMode": self.cancel_mode,
@@ -159,6 +199,22 @@ class BackgroundJob:
             "updatedAt": self.updated_at.isoformat(),
             "expiresAt": expires_at.isoformat() if expires_at is not None else None,
         }
+
+    def _effective_outcome(self, status: str) -> str:
+        """작업 실행 상태와 별개로 사용자가 봐야 하는 결과 상태를 계산합니다."""
+        if status == "stale":
+            return "stale"
+        if status in ACTIVE_STATUSES:
+            return "pending"
+        if status == "cancelled":
+            return "cancelled"
+        if self.outcome:
+            return self.outcome
+        if status == "failed":
+            return "failed"
+        if status == "succeeded":
+            return "passed"
+        return status
 
 
 @dataclass(frozen=True)
@@ -237,7 +293,96 @@ class BackgroundJobStore:
         Returns:
             BackgroundJob: 큐에 등록된 작업 상태 객체입니다.
         """
-        job = BackgroundJob(
+        job = self._new_job(
+            kind=kind,
+            title=title,
+            problem_id=problem_id,
+            cancel_supported=cancel_supported,
+            app=app,
+            lane=lane,
+            target=target,
+            progress=progress,
+            result_actions=result_actions,
+            input_snapshot_summary=input_snapshot_summary,
+            cancel_mode=cancel_mode,
+            cancel_blocked_reason=cancel_blocked_reason,
+        )
+        return self._register_job(job, operation, cancel_supported)
+
+    def start_with_progress(
+        self,
+        *,
+        kind: str,
+        title: str,
+        problem_id: str,
+        operation: Callable[[CancelToken, Callable[..., None]], dict[str, Any]],
+        cancel_supported: bool = True,
+        app: str | None = None,
+        lane: str | None = None,
+        target: dict[str, Any] | None = None,
+        progress: dict[str, Any] | None = None,
+        result_actions: dict[str, Any] | None = None,
+        input_snapshot_summary: str | None = None,
+        cancel_mode: str = "cooperative",
+        cancel_blocked_reason: str | None = None,
+    ) -> BackgroundJob:
+        """job id가 확정된 뒤 progress callback을 구성해 취소 가능한 작업을 시작합니다."""
+        job = self._new_job(
+            kind=kind,
+            title=title,
+            problem_id=problem_id,
+            cancel_supported=cancel_supported,
+            app=app,
+            lane=lane,
+            target=target,
+            progress=progress,
+            result_actions=result_actions,
+            input_snapshot_summary=input_snapshot_summary,
+            cancel_mode=cancel_mode,
+            cancel_blocked_reason=cancel_blocked_reason,
+        )
+
+        def run(cancel_token: CancelToken | None = None) -> dict[str, Any]:
+            token = cancel_token or CancelToken()
+
+            def progress_callback(
+                message: str,
+                current: int | None = None,
+                total: int | None = None,
+                label: str | None = None,
+                **extra,
+            ) -> None:
+                token.check()
+                self.update_progress(
+                    job.job_id,
+                    message,
+                    current=current,
+                    total=total,
+                    label=label,
+                    extra=extra or None,
+                )
+
+            return operation(token, progress_callback)
+
+        return self._register_job(job, run, cancel_supported)
+
+    def _new_job(
+        self,
+        *,
+        kind: str,
+        title: str,
+        problem_id: str,
+        cancel_supported: bool,
+        app: str | None,
+        lane: str | None,
+        target: dict[str, Any] | None,
+        progress: dict[str, Any] | None,
+        result_actions: dict[str, Any] | None,
+        input_snapshot_summary: str | None,
+        cancel_mode: str,
+        cancel_blocked_reason: str | None,
+    ) -> BackgroundJob:
+        return BackgroundJob(
             job_id=uuid.uuid4().hex,
             kind=kind,
             title=title,
@@ -252,6 +397,13 @@ class BackgroundJobStore:
             cancel_mode=cancel_mode,
             cancel_blocked_reason=cancel_blocked_reason,
         )
+
+    def _register_job(
+        self,
+        job: BackgroundJob,
+        operation: Callable[..., dict[str, Any]],
+        cancel_supported: bool,
+    ) -> BackgroundJob:
         with self._lock:
             self._jobs[job.job_id] = job
             self._operations[job.job_id] = _QueuedOperation(operation, cancel_supported)
@@ -445,6 +597,143 @@ class BackgroundJobStore:
         """
         return job.to_dict(ttl_seconds=self.ttl_seconds)
 
+    def _result_indicates_failure(self, result: dict[str, Any] | None) -> bool:
+        if not isinstance(result, dict):
+            return False
+        return result.get("passed") is False or bool(result.get("failureDetails"))
+
+    def _normalize_failure_details(self, details: Any) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        if not isinstance(details, list):
+            return normalized
+        for item in details:
+            if isinstance(item, dict):
+                normalized.append(dict(item))
+            elif item is not None:
+                normalized.append({"message": str(item)})
+        return normalized
+
+    def _failure_details_from_result(self, result: dict[str, Any]) -> list[dict[str, Any]]:
+        details = self._normalize_failure_details(result.get("failureDetails"))
+        if details:
+            return details
+        problems = result.get("problems")
+        if not isinstance(problems, list):
+            return []
+        for problem in problems:
+            if not isinstance(problem, dict) or problem.get("passed") is not False:
+                continue
+            problem_details = self._normalize_failure_details(problem.get("failureDetails"))
+            if problem_details:
+                for detail in problem_details:
+                    detail.setdefault("problemId", problem.get("problemId"))
+                    detail.setdefault("label", problem.get("failureStageLabel") or "문제 실패")
+                details.extend(problem_details)
+                continue
+            details.append(
+                {
+                    "problemId": problem.get("problemId"),
+                    "label": problem.get("failureStageLabel") or "문제 실패",
+                    "target": problem.get("problemId") or "",
+                    "message": str(problem.get("summary") or "문제 검증이 실패했습니다."),
+                }
+            )
+        return details
+
+    def _target_label(self, job: BackgroundJob) -> str:
+        target = job.target or {}
+        return " · ".join(
+            str(value)
+            for value in [
+                target.get("problemId") or job.problem_id,
+                target.get("profile"),
+                target.get("tool"),
+                target.get("packId"),
+                target.get("source"),
+            ]
+            if value
+        )
+
+    def _apply_result_failure_payload(
+        self,
+        job: BackgroundJob,
+        result: dict[str, Any],
+    ) -> None:
+        details = self._failure_details_from_result(result)
+        nested_stage = ""
+        problems = result.get("problems")
+        if isinstance(problems, list):
+            nested_stage = next(
+                (
+                    str(problem.get("failureStage") or "")
+                    for problem in problems
+                    if isinstance(problem, dict) and problem.get("failureStage")
+                ),
+                "",
+            )
+        stage = str(
+            result.get("failureStage")
+            or nested_stage
+            or infer_failure_stage(job.kind, job.title, job.progress.get("label"), job.last_log)
+        )
+        label = str(
+            result.get("failureStageLabel")
+            or job.progress.get("label")
+            or stage_label(stage)
+            or "작업 결과"
+        )
+        if not details:
+            details = [
+                {
+                    "label": label,
+                    "target": self._target_label(job),
+                    "message": str(
+                        result.get("summary")
+                        or result.get("message")
+                        or "확인할 실패 결과가 있습니다."
+                    ),
+                }
+            ]
+        job.outcome = "failed"
+        job.error_kind = "validation-mismatch"
+        job.failure_stage = stage
+        job.failure_stage_label = label
+        job.failure_details = details
+
+    def _apply_exception_failure_payload(self, job: BackgroundJob, error: str) -> None:
+        progress = job.progress or {}
+        stage = str(
+            progress.get("failureStage")
+            or progress.get("stage")
+            or infer_failure_stage(
+                job.kind,
+                job.title,
+                progress.get("label"),
+                progress.get("message"),
+                job.last_log,
+                error,
+            )
+        )
+        label = str(
+            progress.get("failureStageLabel")
+            or progress.get("label")
+            or job.title
+            or stage_label(stage)
+        )
+        job.outcome = "failed"
+        job.error_kind = "exception"
+        job.failure_stage = stage
+        job.failure_stage_label = label
+        job.failure_details = [
+            {
+                "type": stage,
+                "label": label,
+                "target": self._target_label(job),
+                "message": error,
+                "lastLog": job.last_log,
+            }
+        ]
+
     def _finish(
         self,
         job_id: str,
@@ -469,13 +758,25 @@ class BackgroundJobStore:
             job.status = status
             job.result = result
             job.error = error
+            job.outcome = None
+            job.error_kind = None
+            job.failure_stage = None
+            job.failure_stage_label = None
+            job.failure_details = []
             job.finished_at = now
             job.updated_at = now
             if status == "cancelled":
                 job.cancel_requested = True
                 job.cancelled_at = job.cancelled_at or now
-            if status == "failed" and error:
-                self._append_log_locked(job, error)
+                job.outcome = "cancelled"
+            if status == "failed":
+                detail = error or "작업이 실패했습니다."
+                self._apply_exception_failure_payload(job, detail)
+                self._append_log_locked(job, detail)
+            elif status == "succeeded" and self._result_indicates_failure(result):
+                self._apply_result_failure_payload(job, result or {})
+            elif status == "succeeded":
+                job.outcome = "passed"
             self._tokens.pop(job_id, None)
             self._operations.pop(job_id, None)
             self._prune_locked()
@@ -591,7 +892,7 @@ class BackgroundJobStore:
         except JobCancelledError:
             self._finish(job_id, "cancelled")
         except Exception as exc:  # noqa: BLE001 - job errors are shown to the user.
-            self._finish(job_id, "failed", error=str(exc))
+            self._finish(job_id, "failed", error=str(exc) or exc.__class__.__name__)
 
     def _append_log_locked(self, job: BackgroundJob, message: str) -> None:
         """작업의 최근 로그 목록에 메시지를 추가하고 보존 개수 제한을 넘는 오래된 로그를 제거합니다. 호출자는 저장소 락을 보유해야 합니다.

@@ -51,7 +51,7 @@ h2 {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 40;
   background: rgba(7, 17, 31, 0.52);
   backdrop-filter: blur(3px);
 }
@@ -60,7 +60,7 @@ h2 {
   position: fixed;
   top: 50%;
   left: 50%;
-  z-index: 30;
+  z-index: 50;
   width: min(620px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   overflow: auto;

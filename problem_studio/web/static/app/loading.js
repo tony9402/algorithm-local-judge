@@ -21,6 +21,16 @@ export function configureLoading(callbacks = {}) {
 function setControlsDisabled(disabled) {
   document.body.setAttribute("aria-busy", disabled ? "true" : "false");
   for (const element of document.querySelectorAll("button, input, select, textarea")) {
+    if (
+      disabled
+      && (
+        element.id === "jobCenterButton"
+        || element.closest("#jobCenterDrawer")
+        || element.closest("#loadingOverlay")
+      )
+    ) {
+      continue;
+    }
     element.disabled = disabled;
   }
   loadingCallbacks.updateGlobalActionState();

@@ -28,10 +28,10 @@
             <span class="tab-hint">케이스 구성</span>
           </span>
         </button>
-        <button class="tab-button" data-tab="validator" role="tab" aria-label="데이터 벨리데이션" aria-selected="false" type="button">
+        <button class="tab-button" data-tab="validator" role="tab" aria-label="데이터 검증" aria-selected="false" type="button">
           <span class="tab-marker" aria-hidden="true">3</span>
           <span class="tab-copy">
-            <span class="tab-label">데이터 벨리데이션</span>
+            <span class="tab-label">데이터 검증</span>
             <span class="tab-hint">입력 조건 검증</span>
           </span>
         </button>
@@ -68,9 +68,9 @@
         <button id="jobCenterCloseButton" class="icon-button" type="button" aria-label="작업 센터 닫기">×</button>
       </div>
       <div class="job-center-actions">
-        <button data-job-filter="active" class="active" type="button">Active</button>
-        <button data-job-filter="done" type="button">Done</button>
-        <button data-job-filter="failed" type="button">Failed</button>
+        <button data-job-filter="active" class="active" type="button">진행</button>
+        <button data-job-filter="done" type="button">완료</button>
+        <button data-job-filter="failed" type="button">실패</button>
         <button id="jobCenterClearButton" type="button">완료 항목 정리</button>
       </div>
       <div id="jobCenterList" class="job-center-list muted">작업이 없습니다.</div>
@@ -83,6 +83,7 @@
           <p id="taskDescription">문제를 선택하면 제작 작업을 시작할 수 있습니다.</p>
         </div>
 
+        <div id="tabActions" class="action-grid"></div>
         <div id="metadataForm" class="metadata-form metadata-workbench hidden">
           <section class="metadata-card metadata-card-primary">
             <div class="metadata-card-heading">
@@ -208,7 +209,6 @@
           ></div>
         </div>
 
-        <div id="tabActions" class="action-grid"></div>
         <div id="buildPanel" class="build-panel hidden">
           <div class="form-note">
             <strong>팩 빌드 조건</strong>

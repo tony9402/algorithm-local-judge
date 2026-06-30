@@ -210,7 +210,7 @@ def api_validate_data_job(request: Request, problem_id: str, body: DataValidateR
         jobs = jobs_from_request(request)
 
         def operation(cancel_token, progress):
-            progress(f"Validating generated data for {problem_id}.", label="데이터 벨리데이션")
+            progress(f"Validating generated data for {problem_id}.", label="데이터 검증")
             result = validate_all_data(
                 workspace,
                 problem_id,

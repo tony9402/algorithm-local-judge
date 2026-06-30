@@ -4,6 +4,28 @@
 
 import { optional } from "./dom.js";
 import { state } from "./state.js";
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function visibleFocusable(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  if (element.getAttribute("aria-hidden") === "true") return false;
+  return Boolean(element.offsetParent || element.getClientRects().length);
+}
+function activeModal() {
+  const modals = Array.from(document.querySelectorAll(".modal:not(.hidden)"));
+  return modals.at(-1) || null;
+}
+function focusableElements(modal) {
+  return Array.from(modal?.querySelectorAll(FOCUSABLE_SELECTOR) || []).filter(visibleFocusable);
+}
 /**
  * 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  *
@@ -14,7 +36,9 @@ export function openModal(id, trigger = document.activeElement) {
   state.activeModalTrigger = trigger instanceof HTMLElement ? trigger : null;
   const modal = optional(id);
   modal?.classList.remove("hidden");
-  const firstField = modal?.querySelector("input, select, textarea");
+  modal?.removeAttribute("aria-hidden");
+  modal?.setAttribute("tabindex", "-1");
+  const firstField = focusableElements(modal)[0] || modal;
   if (firstField instanceof HTMLElement) firstField.focus();
 }
 export function activeCodeEditorElement(event) {
@@ -29,17 +53,47 @@ export function activeCodeEditorElement(event) {
  * modals 모달이나 열린 상태를 닫고 관련 임시 상태를 정리합니다.
  */
 export function closeModals() {
-  optional("newProblemModal")?.classList.add("hidden");
-  optional("deleteProblemModal")?.classList.add("hidden");
-  optional("packBuildModal")?.classList.add("hidden");
-  optional("solutionCreateModal")?.classList.add("hidden");
-  optional("solutionEditModal")?.classList.add("hidden");
-  optional("workspaceBuildModal")?.classList.add("hidden");
-  optional("repositoryModal")?.classList.add("hidden");
-  optional("solutionCasesModal")?.classList.add("hidden");
-  optional("solutionStressModal")?.classList.add("hidden");
-  optional("solutionStressReviewModal")?.classList.add("hidden");
+  for (const id of [
+    "newProblemModal",
+    "deleteProblemModal",
+    "packBuildModal",
+    "solutionCreateModal",
+    "solutionEditModal",
+    "workspaceBuildModal",
+    "repositoryModal",
+    "solutionCasesModal",
+    "solutionStressModal",
+    "solutionStressReviewModal",
+  ]) {
+    const modal = optional(id);
+    modal?.classList.add("hidden");
+    modal?.setAttribute("aria-hidden", "true");
+  }
   state.editingSolutionPath = null;
-  state.activeModalTrigger?.focus();
+  if (state.activeModalTrigger && !state.activeModalTrigger.disabled) {
+    state.activeModalTrigger.focus();
+  }
   state.activeModalTrigger = null;
 }
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Tab" || event.defaultPrevented) return;
+  const modal = activeModal();
+  if (!modal) return;
+  const focusable = focusableElements(modal);
+  if (!focusable.length) {
+    event.preventDefault();
+    modal.focus();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const current = document.activeElement;
+  if (event.shiftKey && (!modal.contains(current) || current === first)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && current === last) {
+    event.preventDefault();
+    first.focus();
+  }
+});

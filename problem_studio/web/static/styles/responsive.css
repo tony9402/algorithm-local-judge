@@ -13,19 +13,38 @@
 }
 
 @media (max-width: 1380px) {
+  html,
   body {
+    max-width: 100%;
     overflow: auto;
+    overflow-x: hidden;
   }
 
   .shell {
+    width: 100%;
+    max-width: 100%;
     height: auto;
     min-height: 100vh;
     overflow: visible;
   }
 
   .workspace {
+    width: 100%;
+    max-width: 100%;
     overflow: visible;
     grid-template-rows: auto auto auto;
+  }
+
+  .studio-tabs,
+  .studio-tabs .tab-list,
+  .studio-layout,
+  .task-panel,
+  .editor-panel,
+  .build-dashboard,
+  .panel,
+  .code-editor {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .studio-layout {
@@ -215,6 +234,8 @@
     width: min(320px, 86vw);
     border-right: 1px solid rgba(255, 255, 255, 0.12);
     border-bottom: 0;
+    visibility: hidden;
+    pointer-events: none;
     transform: translateX(-102%);
     transition: transform 0.18s ease;
     grid-template-columns: 1fr;
@@ -223,6 +244,8 @@
   }
 
   body.sidebar-open .sidebar {
+    visibility: visible;
+    pointer-events: auto;
     transform: translateX(0);
   }
 
@@ -253,6 +276,10 @@
     grid-template-columns: 1fr;
   }
 
+  .studio-layout.info-mode {
+    grid-template-columns: 1fr;
+  }
+
   .task-panel {
     max-height: min(78vh, 980px);
   }
@@ -263,7 +290,14 @@
   }
 
   .studio-tabs .tab-list {
+    width: 100%;
+    min-width: 0;
     overflow-x: auto;
+  }
+
+  .studio-tabs .tab-button {
+    flex: 0 0 clamp(126px, 28vw, 154px);
+    min-width: 0;
   }
 
   .action-grid {
@@ -306,6 +340,19 @@
 }
 
 @media (max-width: 640px) {
+  .shell,
+  .workspace,
+  .studio-tabs,
+  .studio-layout,
+  .task-panel,
+  .editor-panel,
+  .build-dashboard,
+  .panel,
+  .code-editor {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .sidebar-toggle {
     grid-template-columns: 40px minmax(0, 1fr);
   }
@@ -337,6 +384,9 @@
 
   .toolbar-actions {
     display: flex;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     flex-wrap: nowrap;
     justify-content: stretch;
     overflow-x: auto;
@@ -350,7 +400,12 @@
   }
 
   .global-task-status {
-    flex: 1 0 180px;
+    min-width: 0;
+    flex: 1 1 160px;
+  }
+
+  .job-center-button {
+    flex: 0 0 auto;
   }
 
   .panel-heading {
@@ -478,6 +533,7 @@
   }
 
   .code-editor {
+    width: 100%;
     height: 50vh;
     min-height: 300px;
   }

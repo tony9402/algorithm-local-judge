@@ -1,11 +1,18 @@
 .jobs-panel {
+  position: fixed;
+  top: 84px;
+  right: 20px;
+  z-index: 35;
   display: grid;
   gap: 12px;
-  margin: 12px 0;
-  padding: 12px;
+  width: min(580px, calc(100vw - 40px));
+  max-height: calc(100vh - 104px);
+  overflow: auto;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--panel-muted);
+  background: var(--panel);
+  box-shadow: var(--shadow);
 }
 
 .jobs-panel.hidden {
@@ -14,14 +21,19 @@
 
 .jobs-panel-heading,
 .jobs-panel-actions,
+.jobs-paging,
 .job-row-header,
-.job-row-actions {
+.job-row-actions,
+.job-row-footer,
+.job-badges {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.jobs-panel-heading {
+.jobs-panel-heading,
+.job-row-header,
+.job-row-footer {
   justify-content: space-between;
 }
 
@@ -31,6 +43,12 @@
 }
 
 .jobs-panel-actions {
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.jobs-paging {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -43,11 +61,6 @@
   font-weight: 800;
 }
 
-.jobs-panel-actions button.active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .jobs-list {
   display: grid;
   gap: 8px;
@@ -56,14 +69,19 @@
 .job-row {
   display: grid;
   gap: 8px;
-  padding: 10px;
+  padding: 11px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
 }
 
-.job-row-header {
-  justify-content: space-between;
+.job-row.attention {
+  border-color: color-mix(in srgb, var(--bad) 46%, var(--line));
+  background: color-mix(in srgb, var(--bad-soft) 42%, var(--panel));
+}
+
+.job-row-header > div:first-child {
+  min-width: 0;
 }
 
 .job-row-title,
@@ -75,10 +93,12 @@
 }
 
 .job-row-title {
+  display: block;
   min-width: 0;
-  font-weight: 700;
+  font-weight: 800;
 }
 
+.job-row-kind,
 .job-row-target,
 .job-row-log,
 .job-cancel-reason,
@@ -91,35 +111,49 @@
   white-space: normal;
 }
 
-.job-row-actions {
+.job-row-actions,
+.job-badges {
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.job-status {
+.job-status,
+.job-outcome {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-muted);
+  padding: 0 8px;
   white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.job-status::before {
-  width: 8px;
-  height: 8px;
+.job-status::before,
+.job-outcome::before {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--muted);
   content: "";
 }
 
 .job-status.running::before,
-.job-status.cancelling::before {
+.job-status.cancelling::before,
+.job-outcome.pending::before {
   background: var(--accent);
 }
 
-.job-status.succeeded::before {
+.job-status.succeeded::before,
+.job-outcome.passed::before {
   background: var(--good);
 }
 
-.job-status.failed::before {
+.job-status.failed::before,
+.job-outcome.failed::before {
   background: var(--bad);
 }
 
@@ -138,21 +172,94 @@
   background: var(--accent);
 }
 
+.job-row.attention .job-progress-fill {
+  background: var(--bad);
+}
+
+.job-failure {
+  display: grid;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--bad) 40%, var(--line));
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 10px;
+}
+
+.job-failure-title {
+  color: var(--bad);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.job-failure ul,
+.job-log-list ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.job-failure li strong,
+.job-failure li span,
+.job-failure li small {
+  display: block;
+}
+
+.job-failure li p {
+  margin: 3px 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.job-failure li span,
+.job-failure li small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.job-log-list {
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.job-log-list summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.job-log-list li {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 720px) {
   .jobs-panel {
-    position: fixed;
+    top: auto;
     right: 12px;
     bottom: 12px;
     left: 12px;
-    z-index: 30;
-    max-height: 78vh;
-    overflow: auto;
-    box-shadow: var(--shadow);
+    width: auto;
+    max-height: 82vh;
   }
 
   .jobs-panel-heading,
-  .jobs-panel-actions {
+  .jobs-panel-actions,
+  .job-row-header,
+  .job-row-footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .jobs-filters,
+  .jobs-paging,
+  .job-row-actions {
+    width: 100%;
+  }
+
+  .jobs-paging button,
+  .jobs-filters button,
+  .job-row-actions button {
+    flex: 1 1 auto;
   }
 }

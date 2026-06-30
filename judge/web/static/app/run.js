@@ -31,12 +31,12 @@ async function restoreRunResult(result) {
   state.artifacts = null;
   app.$("wrongPanel").classList.add("hidden");
   app.hideGenerationProgress();
-  app.setBadge(result.status.replaceAll("_", " "), statusClassName(result.status));
+  app.setBadge(app.verdictLabel(result.status), statusClassName(result.status));
   app.setText("resultMeta", `${result.problemId} · ${result.profile} · ${result.language} · ${result.runId}`);
-  app.setStatusCard("data", "Ready", result.profile);
+  app.setStatusCard("data", "준비됨", result.profile);
   app.setStatusCard(
     "judge",
-    result.status.replaceAll("_", " "),
+    app.verdictLabel(result.status),
     app.profileCaseText(resultCaseCount(result), result.profile)
   );
   app.setStatusCard("run", result.runId, runMetricsText(result));
@@ -56,26 +56,26 @@ async function runSubmission(profile = app.judgeProfile()) {
   app.$("wrongPanel").classList.add("hidden");
   app.$("caseResults").classList.add("hidden");
   app.clearDebugLog();
-  app.setBadge("Running", "neutral");
-  app.setStatusCard("data", "Checking", profile);
-  app.setStatusCard("judge", "Waiting");
-  app.setStatusCard("run", "-", "In progress");
-  app.setSummary(`Judging submission with ${profile} cases.`, "result-summary");
+  app.setBadge("채점 중", "neutral");
+  app.setStatusCard("data", "확인 중", profile);
+  app.setStatusCard("judge", "대기 중");
+  app.setStatusCard("run", "-", "진행 중");
+  app.setSummary(`${profile} 케이스로 채점 중입니다.`, "result-summary");
   const compileResult = await app.compileCasesData({ showSuccess: false, profile });
   if (!compileResult.valid) return;
   const totalCases = app.compiledCaseCount(compileResult);
-  app.setGenerationProgress(0, totalCases, "Data generation");
+  app.setGenerationProgress(0, totalCases, "데이터 생성");
   app.appendRunLog("Starting judge run.");
   const problemId = app.$("problemSelect").value;
   const result = await streamRun(runFormData(profile), () => recordSubmissionCooldown(problemId));
   if (!result) throw new Error("Run finished without a result.");
   state.lastRunResult = result;
-  app.setBadge(result.status.replaceAll("_", " "), statusClassName(result.status));
+  app.setBadge(app.verdictLabel(result.status), statusClassName(result.status));
   app.setText("resultMeta", `${result.problemId} · ${result.profile} · ${result.language} · ${result.runId}`);
-  app.setStatusCard("data", "Ready", result.profile);
+  app.setStatusCard("data", "준비됨", result.profile);
   app.setStatusCard(
     "judge",
-    result.status.replaceAll("_", " "),
+    app.verdictLabel(result.status),
     app.profileCaseText(resultCaseCount(result), result.profile)
   );
   app.setStatusCard("run", result.runId, runMetricsText(result));
@@ -179,16 +179,16 @@ function statusClassName(status) {
 function runSummary(result) {
   const metrics = runMetricsText(result);
   if (result.status === "accepted") {
-    return `Accepted after ${app.profileCaseText(resultCaseCount(result), result.profile)}. ${metrics}`;
+    return `${app.profileCaseText(resultCaseCount(result), result.profile)} 채점 완료. ${metrics}`;
   }
-  const failed = result.firstFailedCase ? ` on case ${result.firstFailedCase}` : "";
-  return `${result.status.replaceAll("_", " ")}${failed}. ${metrics}`;
+  const failed = result.firstFailedCase ? ` · 실패 케이스 ${result.firstFailedCase}` : "";
+  return `${app.verdictLabel(result.status)}${failed}. ${metrics}`;
 }
 function runMetricsText(result) {
   const metrics = result.metrics || {};
-  const time = metrics.maxTimeLabel || "unavailable";
-  const memory = metrics.maxMemoryLabel || "unavailable";
-  return `max time ${time} · max memory ${memory}`;
+  const time = metrics.maxTimeLabel || "확인 불가";
+  const memory = metrics.maxMemoryLabel || "확인 불가";
+  return `최대 시간 ${time} · 최대 메모리 ${memory}`;
 }
 /**
  * 오답 케이스을 파일이나 캐시에서 읽고 필요한 기본값을 적용합니다.

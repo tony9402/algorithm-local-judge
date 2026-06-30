@@ -37,6 +37,10 @@
     grid-template-columns: 1fr;
   }
 
+  .source-history-filters {
+    grid-template-columns: 1fr;
+  }
+
   .problem-folder-tools {
     grid-template-columns: 1fr;
   }

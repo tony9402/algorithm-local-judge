@@ -12,6 +12,7 @@ const { state } = app;
 function setBusy(isBusy) {
   state.isBusy = isBusy;
   app.setDisabled("addProblemButton", isBusy);
+  app.setDisabled("topAddProblemButton", isBusy);
   app.setDisabled("cacheManageButton", isBusy);
   app.setDisabled("cachePreviewButton", isBusy);
   app.setDisabled("cacheClearRunsButton", isBusy);

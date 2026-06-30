@@ -11,6 +11,12 @@ function bindEvents() {
   app.applyTheme(app.preferredTheme());
   app.on("themeToggleButton", "click", app.toggleTheme);
   app.on("addProblemButton", "click", () => app.openModal("packModal"));
+  app.on("topAddProblemButton", "click", () => app.openModal("packModal"));
+  app.on("problemJumpButton", "click", () => {
+    const target = app.optional("problemSearchInput") || app.optional("problemList");
+    target?.scrollIntoView({ block: "start", behavior: "smooth" });
+    target?.focus();
+  });
   app.on("cacheManageButton", "click", () => app.openModal("cacheModal"));
   app.on("refreshButton", "click", () => app.withErrors(app.refresh));
   app.on("modalBackdrop", "click", app.closeModals);
@@ -19,6 +25,7 @@ function bindEvents() {
   }
   app.on("debugModeInput", "change", app.renderDebugLog);
   app.on("problemSelect", "change", () => app.withErrors(app.handleProblemChange));
+  app.on("problemSearchInput", "input", app.updateProblemSearch);
   app.on("problemFolderSaveButton", "click", () =>
     app.withErrors(app.createProblemFolderFromInput)
   );
@@ -31,17 +38,24 @@ function bindEvents() {
   });
   app.on("runProfileSelect", "change", () => {
     state.config.judgeProfile = app.$("runProfileSelect").value;
-    app.resetRunStatus(`${app.judgeProfile()} cases will be used for Run.`);
+    app.resetRunStatus(`${app.judgeProfile()} 케이스를 채점에 사용합니다.`);
   });
   app.on("sourceFileInput", "change", () => app.withErrors(app.loadSourceFileIntoEditor));
   app.on("sourceHistoryFilterInput", "input", app.updateSourceHistoryFilter);
   app.on("sourceHistoryStatusFilter", "change", app.updateSourceHistoryFilter);
-  app.on("filenameInput", "input", app.updateLanguageBadge);
+  app.on("sourceHistoryProblemScopeButton", "click", () => app.setSourceHistoryScope("problem"));
+  app.on("sourceHistoryAllScopeButton", "click", () => app.setSourceHistoryScope("all"));
+  app.on("filenameInput", "input", () => {
+    app.saveProblemDraft?.(state.selectedProblem);
+    app.updateLanguageBadge();
+  });
   app.on("languageHint", "change", () => {
+    app.saveProblemDraft?.(state.selectedProblem);
     app.syncFilenamePlaceholder();
     app.updateLanguageBadge();
   });
   app.on("sourceTextInput", "input", () => {
+    app.saveProblemDraft?.(state.selectedProblem);
     app.updateEditorView();
     app.updateActionState();
   });
@@ -91,6 +105,7 @@ function bindEvents() {
   app.on("cacheClearRunsButton", "click", () => app.withErrors(() => app.cacheClear(false, { runs: true })));
   app.on("cacheClearAllButton", "click", () => app.withErrors(() => app.cacheClear(false, { all_entries: true })));
   document.addEventListener("keydown", (event) => {
+    if (app.handleModalKeydown?.(event)) return;
     if (event.key === "Escape") app.closeModals();
   });
   for (const button of document.querySelectorAll(".artifact-tab")) {

@@ -35,7 +35,9 @@ function renderSourceHistory(data) {
   if (!list) return;
   const allSources = data?.sources || [];
   state.sources = allSources;
-  const problemSources = state.selectedProblem
+  const problemSources = state.sourceHistoryScope === "all"
+    ? allSources
+    : state.selectedProblem
     ? allSources.filter((source) => source.problemId === state.selectedProblem)
     : allSources;
   const filterInput = app.optional("sourceHistoryFilterInput");
@@ -46,16 +48,21 @@ function renderSourceHistory(data) {
   if (statusInput && statusInput.value !== state.sourceHistoryStatusFilter) {
     statusInput.value = state.sourceHistoryStatusFilter;
   }
+  for (const button of document.querySelectorAll("[data-source-scope]")) {
+    const active = button.getAttribute("data-source-scope") === (state.sourceHistoryScope || "problem");
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
   const sources = problemSources.filter(sourceMatchesHistoryFilters);
   list.innerHTML = "";
   if (!sources.length) {
     const hasActiveFilter =
       Boolean(state.sourceHistoryFilter) || state.sourceHistoryStatusFilter !== "all";
     list.textContent = hasActiveFilter
-      ? "No cached sources match filters."
+      ? "필터와 일치하는 캐시 소스가 없습니다."
       : allSources.length
-        ? "No cached sources for this problem."
-        : "No cached sources.";
+        ? "현재 범위에 캐시 소스가 없습니다."
+        : "캐시 소스가 없습니다.";
     list.classList.add("muted");
     return;
   }
@@ -81,7 +88,7 @@ function renderSourceHistory(data) {
 
     const openButton = document.createElement("button");
     openButton.type = "button";
-    openButton.textContent = "Use Code";
+    openButton.textContent = "코드 사용";
     openButton.addEventListener("click", () => {
       void app.withErrors(() => loadCachedSource(source.sourceId));
     });
@@ -89,7 +96,7 @@ function renderSourceHistory(data) {
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.className = "danger";
-    deleteButton.textContent = "Delete";
+    deleteButton.textContent = "삭제";
     deleteButton.addEventListener("click", () => {
       void app.withErrors(() => deleteCachedSource(source.sourceId, source.filename || "source"));
     });
@@ -116,6 +123,7 @@ async function refreshSourceHistory() {
  */
 async function loadCachedSource(sourceId) {
   const source = await app.api(`/api/sources/${encodeURIComponent(sourceId)}`);
+  app.saveProblemDraft?.(state.selectedProblem);
   if (source.problemId && state.problems.some((problem) => problem.problemId === source.problemId)) {
     state.selectedProblem = source.problemId;
     app.$("problemSelect").value = source.problemId;
@@ -142,8 +150,10 @@ async function loadCachedSource(sourceId) {
  * @param {any} filename 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
  */
 async function deleteCachedSource(sourceId, filename) {
+  const confirmed = window.confirm(`${filename} 캐시 소스를 삭제합니다.\n삭제한 소스는 Source History에서 다시 불러올 수 없습니다.`);
+  if (!confirmed) return;
   await app.api(`/api/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
-  app.showToast(`Cached source deleted: ${filename}`);
+  app.showToast(`캐시 소스 삭제됨: ${filename}`);
   await app.refreshSecondaryData();
 }
 /**
@@ -155,11 +165,17 @@ function updateSourceHistoryFilter() {
   renderSourceHistory({ sources: state.sources });
 }
 
+function setSourceHistoryScope(scope) {
+  state.sourceHistoryScope = scope === "all" ? "all" : "problem";
+  renderSourceHistory({ sources: state.sources });
+}
+
 Object.assign(app, {
   deleteCachedSource,
   formatSavedAt,
   loadCachedSource,
   refreshSourceHistory,
   renderSourceHistory,
+  setSourceHistoryScope,
   updateSourceHistoryFilter,
 });

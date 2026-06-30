@@ -2,7 +2,6 @@
 """
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
@@ -179,46 +178,17 @@ def enqueue_background_job(
             result_actions (dict | None): background 작업을 계산하거나 검증할 때 필요한 결과 actions 입력입니다.
             input_snapshot_summary (str | None): background 작업을 계산하거나 검증할 때 필요한 입력 snapshot summary 입력입니다.
     """
-    holder: dict[str, str] = {}
-    ready = threading.Event()
-
-    def run(cancel_token: CancelToken) -> dict:
-        ready.wait(timeout=2)
-
-        def progress(
-            message: str,
-            current: int | None = None,
-            total: int | None = None,
-            label: str | None = None,
-            **extra,
-        ) -> None:
-            cancel_token.check()
-            jobs.update_progress(
-                holder["job_id"],
-                message,
-                current=current,
-                total=total,
-                label=label,
-                extra=extra or None,
-            )
-
-        return operation(cancel_token, progress)
-
-    job = jobs.start(
+    return jobs.start_with_progress(
         kind=kind,
         title=title,
         problem_id=problem_id,
-        operation=run,
-        cancel_supported=True,
+        operation=operation,
         app=app,
         lane=lane,
         target=scoped_target(request, target) if request is not None else target,
         result_actions=result_actions,
         input_snapshot_summary=input_snapshot_summary,
     )
-    holder["job_id"] = job.job_id
-    ready.set()
-    return job
 
 
 def add_workspace_warning(request: Request, status: dict) -> dict:

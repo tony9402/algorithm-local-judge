@@ -22,13 +22,16 @@ def new_run_dir(root: Path | None = None) -> tuple[str, Path]:
         tuple[str, Path]: 검증된 new 실행 dir 경로입니다. 선택 항목이 없거나 찾지 못한 경우 None일 수 있습니다.
     """
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    candidate = cache_root(root) / "runs" / run_id
+    runs_root = cache_root(root) / "runs"
+    candidate = runs_root / run_id
     suffix = 1
-    while candidate.exists():
-        candidate = cache_root(root) / "runs" / f"{run_id}-{suffix}"
-        suffix += 1
-    candidate.mkdir(parents=True, exist_ok=True)
-    return candidate.name, candidate
+    while True:
+        try:
+            candidate.mkdir(parents=True, exist_ok=False)
+            return candidate.name, candidate
+        except FileExistsError:
+            candidate = runs_root / f"{run_id}-{suffix}"
+            suffix += 1
 
 
 def infer_problem_id(

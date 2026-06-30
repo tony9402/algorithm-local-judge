@@ -83,6 +83,10 @@
   margin-bottom: 12px;
 }
 
+.problem-search {
+  margin-bottom: 12px;
+}
+
 .problem-folder-tools label {
   gap: 4px;
 }

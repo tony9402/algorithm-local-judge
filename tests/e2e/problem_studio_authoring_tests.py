@@ -258,6 +258,12 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
         """주요 viewport에서 핵심 컨트롤과 레이아웃을 검증합니다."""
         with isolated_runtime("alj-problem-studio-view-e2e-") as (_directory, workspace):
             create_problem(workspace, "alpha", "Alpha View", "E2E")
+            create_problem(
+                workspace,
+                "beta-long-title",
+                "Beta View With A Very Long Title For Narrow Screens",
+                "Long Folder",
+            )
             with run_app(create_app(workspace)) as server:
                 for width, height in [
                     (1440, 900),
@@ -270,10 +276,22 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 ]:
                     page = self.new_page(server.url, width=width, height=height)
                     page.goto(server.url)
-                    page.locator("#newProblemButton").wait_for(state="visible")
+                    page.locator("#studioSidebar").wait_for(state="attached")
+                    assert_no_horizontal_overflow(self, page, label=f"initial at {width}px")
                     if width <= 1380:
+                        self.assertFalse(page.locator("#newProblemButton").is_visible())
+                        self.assertEqual(page.locator("#studioSidebar").get_attribute("inert"), "")
+                        self.assertEqual(
+                            page.locator("#studioSidebar").get_attribute("aria-hidden"),
+                            "true",
+                        )
                         page.locator("#sidebarToggle").click()
                         page.locator("#newProblemButton").wait_for(state="visible")
+                        self.assertIsNone(page.locator("#studioSidebar").get_attribute("inert"))
+                        page.locator("#problemFilterInput").fill("beta")
+                        wait_for_text(page, "#problemList", "beta-long-title")
+                        self.assertNotIn("Alpha View", page.locator("#problemList").inner_text())
+                        page.locator("#problemFilterInput").fill("")
                         page.locator("#newProblemButton").click()
                         assert_visible_in_viewport(
                             self,
@@ -288,7 +306,16 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                             page.wait_for_function(
                                 """() => !document.body.classList.contains("sidebar-open")"""
                             )
+                            self.assertEqual(
+                                page.locator("#studioSidebar").get_attribute("aria-hidden"),
+                                "true",
+                            )
                     else:
+                        page.locator("#newProblemButton").wait_for(state="visible")
+                        page.locator("#problemFilterInput").fill("beta")
+                        wait_for_text(page, "#problemList", "beta-long-title")
+                        self.assertNotIn("Alpha View", page.locator("#problemList").inner_text())
+                        page.locator("#problemFilterInput").fill("")
                         assert_visible_in_viewport(self, page.locator("#newProblemButton"))
                         page.locator("#newProblemButton").click()
                         assert_visible_in_viewport(

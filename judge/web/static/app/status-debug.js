@@ -5,13 +5,13 @@
 const app = window.AljApp;
 const { state } = app;
 
-function resetRunStatus(message = "Ready.") {
-  app.setBadge("Idle", "neutral");
-  app.setText("resultMeta", "No run yet.");
-  app.setStatusCard("cases", "Idle", `${app.judgeProfile()} cases.yml plan`);
-  app.setStatusCard("data", "Idle", `${app.judgeProfile()} judge data`);
-  app.setStatusCard("judge", "Idle");
-  app.setStatusCard("run", "-", "No run");
+function resetRunStatus(message = "준비됨.") {
+  app.setBadge("대기", "neutral");
+  app.setText("resultMeta", "아직 채점하지 않았습니다.");
+  app.setStatusCard("cases", "대기", `${app.judgeProfile()} cases.yml 계획`);
+  app.setStatusCard("data", "대기", `${app.judgeProfile()} 채점 데이터`);
+  app.setStatusCard("judge", "대기");
+  app.setStatusCard("run", "-", "채점 기록 없음");
   app.hideGenerationProgress();
   app.setSummary(message, "result-summary muted");
 }
@@ -65,7 +65,7 @@ function showError(message) {
     app.showToast(message, "error");
     return;
   }
-  app.setBadge("Error", "wrong");
+  app.setBadge("오류", "wrong");
   app.setSummary(message, "result-summary error");
   state.debugLogs.push(`Error: ${message}`);
   renderDebugLog();

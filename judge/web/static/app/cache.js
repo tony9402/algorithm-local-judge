@@ -13,10 +13,10 @@ function renderCache(cache) {
   state.cache = cache;
   const sources = cache.sources || { count: 0 };
   app.$("cacheSummary").innerHTML = `
-    <div>Total ${escapeHtml(cache.totalSizeLabel)}</div>
-    <div>Problem caches ${escapeHtml(cache.problems.length)}</div>
-    <div>Runs ${escapeHtml(cache.runs.count)}</div>
-    <div>Sources ${escapeHtml(sources.count)}</div>
+    <div>전체 ${escapeHtml(cache.totalSizeLabel)}</div>
+    <div>문제 데이터 ${escapeHtml(cache.problems.length)}</div>
+    <div>채점 기록 ${escapeHtml(cache.runs.count)}</div>
+    <div>소스 ${escapeHtml(sources.count)}</div>
   `;
   renderCacheModalSummary(cache);
 }
@@ -31,22 +31,22 @@ function renderCacheModalSummary(cache) {
   const sources = cache.sources || { count: 0, sizeLabel: "0 B" };
   summary.innerHTML = `
     <div class="status-card">
-      <span>Total</span>
+      <span>전체</span>
       <strong>${escapeHtml(cache.totalSizeLabel)}</strong>
-      <small>Cache size</small>
+      <small>캐시 크기</small>
     </div>
     <div class="status-card">
-      <span>Problem Data</span>
+      <span>문제 데이터</span>
       <strong>${escapeHtml(cache.problems.length)}</strong>
-      <small>Generated caches</small>
+      <small>생성된 데이터 캐시</small>
     </div>
     <div class="status-card">
-      <span>Runs</span>
+      <span>채점 기록</span>
       <strong>${escapeHtml(cache.runs.count)}</strong>
       <small>${escapeHtml(cache.runs.sizeLabel || "0 B")}</small>
     </div>
     <div class="status-card">
-      <span>Sources</span>
+      <span>소스</span>
       <strong>${escapeHtml(sources.count)}</strong>
       <small>${escapeHtml(sources.sizeLabel || "0 B")}</small>
     </div>
@@ -54,11 +54,11 @@ function renderCacheModalSummary(cache) {
 }
 async function cacheClear(dryRun, options) {
   if (!dryRun && !confirmCacheClear(options)) {
-    app.$("cacheOutput").textContent = "Cleanup canceled.";
+    app.$("cacheOutput").textContent = "정리를 취소했습니다.";
     app.$("cacheOutput").className = "modal-status muted";
     return;
   }
-  app.$("cacheOutput").textContent = dryRun ? "Calculating cleanup preview..." : "Cleaning cache...";
+  app.$("cacheOutput").textContent = dryRun ? "삭제 미리보기를 계산하는 중..." : "캐시를 정리하는 중...";
   app.$("cacheOutput").className = "modal-status";
   const result = await app.api("/api/cache/clear", {
     method: "POST",
@@ -66,10 +66,10 @@ async function cacheClear(dryRun, options) {
   });
   const count = result.targets.length;
   if (dryRun) {
-    app.$("cacheOutput").textContent = formatCacheClearResult(result, `Will delete ${count} target(s)`);
+    app.$("cacheOutput").textContent = formatCacheClearResult(result, `${count}개 대상을 삭제할 예정`);
     app.$("cacheOutput").className = "modal-status";
   } else {
-    app.$("cacheOutput").textContent = formatCacheClearResult(result, `Deleted ${count} target(s)`);
+    app.$("cacheOutput").textContent = formatCacheClearResult(result, `${count}개 대상을 삭제했습니다`);
     app.$("cacheOutput").className = "modal-status success";
     app.clearSampleCache(options.problem || null);
   }
@@ -77,18 +77,18 @@ async function cacheClear(dryRun, options) {
 }
 
 function confirmCacheClear(options) {
-  const target = options.all_entries ? "all cache entries" : "run artifacts";
-  return window.confirm(`Delete ${target}? This cannot be undone.`);
+  const target = options.all_entries ? "모든 캐시 항목" : "채점 산출물";
+  return window.confirm(`${target}을 삭제합니다.\n삭제 후에는 되돌릴 수 없습니다.`);
 }
 
 function formatCacheClearResult(result, heading) {
   const targets = result.targets || [];
-  if (!targets.length) return `${heading}, ${result.totalSizeLabel}\nNo matching cache targets.`;
+  if (!targets.length) return `${heading}, ${result.totalSizeLabel}\n일치하는 삭제 대상이 없습니다.`;
   const visibleTargets = targets.slice(0, 8).map((target) => {
-    const label = target.label === "." ? "entire cache root" : target.label;
+    const label = target.label === "." ? "전체 캐시 루트" : target.label;
     return `- ${label}`;
   });
-  const omitted = targets.length > visibleTargets.length ? `\n- ...and ${targets.length - visibleTargets.length} more` : "";
+  const omitted = targets.length > visibleTargets.length ? `\n- 외 ${targets.length - visibleTargets.length}개` : "";
   return `${heading}, ${result.totalSizeLabel}\n${visibleTargets.join("\n")}${omitted}`;
 }
 

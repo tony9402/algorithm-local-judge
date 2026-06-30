@@ -6,36 +6,36 @@ const app = window.AljApp;
 const { state } = app;
 
 function installLabel(result) {
-  const target = result.assetName || result.label || result.installedPath || "installed problems";
+  const target = result.assetName || result.label || result.installedPath || "설치된 문제";
   if (result.installType === "source") {
-    return `Installed source fallback: ${target}`;
+    return `소스 fallback 설치 완료: ${target}`;
   }
-  const security = result.checksumVerified ? " · checksum verified" : "";
-  return `Installed pack: ${target}${security}`;
+  const security = result.checksumVerified ? " · 체크섬 확인됨" : "";
+  return `문제 팩 설치 완료: ${target}${security}`;
 }
 
 function officialPackErrorMessage(error) {
   const detail = String(error?.message || "unknown error");
   const lower = detail.toLowerCase();
   if (error?.status === 403 || lower.includes("rate limit")) {
-    return `Official pack install failed: GitHub rate limit or permission blocked the request. Try again later, choose a specific ref, or install a downloaded .aljpack. Detail: ${detail}`;
+    return `공식 문제 설치 실패: GitHub rate limit 또는 권한 문제로 요청이 막혔습니다. 잠시 후 다시 시도하거나 ref를 지정하거나 내려받은 .aljpack을 설치하세요. 상세: ${detail}`;
   }
   if (error?.status === 404 || lower.includes("not found")) {
-    return `Official pack install failed: repository, ref, or release asset was not found. Check the repository, branch/tag, and asset name. Detail: ${detail}`;
+    return `공식 문제 설치 실패: repository, ref 또는 release asset을 찾지 못했습니다. 저장소, branch/tag, asset 이름을 확인하세요. 상세: ${detail}`;
   }
   if (lower.includes("untrusted repository")) {
-    return `Official pack install failed: repository is not trusted. Add it with judge pack trust add owner/name, or use the default trusted repository. Detail: ${detail}`;
+    return `공식 문제 설치 실패: 신뢰한 저장소가 아닙니다. judge pack trust add owner/name으로 추가하거나 기본 신뢰 저장소를 사용하세요. 상세: ${detail}`;
   }
   if (lower.includes("checksum")) {
-    return `Official pack install failed: release checksum verification failed. Ask the publisher to upload a matching .sha256 file. Detail: ${detail}`;
+    return `공식 문제 설치 실패: release checksum 검증에 실패했습니다. 배포자에게 일치하는 .sha256 파일 업로드를 요청하세요. 상세: ${detail}`;
   }
   if (lower.includes("aljpack") || lower.includes("asset")) {
-    return `Official pack install failed: no matching .aljpack asset was available for this platform. Choose an asset name or use source fallback only for trusted repositories. Detail: ${detail}`;
+    return `공식 문제 설치 실패: 현재 플랫폼에 맞는 .aljpack asset이 없습니다. asset 이름을 지정하거나 신뢰한 저장소에서만 source fallback을 사용하세요. 상세: ${detail}`;
   }
   if (lower.includes("platform")) {
-    return `Official pack install failed: the selected pack does not match this platform. Choose a pack built for this OS/CPU. Detail: ${detail}`;
+    return `공식 문제 설치 실패: 선택한 팩이 현재 플랫폼과 맞지 않습니다. 이 OS/CPU용 팩을 선택하세요. 상세: ${detail}`;
   }
-  return `Official pack install failed: ${detail}`;
+  return `공식 문제 설치 실패: ${detail}`;
 }
 /**
  * 문제팩 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
@@ -46,7 +46,7 @@ function renderPacks(packs) {
   const list = app.$("packList");
   list.innerHTML = "";
   if (!packs.length) {
-    list.textContent = "No problem packs installed.";
+    list.textContent = "설치된 문제 팩이 없습니다.";
     list.classList.add("muted");
     return;
   }
@@ -66,8 +66,8 @@ function renderPacks(packs) {
  */
 async function uploadPack() {
   const file = app.$("packFileInput").files[0];
-  if (!file) throw new Error("Problem pack file is required.");
-  app.$("packStatus").textContent = "Installing uploaded pack...";
+  if (!file) throw new Error("문제 팩 파일이 필요합니다.");
+  app.$("packStatus").textContent = "업로드한 문제 팩을 설치하는 중...";
   app.$("packStatus").className = "modal-status";
   const formData = new FormData();
   formData.append("file", file);
@@ -87,7 +87,7 @@ async function downloadOfficialPack() {
   const repository = app.$("officialRepoInput").value.trim();
   const assetName = app.$("packAssetInput").value.trim();
   const ref = app.optional("packRefInput")?.value.trim() || "";
-  app.$("packStatus").textContent = "Installing official problems...";
+  app.$("packStatus").textContent = "공식 문제 팩을 설치하는 중...";
   app.$("packStatus").className = "modal-status";
   let result;
   try {

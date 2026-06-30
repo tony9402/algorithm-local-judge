@@ -13,6 +13,45 @@ from judge.web.security_policy import ensure_remote_run_allowed
 router = APIRouter(prefix="/api", tags=["generation"])
 
 
+def _cases_compile_failure_payload(result: dict) -> dict:
+    if result.get("valid") is not False:
+        result["passed"] = True
+        return result
+    diagnostics = result.get("diagnostics") or []
+    first = diagnostics[0] if diagnostics and isinstance(diagnostics[0], dict) else {}
+    target_parts = [
+        first.get("path"),
+        f"line {first.get('line')}" if first.get("line") else None,
+        first.get("location"),
+    ]
+    target = " · ".join(str(part) for part in target_parts if part)
+    message = str(first.get("message") or "cases.yml compile failed.")
+    if first.get("hint"):
+        message = f"{message} ({first['hint']})"
+    result.update(
+        {
+            "passed": False,
+            "errorKind": "cases-invalid",
+            "failureStage": "cases",
+            "failureStageLabel": "cases.yml 검사",
+            "summary": message,
+            "failureDetails": [
+                {
+                    "type": "cases-diagnostic",
+                    "label": "cases.yml 검사",
+                    "target": target or result.get("path") or "cases.yml",
+                    "message": message,
+                    "severity": first.get("severity"),
+                    "profile": first.get("profile"),
+                    "location": first.get("location"),
+                    "line": first.get("line"),
+                }
+            ],
+        }
+    )
+    return result
+
+
 @router.post("/generate")
 def api_generate(http_request: Request, request: GenerateRequest) -> dict:
     """generate 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
@@ -74,7 +113,9 @@ def api_generate_job(http_request: Request, request: GenerateRequest) -> dict:
         def operation(cancel_token, progress):
             progress(
                 f"Generating {request.profile or 'default'} data for {request.problem_id}.",
-                label="Data generation",
+                label="데이터 생성",
+                failureStage="validation",
+                failureStageLabel="데이터 생성",
             )
             result = services.generate_problem_with_progress(
                 request.problem_id,
@@ -136,9 +177,15 @@ def api_cases_compile_job(http_request: Request, request: CasesCompileRequest) -
         jobs = jobs_from_request(http_request)
 
         def operation(cancel_token, progress):
-            progress(f"Compiling cases.yml for {request.problem_id}.", label="Cases compile")
+            progress(
+                f"Compiling cases.yml for {request.problem_id}.",
+                label="cases.yml 검사",
+                failureStage="cases",
+                failureStageLabel="cases.yml 검사",
+            )
             cancel_token.check()
-            return services.compile_problem_cases_result(request.problem_id, request.profile)
+            result = services.compile_problem_cases_result(request.problem_id, request.profile)
+            return _cases_compile_failure_payload(result)
 
         job = enqueue_background_job(
             jobs,

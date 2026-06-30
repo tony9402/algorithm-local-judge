@@ -31,6 +31,7 @@ export const state = {
   lastStreamDetail: "",
   tabSelections: {},
   problemFolderCollapsed: {},
+  problemFilter: "",
   resourceFilters: {},
   activeModalTrigger: null,
   activePackJob: null,
@@ -100,7 +101,7 @@ export const TAB_CONFIGS = {
     ],
   },
   validator: {
-    title: "데이터 벨리데이션",
+    title: "데이터 검증",
     description: "validator를 수정하고 생성 데이터가 입력 조건을 만족하는지 확인합니다.",
     files: ["validator/validator.cpp"],
     actions: [

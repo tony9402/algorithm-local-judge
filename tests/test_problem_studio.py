@@ -27,6 +27,7 @@ from problem_studio.core.templates import create_problem
 from problem_studio.web.app import create_app
 from problem_studio.web.jobs import BackgroundJobStore, CancelToken, JobCancelledError
 from problem_studio.web.routes.bulk import WORKSPACE_JOB_PROBLEM_ID
+from problem_studio.web.routes.common import enqueue_background_job
 
 
 class ProblemStudioTest(unittest.TestCase):
@@ -107,13 +108,14 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("metadata-id-chip", page.text)
         self.assertIn("metadataValidationSummary", page.text)
         self.assertIn("newProblemFolder", page.text)
+        self.assertIn("problemFilterInput", page.text)
         self.assertIn("newProblemDefaultProfile", page.text)
         self.assertIn("newProblemUserTimeout", page.text)
         self.assertIn("deleteProblemModal", page.text)
         self.assertIn("deleteProblemConfirmInput", page.text)
         self.assertIn("문제 정보", page.text)
         self.assertIn("데이터 생성", page.text)
-        self.assertIn("데이터 벨리데이션", page.text)
+        self.assertIn("데이터 검증", page.text)
         self.assertIn("채점기", page.text)
         self.assertIn("솔루션", page.text)
         self.assertIn("loadingOverlay", page.text)
@@ -282,6 +284,14 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("function streamProgressDetail", sse_module.text)
         self.assertIn("function validateAllData", script_text)
         self.assertIn("function bindJobCenter", script_text)
+        self.assertIn("function jobOutcome", script_text)
+        self.assertIn("function jobNeedsAttention", script_text)
+        self.assertIn("failureDetails", script_text)
+        self.assertIn("job-failure-detail", script_text)
+        self.assertIn("job-log-list", script_text)
+        self.assertIn("detail.problemId", script_text)
+        self.assertIn("logs.slice().reverse()", script_text)
+        self.assertIn("로그", script_text)
         self.assertIn("/api/jobs", script_text)
         self.assertIn("cancelBlockedReason", script_text)
         self.assertIn("모든 데이터 생성+검증", script_text)
@@ -324,11 +334,10 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("function solutionValidationStatusForFile", script_text)
         self.assertIn("function openSolutionCasesModal", script_text)
         self.assertIn("function renderSolutionCasesBody", script_text)
-        self.assertIn('optional("solutionStressModal")?.classList.add("hidden")', script_text)
-        self.assertIn(
-            'optional("solutionStressReviewModal")?.classList.add("hidden")',
-            script_text,
-        )
+        self.assertIn('"solutionStressModal"', script_text)
+        self.assertIn('"solutionStressReviewModal"', script_text)
+        self.assertIn('modal?.classList.add("hidden")', script_text)
+        self.assertIn('modal?.setAttribute("aria-hidden", "true")', script_text)
         self.assertIn("lastSolutionVerification", script_text)
         self.assertIn("function resetSolutionVerificationForRun", script_text)
         self.assertIn("function problemValidationStatus", script_text)
@@ -467,8 +476,11 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("CodeMirror", codemirror.text)
         self.assertIn("body.sidebar-open .sidebar", stylesheet_text)
         self.assertIn(".job-cancel-reason", stylesheet_text)
+        self.assertIn(".job-row.attention", stylesheet_text)
+        self.assertIn(".job-failure-detail", stylesheet_text)
+        self.assertIn(".job-log-list", stylesheet_text)
         self.assertIn("#jobCenterCloseButton", stylesheet_text)
-        self.assertIn("z-index: 110", stylesheet_text)
+        self.assertIn("z-index: 10040", stylesheet_text)
         self.assertIn("grid-template-columns: minmax(0, 1fr) auto", stylesheet_text)
         self.assertIn(".mobile-header-copy", stylesheet_text)
         self.assertIn(".mobile-header-meta", stylesheet_text)
@@ -878,6 +890,56 @@ class ProblemStudioTest(unittest.TestCase):
 
         self.assertEqual(finished["status"], "succeeded")
         self.assertEqual(finished["result"]["checks"][0]["runId"], "partial-run")
+
+    def test_solution_verify_job_exposes_failed_outcome_for_mismatches(self) -> None:
+        """실제 솔루션 검증 job API는 mismatch 결과를 succeeded 상태의 failed outcome으로 노출해야 합니다."""
+        directory, client, workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        client.post("/api/problems", json={"problem_id": "alpha", "title": "Mismatch"})
+
+        def fake_verify_solutions(*args, **kwargs) -> dict:
+            check = SolutionCheckResult(
+                source=workspace / "problems" / "alpha" / "solutions" / "wrong.wa.cpp",
+                expected_status="wrong_answer",
+                actual_status="accepted",
+                raw_actual_status="accepted",
+                run_id="mismatch-run",
+                passed=False,
+                cases=[],
+                metrics={},
+                status_evidence={
+                    "rawStatus": "accepted",
+                    "rankedStatus": "accepted",
+                    "caseStatusCounts": {},
+                },
+                message="expected WA but accepted",
+            )
+            return {
+                "problemId": "alpha",
+                "profile": "hidden",
+                "passed": False,
+                "verifiedCount": 1,
+                "totalCount": 1,
+                "skippedCount": 0,
+                "checks": [check.to_dict(workspace)],
+            }
+
+        with patch(
+            "problem_studio.web.routes.solutions.verify_solutions",
+            side_effect=fake_verify_solutions,
+        ):
+            started = client.post(
+                "/api/problems/alpha/solutions/verify/jobs",
+                json={"profile": "hidden"},
+            )
+            self.assertEqual(started.status_code, 200, started.text)
+            finished = self.poll_job(client, started.json()["jobId"])
+
+        self.assertEqual(finished["status"], "succeeded")
+        self.assertEqual(finished["outcome"], "failed")
+        self.assertEqual(finished["failureStage"], "solutions")
+        self.assertEqual(finished["failureDetails"][0]["source"], "problems/alpha/solutions/wrong.wa.cpp")
+        self.assertIn("expected WA but accepted", finished["failureDetails"][0]["message"])
 
     def test_solution_verify_job_passes_cancel_check_to_service(self) -> None:
         """솔루션 검증 job 취소는 서비스 계층의 cancel_check까지 전달되어야 합니다."""
@@ -1493,6 +1555,293 @@ class ProblemStudioTest(unittest.TestCase):
 
         self.assertEqual(jobs.running_count(), 0)
         self.assertEqual(jobs.get(second.job_id).status, "succeeded")
+
+    def test_background_job_store_exposes_failed_outcome_for_domain_failures(self) -> None:
+        """작업이 예외 없이 끝나도 result가 실패이면 작업 센터가 실패성 결과로 분류할 수 있어야 합니다."""
+        jobs = BackgroundJobStore(max_jobs=5)
+        job = jobs.start(
+            kind="solution-verify",
+            title="기대 결과 검증",
+            problem_id="alpha",
+            operation=lambda: {
+                "passed": False,
+                "failureStage": "solutions",
+                "failureStageLabel": "솔루션 기대 결과",
+                "failureDetails": [
+                    {
+                        "label": "솔루션 기대 결과",
+                        "source": "solutions/wrong.wa.cpp",
+                        "expectedStatus": "wrong_answer",
+                        "actualStatus": "accepted",
+                        "message": "expected WA but accepted",
+                    }
+                ],
+            },
+        )
+
+        for _ in range(50):
+            current = jobs.get(job.job_id)
+            if current and current.status == "succeeded":
+                break
+            time.sleep(0.01)
+
+        data = jobs.job_dict(jobs.get(job.job_id))
+        self.assertEqual(data["status"], "succeeded")
+        self.assertEqual(data["outcome"], "failed")
+        self.assertEqual(data["failureStage"], "solutions")
+        self.assertEqual(data["failureStageLabel"], "솔루션 기대 결과")
+        self.assertEqual(data["failureDetails"][0]["source"], "solutions/wrong.wa.cpp")
+        self.assertEqual(data["errorKind"], "validation-mismatch")
+
+    def test_background_job_store_exposes_exception_failure_details(self) -> None:
+        """예외로 끝난 작업은 최근 진행 단계와 오류를 작업 센터 상세 정보로 노출해야 합니다."""
+        jobs = BackgroundJobStore(max_jobs=5, max_running_jobs=1)
+        release = threading.Event()
+        blocker = jobs.start(
+            kind="blocker",
+            title="blocker",
+            problem_id="alpha",
+            operation=lambda: release.wait(timeout=2) or {"ok": True},
+        )
+        while jobs.get(blocker.job_id).status != "running":
+            time.sleep(0.01)
+
+        def operation() -> dict:
+            jobs.update_progress(
+                job.job_id,
+                "Compiling checker tool.",
+                label="도구 컴파일",
+                extra={"failureStage": "tools"},
+            )
+            raise JudgeError("checker compile failed")
+
+        job = jobs.start(
+            kind="tools-compile",
+            title="도구 컴파일",
+            problem_id="alpha",
+            target={"problemId": "alpha", "tool": "checker"},
+            operation=operation,
+        )
+        release.set()
+
+        for _ in range(50):
+            current = jobs.get(job.job_id)
+            if current and current.status == "failed":
+                break
+            time.sleep(0.01)
+
+        data = jobs.job_dict(jobs.get(job.job_id))
+        self.assertEqual(data["outcome"], "failed")
+        self.assertEqual(data["errorKind"], "exception")
+        self.assertEqual(data["failureStage"], "tools")
+        self.assertEqual(data["failureDetails"][0]["label"], "도구 컴파일")
+        self.assertIn("checker compile failed", data["failureDetails"][0]["message"])
+
+    def test_background_job_store_infers_stage_and_handles_empty_exception_message(self) -> None:
+        """명시 stage가 없어도 진행 메시지와 빈 예외에서 실패 상세를 복원해야 합니다."""
+        jobs = BackgroundJobStore(max_jobs=5, max_running_jobs=1)
+        release = threading.Event()
+        blocker = jobs.start(
+            kind="blocker",
+            title="blocker",
+            problem_id="alpha",
+            operation=lambda: release.wait(timeout=2) or {"ok": True},
+        )
+        while jobs.get(blocker.job_id).status != "running":
+            time.sleep(0.01)
+
+        def operation() -> dict:
+            jobs.update_progress(job.job_id, "Building pack basic for problem alpha.")
+            raise AssertionError()
+
+        job = jobs.start(
+            kind="pack-build",
+            title="팩 빌드",
+            problem_id="alpha",
+            operation=operation,
+        )
+        release.set()
+
+        for _ in range(50):
+            current = jobs.get(job.job_id)
+            if current and current.status == "failed":
+                break
+            time.sleep(0.01)
+
+        data = jobs.job_dict(jobs.get(job.job_id))
+        self.assertEqual(data["outcome"], "failed")
+        self.assertEqual(data["failureStage"], "pack")
+        self.assertEqual(data["errorKind"], "exception")
+        self.assertIn("AssertionError", data["failureDetails"][0]["message"])
+
+    def test_background_job_store_flattens_nested_problem_failure_details(self) -> None:
+        """workspace job의 문제별 실패 상세는 상위 작업 센터 row에서도 바로 보여야 합니다."""
+        jobs = BackgroundJobStore(max_jobs=5)
+        job = jobs.start(
+            kind="workspace-pack-build",
+            title="전체 문제 테스트/팩 빌드",
+            problem_id=WORKSPACE_JOB_PROBLEM_ID,
+            operation=lambda: {
+                "passed": False,
+                "failedCount": 1,
+                "summary": "2개 중 1개 문제 실패",
+                "problems": [
+                    {"problemId": "alpha", "passed": True},
+                    {
+                        "problemId": "beta",
+                        "passed": False,
+                        "failureStage": "solutions",
+                        "failureStageLabel": "솔루션 기대 결과",
+                        "failureDetails": [
+                            {
+                                "label": "솔루션 기대 결과",
+                                "source": "solutions/wrong.wa.cpp",
+                                "message": "expected mismatch",
+                            }
+                        ],
+                    },
+                ],
+            },
+        )
+
+        for _ in range(50):
+            current = jobs.get(job.job_id)
+            if current and current.status == "succeeded":
+                break
+            time.sleep(0.01)
+
+        data = jobs.job_dict(jobs.get(job.job_id))
+        self.assertEqual(data["outcome"], "failed")
+        self.assertEqual(data["failureStage"], "solutions")
+        self.assertEqual(data["failureDetails"][0]["problemId"], "beta")
+        self.assertEqual(data["failureDetails"][0]["source"], "solutions/wrong.wa.cpp")
+
+    def test_enqueue_background_job_allows_immediate_progress_without_id_race(self) -> None:
+        """Problem Studio job helper는 작업 시작 직후 progress를 호출해도 job id 초기화 race가 없어야 합니다."""
+        jobs = BackgroundJobStore(max_jobs=5)
+
+        def operation(cancel_token: CancelToken, progress) -> dict:
+            progress("first progress", label="초기 단계")
+            cancel_token.check()
+            return {"passed": True}
+
+        job = enqueue_background_job(
+            jobs,
+            kind="race-check",
+            title="race",
+            problem_id="alpha",
+            lane="test:alpha",
+            target={"problemId": "alpha"},
+            operation=operation,
+        )
+
+        for _ in range(50):
+            current = jobs.get(job.job_id)
+            if current and current.status == "succeeded":
+                break
+            time.sleep(0.01)
+
+        data = jobs.job_dict(jobs.get(job.job_id))
+        self.assertEqual(data["status"], "succeeded")
+        self.assertEqual(data["outcome"], "passed")
+        self.assertEqual(data["progress"]["message"], "first progress")
+
+    def test_pack_build_job_uses_shared_diagnostics_for_failures(self) -> None:
+        """단일 pack build도 공통 작업 진단 경로를 사용해 실패 단계를 pack으로 노출해야 합니다."""
+        directory, client, _workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        client.post("/api/problems", json={"problem_id": "alpha", "title": "Pack"})
+
+        def fail_pack_build(*args, **kwargs):
+            raise JudgeError("pack artifact failed")
+
+        with patch(
+            "problem_studio.web.routes.packs.build_problem_pack",
+            side_effect=fail_pack_build,
+        ):
+            started = client.post(
+                "/api/problems/alpha/packs/build",
+                json={"pack_id": "basic", "verify_profile": "hidden"},
+            )
+            self.assertEqual(started.status_code, 200, started.text)
+            finished = self.poll_job(client, started.json()["jobId"])
+
+        self.assertEqual(finished["status"], "failed")
+        self.assertEqual(finished["outcome"], "failed")
+        self.assertEqual(finished["failureStage"], "pack")
+        self.assertEqual(finished["failureStageLabel"], "팩 생성")
+        self.assertIn("pack artifact failed", finished["failureDetails"][0]["message"])
+
+    def test_cold_workspace_first_and_second_check_and_pack_jobs_succeed(self) -> None:
+        """새 workspace에서 첫 번째/두 번째 전체 테스트와 pack build job이 모두 안정적으로 완료되어야 합니다."""
+        directory, client, workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        client.post("/api/problems", json={"problem_id": "alpha", "title": "Cold"})
+
+        fake_check = SolutionCheckResult(
+            source=workspace / "problems" / "alpha" / "solutions" / "main_solution.ac.cpp",
+            expected_status="accepted",
+            actual_status="accepted",
+            raw_actual_status="accepted",
+            run_id="cold-run",
+            passed=True,
+            cases=[],
+            metrics={},
+            status_evidence={
+                "rawStatus": "accepted",
+                "rankedStatus": "accepted",
+                "caseStatusCounts": {},
+            },
+        )
+        fake_pack = {
+            "archivePath": str(workspace / "dist" / "packs" / "basic.aljpack"),
+            "archiveLabel": "dist/packs/basic.aljpack",
+            "packId": "basic",
+            "platformId": "test-platform",
+            "problems": ["alpha"],
+            "solutionChecks": {"passed": True, "checks": []},
+        }
+        with (
+            patch("problem_studio.web.routes.checks.compile_cases", return_value={"valid": True}),
+            patch(
+                "problem_studio.web.routes.checks.compile_problem_tools",
+                return_value={"checker": workspace / "checker"},
+            ),
+            patch(
+                "problem_studio.web.routes.checks.validate_all_data",
+                return_value={"profileCount": 1, "caseCount": 1},
+            ),
+            patch(
+                "problem_studio.web.routes.checks.verify_solutions",
+                return_value={
+                    "problemId": "alpha",
+                    "profile": "hidden",
+                    "passed": True,
+                    "verifiedCount": 1,
+                    "totalCount": 1,
+                    "skippedCount": 0,
+                    "checks": [fake_check.to_dict(workspace)],
+                },
+            ),
+            patch("problem_studio.web.routes.packs.build_problem_pack", return_value=fake_pack),
+        ):
+            for _ in range(2):
+                started = client.post("/api/problems/alpha/checks/jobs", json={"force": False})
+                self.assertEqual(started.status_code, 200, started.text)
+                finished = self.poll_job(client, started.json()["jobId"])
+                self.assertEqual(finished["status"], "succeeded")
+                self.assertEqual(finished["outcome"], "passed")
+
+            for _ in range(2):
+                started = client.post(
+                    "/api/problems/alpha/packs/build",
+                    json={"pack_id": "basic", "verify_profile": "hidden"},
+                )
+                self.assertEqual(started.status_code, 200, started.text)
+                finished = self.poll_job(client, started.json()["jobId"])
+                self.assertEqual(finished["status"], "succeeded")
+                self.assertEqual(finished["outcome"], "passed")
+                self.assertEqual(finished["progress"]["label"], "팩 생성")
 
     def test_problem_studio_jobs_api_lists_and_cancels_queued_job(self) -> None:
         """문제 스튜디오 작업 API 목록 조회 및 취소 대기 중 작업 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""

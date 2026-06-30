@@ -11,6 +11,22 @@ const workspaceCallbacks = {
   selectProblem: async () => {},
   withErrors: async (action) => action(),
 };
+const COMPACT_SIDEBAR_QUERY = "(max-width: 1380px)";
+
+function compactSidebarActive() {
+  return window.matchMedia?.(COMPACT_SIDEBAR_QUERY).matches ?? false;
+}
+function updateSidebarAccessibility(open = document.body.classList.contains("sidebar-open")) {
+  const sidebar = optional("studioSidebar");
+  const hidden = compactSidebarActive() && !open;
+  if (hidden) {
+    sidebar?.setAttribute("inert", "");
+    sidebar?.setAttribute("aria-hidden", "true");
+  } else {
+    sidebar?.removeAttribute("inert");
+    sidebar?.removeAttribute("aria-hidden");
+  }
+}
 export function configureWorkspaceView(callbacks = {}) {
   Object.assign(workspaceCallbacks, callbacks);
 }
@@ -38,6 +54,11 @@ export function updateMobileHeader(title = null, meta = null) {
 export function setSidebarOpen(open) {
   document.body.classList.toggle("sidebar-open", open);
   optional("sidebarToggle")?.setAttribute("aria-expanded", open ? "true" : "false");
+  updateSidebarAccessibility(open);
+  updateMobileHeader();
+}
+export function syncSidebarAccessibility() {
+  updateSidebarAccessibility();
   updateMobileHeader();
 }
 /**
@@ -86,6 +107,19 @@ function problemValidationStatus(problem) {
     };
   }
   return null;
+}
+function problemMatchesFilter(problem, query) {
+  if (!query) return true;
+  const validationStatus = problemValidationStatus(problem);
+  const haystack = [
+    problem.problemId,
+    problem.title,
+    problem.folder,
+    problem.defaultProfile,
+    problem.version,
+    validationStatus?.label,
+  ].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes(query);
 }
 
 function problemFolderKey(folder) {
@@ -227,14 +261,27 @@ export function renderProblems(problems) {
   state.problems = problems;
   const list = $("problemList");
   list.innerHTML = "";
+  const filterInput = optional("problemFilterInput");
+  if (filterInput && filterInput.value !== state.problemFilter) {
+    filterInput.value = state.problemFilter;
+  }
   if (!problems.length) {
     list.textContent = "등록된 문제가 없습니다.";
     list.classList.add("muted");
     return;
   }
+  const query = String(state.problemFilter || "").trim().toLowerCase();
+  const visibleProblems = query
+    ? problems.filter((problem) => problemMatchesFilter(problem, query))
+    : problems;
+  if (!visibleProblems.length) {
+    list.textContent = "검색 결과가 없습니다.";
+    list.classList.add("muted");
+    return;
+  }
   list.classList.remove("muted");
   const grouped = new Map();
-  for (const problem of problems) {
+  for (const problem of visibleProblems) {
     const folder = folderLabel(problem.folder);
     if (!grouped.has(folder)) grouped.set(folder, []);
     grouped.get(folder).push(problem);
@@ -292,4 +339,8 @@ export function renderProblems(problems) {
       section.appendChild(item);
     }
   }
+}
+export function setProblemFilter(value) {
+  state.problemFilter = String(value || "");
+  renderProblems(state.problems);
 }

@@ -27,18 +27,18 @@ function renderSamples(data) {
   container.innerHTML = "";
   container.removeAttribute("aria-busy");
   if (!data) {
-    app.setText("sampleMeta", "No problem selected.");
-    container.textContent = "No sample cases loaded.";
+    app.setText("sampleMeta", "선택된 문제가 없습니다.");
+    container.textContent = "불러온 예제 케이스가 없습니다.";
     container.classList.add("muted");
     return;
   }
-  const source = data.cached ? "cache" : "generated";
+  const source = data.cached ? "캐시" : "생성됨";
   app.setText(
     "sampleMeta",
-    `${data.caseCount} ${data.profile || app.sampleProfile()} case(s) · ${source} · ${data.label}`
+    `${data.caseCount}개 ${data.profile || app.sampleProfile()} 케이스 · ${source} · ${data.label}`
   );
   if (!data.cases?.length) {
-    container.textContent = "No sample cases declared.";
+    container.textContent = "선언된 예제 케이스가 없습니다.";
     container.classList.add("muted");
     return;
   }
