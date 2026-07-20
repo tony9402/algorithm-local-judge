@@ -17,6 +17,7 @@ from urllib.request import urlopen
 
 ASSET_PATHS = [
     "/",
+    "/readyz",
     "/static/app.js",
     "/static/styles.css",
     "/static/vendor/codemirror/codemirror.min.js",
@@ -155,32 +156,36 @@ def smoke_package(repo_root: Path, timeout_seconds: float) -> None:
             cwd=repo_root,
         )
 
-        problem_studio = venv_bin(venv_dir, "problem-studio")
-        port = find_free_port()
-        base_url = f"http://127.0.0.1:{port}"
-        process = subprocess.Popen(
-            [
-                str(problem_studio),
-                "web",
-                "--workspace",
-                str(workspace),
-                "--host",
-                "127.0.0.1",
-                "--port",
-                str(port),
-                "--no-open",
-            ],
-            cwd=repo_root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        try:
-            wait_for_server(base_url, process, timeout_seconds)
-            for asset_path in ASSET_PATHS:
-                assert_asset(base_url, asset_path)
-        finally:
-            terminate_process(process)
+        launchers = [
+            ("problem-studio web", [str(venv_bin(venv_dir, "problem-studio")), "web"]),
+            ("judge studio", [str(venv_bin(venv_dir, "judge")), "studio"]),
+        ]
+        for label, launcher in launchers:
+            port = find_free_port()
+            base_url = f"http://127.0.0.1:{port}"
+            process = subprocess.Popen(
+                [
+                    *launcher,
+                    "--workspace",
+                    str(workspace),
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    str(port),
+                    "--no-open",
+                ],
+                cwd=repo_root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            try:
+                wait_for_server(base_url, process, timeout_seconds)
+                for asset_path in ASSET_PATHS:
+                    assert_asset(base_url, asset_path)
+            finally:
+                terminate_process(process)
+            print(f"verified launcher: {label}")
 
     print("Problem Studio package smoke passed")
 

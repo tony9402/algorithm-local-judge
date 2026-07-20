@@ -1,0 +1,69 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://algorithm-local-judge.invalid/schemas/toolchain-manifest-v1.json",
+    "title": "Algorithm Local Judge managed toolchain manifest",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schemaVersion", "profileId", "version", "platformId", "artifact", "license", "tools"],
+    "properties": {
+        "schemaVersion": {"const": 1},
+        "profileId": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+        "version": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+        "platformId": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+        "artifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["url", "sha256", "signature"],
+            "properties": {
+                "url": {"type": ["string", "null"], "minLength": 1},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "signature": {
+                    "oneOf": [
+                        {"type": "null"},
+                        {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["type", "value"],
+                            "properties": {
+                                "type": {"type": "string", "minLength": 1},
+                                "value": {"type": "string", "minLength": 1}
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "license": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "url"],
+            "properties": {
+                "name": {"type": ["string", "null"], "minLength": 1},
+                "url": {"type": ["string", "null"], "minLength": 1}
+            }
+        },
+        "tools": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cxx", "javac", "java", "python", "pypy"],
+            "properties": {
+                "cxx": {"$ref": "#/$defs/tool"},
+                "javac": {"$ref": "#/$defs/tool"},
+                "java": {"$ref": "#/$defs/tool"},
+                "python": {"$ref": "#/$defs/tool"},
+                "pypy": {"$ref": "#/$defs/tool"}
+            }
+        }
+    },
+    "$defs": {
+        "tool": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+                "path": {"type": "string", "minLength": 1},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+        }
+    }
+}

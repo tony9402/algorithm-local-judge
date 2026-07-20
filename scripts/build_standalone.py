@@ -17,6 +17,14 @@ from judge.utils.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_DIR_NAME = "algorithm-local-judge"
+JUDGE_STATIC_DESTINATION = "web/static"
+STUDIO_STATIC_DESTINATION = "studio-web/static"
+SUPPORTED_PLATFORMS = {
+    "linux-amd64",
+    "macos-amd64",
+    "macos-arm64",
+    "windows-amd64",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -112,6 +120,90 @@ def create_archive(app_root: Path, output_dir: Path, platform_id: str) -> Path:
     return archive_path
 
 
+def nuitka_command(build_dir: Path) -> list[str]:
+    """두 웹 앱과 정적 자산을 포함하는 Nuitka 빌드 명령을 구성합니다.
+
+    Args:
+        build_dir (Path): Nuitka 산출물을 기록할 디렉터리입니다.
+
+    Returns:
+        list[str]: 저장소 루트에서 실행할 Nuitka 명령입니다.
+    """
+    return [
+        sys.executable,
+        "-m",
+        "nuitka",
+        "--mode=standalone",
+        "--python-flag=no_docstrings",
+        "--python-flag=no_asserts",
+        "--include-module=yaml",
+        "--include-package=problem_studio",
+        f"--include-data-dir=judge/web/static={JUDGE_STATIC_DESTINATION}",
+        f"--include-data-dir=problem_studio/web/static={STUDIO_STATIC_DESTINATION}",
+        "--output-filename=judge",
+        f"--output-dir={build_dir}",
+        "alj_launcher/__main__.py",
+    ]
+
+
+def platform_executable_suffix(platform_id: str | None = None) -> str:
+    """Return the executable suffix required by a release platform."""
+    if platform_id is None:
+        return executable_suffix()
+    return ".exe" if platform_id.startswith("windows-") else ""
+
+
+def validate_build_platform(requested: str, current: str) -> None:
+    """Reject unsupported targets and accidental cross-platform builds before Nuitka runs."""
+    if requested not in SUPPORTED_PLATFORMS:
+        raise JudgeError(f"unsupported standalone platform: {requested}")
+    if requested != current:
+        raise JudgeError(
+            "cross-platform standalone build is not implemented; "
+            f"current platform is {current}, requested {requested}"
+        )
+
+
+def install_compatibility_launcher(bin_dir: Path, platform_id: str | None = None) -> Path:
+    """Judge 실행 파일과 같은 런타임을 쓰는 `problem-studio` 실행기를 만듭니다.
+
+    Args:
+        bin_dir (Path): standalone 실행 파일과 런타임 파일이 있는 디렉터리입니다.
+
+    Returns:
+        Path: 생성된 Problem Studio 호환 실행기 경로입니다.
+    """
+    suffix = platform_executable_suffix(platform_id)
+    judge_executable = bin_dir / f"judge{suffix}"
+    if not judge_executable.is_file():
+        raise JudgeError(f"standalone executable not found: {judge_executable}")
+    studio_executable = bin_dir / f"problem-studio{suffix}"
+    shutil.copy2(judge_executable, studio_executable)
+    studio_executable.chmod(studio_executable.stat().st_mode | 0o755)
+    return studio_executable
+
+
+def validate_staged_bundle(app_root: Path, platform_id: str | None = None) -> None:
+    """아카이브 생성 전에 두 실행기와 두 웹 UI 핵심 자산의 누락을 검사합니다.
+
+    Args:
+        app_root (Path): 검사할 standalone 앱 루트입니다.
+    """
+    suffix = platform_executable_suffix(platform_id)
+    required = [
+        Path("bin") / f"judge{suffix}",
+        Path("bin") / f"problem-studio{suffix}",
+        Path("bin/web/static/index.html"),
+        Path("bin/web/static/app.js"),
+        Path("bin/studio-web/static/index.html"),
+        Path("bin/studio-web/static/app.js"),
+        Path("bin/studio-web/static/vendor/codemirror/codemirror.min.js"),
+    ]
+    missing = [path.as_posix() for path in required if not (app_root / path).is_file()]
+    if missing:
+        raise JudgeError(f"standalone bundle missing required file(s): {', '.join(missing)}")
+
+
 def build_standalone(args: argparse.Namespace) -> Path:
     """현재 플랫폼용 Nuitka standalone 앱을 빌드하고 실행 파일, 문서, 체크섬을 스테이징한 뒤 릴리스 아카이브를 만듭니다.
 
@@ -122,11 +214,7 @@ def build_standalone(args: argparse.Namespace) -> Path:
         Path: 생성된 standalone 릴리스 아카이브 경로입니다.
     """
     current_platform = current_platform_id()
-    if args.platform != current_platform:
-        raise JudgeError(
-            "cross-platform standalone build is not implemented yet; "
-            f"current platform is {current_platform}, requested {args.platform}"
-        )
+    validate_build_platform(args.platform, current_platform)
 
     build_dir = (ROOT / args.build_dir).resolve()
     stage_root = (ROOT / args.stage_dir / args.platform).resolve()
@@ -136,20 +224,7 @@ def build_standalone(args: argparse.Namespace) -> Path:
         shutil.rmtree(stage_root, ignore_errors=True)
 
     build_dir.mkdir(parents=True, exist_ok=True)
-    command = [
-        sys.executable,
-        "-m",
-        "nuitka",
-        "--mode=standalone",
-        "--python-flag=no_docstrings",
-        "--python-flag=no_asserts",
-        "--include-module=yaml",
-        "--include-data-dir=judge/web/static=web/static",
-        "--output-filename=judge",
-        f"--output-dir={build_dir}",
-        "judge/__main__.py",
-    ]
-    run(command)
+    run(nuitka_command(build_dir))
 
     dist_dir = find_nuitka_dist(build_dir)
     app_root = stage_root / APP_DIR_NAME
@@ -163,7 +238,8 @@ def build_standalone(args: argparse.Namespace) -> Path:
         else:
             shutil.copy2(item, target)
 
-    expected_executable = bin_dir / f"judge{executable_suffix()}"
+    suffix = platform_executable_suffix(args.platform)
+    expected_executable = bin_dir / f"judge{suffix}"
     if not expected_executable.exists():
         bin_executable = bin_dir / "judge.bin"
         if bin_executable.exists():
@@ -171,8 +247,10 @@ def build_standalone(args: argparse.Namespace) -> Path:
     if not expected_executable.exists():
         raise JudgeError(f"standalone executable not found: {expected_executable}")
     expected_executable.chmod(expected_executable.stat().st_mode | 0o755)
+    install_compatibility_launcher(bin_dir, args.platform)
 
     copy_optional_docs(app_root)
+    validate_staged_bundle(app_root, args.platform)
     write_checksums(app_root)
     return create_archive(app_root, output_dir, args.platform)
 

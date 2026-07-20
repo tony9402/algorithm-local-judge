@@ -1,63 +1,127 @@
 # 로컬 알고리즘 채점기
 
-내 컴퓨터에서 알고리즘 문제를 설치하고, C++/Python/Java 풀이 코드를 바로 채점하는 도구입니다.
+내 컴퓨터에서 알고리즘 문제를 설치하고, C++/Python/PyPy/Java 풀이 코드를 바로 채점하는 도구입니다.
 
 ## 빠른 시작
 
-macOS/Linux:
+Judge와 Problem Studio는 개인 컴퓨터의 `127.0.0.1`에서 실행하는 로컬 제품입니다.
+현재 stable native 설치 채널은 공급망·clean-OS 검증 전이므로 아직 공개하지 않습니다.
+아래 블록은 설치 명령을 대신하는 것이 아니라 OS별 공개 상태를 기계적으로 검사하기 위한
+계약입니다. 미공개 블록의 내용을 셸에서 실행하면 안 됩니다.
+
+<!-- alj-install:start os=macos status=unpublished -->
+### macOS
+
+```text
+상태: 미공개 — Apple Silicon과 Intel용 서명·공증 설치 채널을 검증 중입니다.
+명령: stable 공급망 및 clean-OS gate 통과 후 이 블록에 2~3개 명령을 게시합니다.
+```
+<!-- alj-install:end -->
+
+<!-- alj-install:start os=ubuntu-debian status=unpublished -->
+### Ubuntu/Debian
+
+```text
+상태: 미공개 — 서명된 APT/DEB 설치 채널과 공식 문제 팩을 검증 중입니다.
+명령: stable 공급망 및 clean-OS gate 통과 후 이 블록에 2~3개 명령을 게시합니다.
+```
+<!-- alj-install:end -->
+
+<!-- alj-install:start os=fedora status=unpublished -->
+### Fedora
+
+```text
+상태: 미공개 — 서명된 DNF/RPM 설치 채널과 공식 문제 팩을 검증 중입니다.
+명령: stable 공급망 및 clean-OS gate 통과 후 이 블록에 2~3개 명령을 게시합니다.
+```
+<!-- alj-install:end -->
+
+<!-- alj-install:start os=windows status=unpublished -->
+### Windows
+
+```text
+상태: 미공개 — native installer의 서명과 package manager 등록을 검증 중입니다.
+명령: 공개 ID가 승인되고 clean-OS gate가 통과한 뒤 이 블록에 2~3개 명령을 게시합니다.
+```
+<!-- alj-install:end -->
+
+설치 문서 계약은 `scripts/verify_install_docs.py`에서 검사합니다. stable 검증은
+네 채널이 실제 게시 증거와 전체 lifecycle smoke 결과를 갖기 전까지 실패합니다. 특히 아직
+조회되지 않는 package ID, tap, APT/DNF domain을 예시 명령으로 먼저 공개하지 않습니다.
+
+## GitHub에서 개인용으로 설치하기
+
+native 패키지 채널이 아니라 Git checkout을 개인 컴퓨터에서 실행하려면 다음 세 명령만
+사용합니다. `install.sh`/`install.ps1`은 저장소 안에 격리된 `.venv`를 만들고 `uv`가 있으면
+`uv.lock`을 사용합니다. 관리자 권한이나 전역 PATH 변경은 하지 않습니다.
+
+### macOS / Linux
 
 ```bash
-tar -xzf algorithm-local-judge-0.1.0-macos-arm64.tar.gz
-./algorithm-local-judge/bin/judge problem install tony9402/algorithm-package
-./algorithm-local-judge/bin/judge web
+git clone --depth 1 https://github.com/tony9402/algorithm-local-judge.git
+cd algorithm-local-judge
+./install.sh
 ```
 
-Windows는 WSL Ubuntu 기준:
+### Windows PowerShell
 
-WSL Ubuntu 터미널을 열고 Linux와 같은 방식으로 실행합니다.
-
-```bash
-sudo apt update
-sudo apt install -y build-essential openjdk-17-jdk python3 pypy3
-tar -xzf algorithm-local-judge-0.1.0-linux-amd64.tar.gz
-./algorithm-local-judge/bin/judge problem install tony9402/algorithm-package
-./algorithm-local-judge/bin/judge web
+```powershell
+git clone --depth 1 https://github.com/tony9402/algorithm-local-judge.git
+Set-Location algorithm-local-judge
+.\install.ps1
 ```
 
-브라우저가 자동으로 열리지 않으면 `http://127.0.0.1:8765`로 접속하세요. 화면에서 문제를 고르고, 소스 파일을 올리거나 코드를 붙여넣은 뒤 `Run Tests`를 누르면 됩니다.
+Git과 Python 3.11 이상이 필요하며 설치 스크립트가 버전을 확인합니다. `uv`는 선택
+사항입니다. C++/Java/PyPy 제출 도구는 자동으로 설치하지 않으며 설치 직후 실행되는
+`judge doctor --verbose`에서 누락 상태와 OS별 준비 방법을 표시합니다. Judge 문제 팩·제출
+기록은 checkout 밖의 사용자 데이터 경로에 저장되고, Problem Studio workspace 파일은
+사용자가 선택한 저장소에 남습니다. 업데이트·롤백·제거·엔터프라이즈
+보안 경계는 [개인 설치 및 운영 안내](INSTALL.md)를 참고하세요.
 
 ## Docker로 실행하기
 
-Ubuntu 기반 Docker 이미지로도 실행할 수 있습니다. 이미지에는 `judge`, `problem-studio`, C++/Java/Python/PyPy 제출 실행 도구가 함께 들어갑니다.
+Docker launcher는 현재 Judge 버전에 고정된 공식 이미지
+`ghcr.io/tony9402/algorithm-local-judge:0.1.0`만 사용합니다. 먼저 이미지를 pull하고
+GitHub release workflow의 Sigstore 서명을 immutable digest 기준으로 검증한 뒤, 공식 문제 팩을
+전용 data volume에 설치합니다. loopback publish와 isolated gateway 보호가 있는 Docker Engine
+28 이상이 필요합니다.
 
 ```bash
-docker build -t algorithm-local-judge .
-docker run --rm -it \
-  -p 127.0.0.1:8765:8765 \
-  -v alj-data:/data \
-  algorithm-local-judge
+judge docker setup
+judge docker web
 ```
 
-브라우저에서 `http://127.0.0.1:8765`로 접속합니다. Docker 컨테이너는 외부 접속을 위해 내부에서 `0.0.0.0`에 bind하므로, host port는 위 예시처럼 `127.0.0.1`에만 publish하는 것을 권장합니다.
+`judge docker setup`의 단기 컨테이너만 문제 팩 다운로드와 서명 검증을 위해 외부 네트워크를
+사용합니다. `judge docker web`은 다음 정책을 강제하고 브라우저에는
+`http://127.0.0.1:8765`만 공개합니다.
 
-CLI만 실행할 수도 있습니다.
+- isolated gateway를 적용한 Docker internal bridge로 인터넷·host gateway egress 차단
+- host port는 `127.0.0.1`에만 publish
+- read-only root filesystem과 `/tmp`, `/workspace` tmpfs
+- 모든 Linux capability 제거와 `no-new-privileges`
+- PID 256개, memory 2 GiB, CPU 2개 제한
+- UID/GID `10001:10001` non-root 실행
+- 공식 문제 data volume은 read-only로 mount하고 writable cache/job 경로는 크기가 제한된 tmpfs 사용
+- host 디렉터리나 Docker socket을 mount하지 않음
+
+다른 host port가 필요하면 loopback 주소는 유지한 채 다음처럼 지정합니다.
 
 ```bash
-docker run --rm -it -v alj-data:/data algorithm-local-judge judge doctor
-docker run --rm -it -v alj-data:/data algorithm-local-judge judge problem install tony9402/algorithm-package
+judge docker web --port 9876
 ```
 
-로컬 제출 파일을 채점하려면 현재 폴더를 `/workspace`로 mount합니다.
+Docker CLI/daemon, 공식 이미지, 서명, data volume 또는 internal network 정책 중 하나라도
+준비되지 않으면 host 실행으로 fallback하지 않고 중단합니다. 이미지 서명 검증을 위해 host에
+Cosign이 설치되어 있어야 하며, 이미지 내부에도 공식 문제 팩 blob 검증용 Cosign 3.0.6이
+포함됩니다.
 
-```bash
-docker run --rm -it \
-  -v alj-data:/data \
-  -v "$PWD:/workspace" \
-  algorithm-local-judge \
-  judge --problem <problem-id> --profile sample main.cpp
-```
+이 launcher는 host와 영속 문제 data를 보호하는 로컬 격리 경계입니다. 제출 프로세스와 web
+control plane은 아직 같은 컨테이너 UID/PID namespace를 사용하므로, 악의적인 제출이 현재 web
+세션을 중단하거나 컨테이너 안의 읽기 전용 문제 데이터를 열람하는 상황까지 막는 multi-tenant
+worker 경계는 아닙니다. 공유 서버나 시험 환경에는 사용하지 마세요.
 
-Docker 이미지와 공식 문제 패키지 전체 데이터 생성 흐름을 검증하려면 다음 통합 테스트를 실행합니다.
+Docker 이미지와 공식 문제 패키지 전체 데이터 생성 흐름을 별도로 검증하려면 다음 통합
+테스트를 실행합니다.
 
 ```bash
 make e2e-docker
@@ -65,24 +129,29 @@ make e2e-docker
 
 ## 다운로드
 
-프로젝트 release 페이지에서 내 OS에 맞는 standalone 압축 파일을 받습니다.
+아래 이름은 release artifact 계약이며 현재 다운로드 링크가 아닙니다. stable manifest와
+post-publish availability smoke가 통과한 뒤 실제 release 페이지 링크를 게시합니다.
 
 - Apple Silicon Mac: `algorithm-local-judge-0.1.0-macos-arm64.tar.gz`
 - Intel Mac: `algorithm-local-judge-0.1.0-macos-amd64.tar.gz`
 - Linux 64-bit: `algorithm-local-judge-0.1.0-linux-amd64.tar.gz`
-- Windows: WSL Ubuntu 안에서 `algorithm-local-judge-0.1.0-linux-amd64.tar.gz`를 사용합니다.
+- Windows 64-bit: `algorithm-local-judge-0.1.0-windows-amd64.msi`
 
-압축을 풀면 실행 파일은 다음 위치에 있습니다.
+macOS/Linux 압축을 풀면 두 실행 파일은 다음 위치에 있습니다.
 
 ```text
 algorithm-local-judge/bin/judge
+algorithm-local-judge/bin/problem-studio
 ```
 
-아래 예시는 macOS/Linux/WSL 기준으로 `./algorithm-local-judge/bin/judge`를 사용합니다.
+Windows MSI는 `judge.exe`와 `problem-studio.exe`를 설치하고 PATH에 등록합니다. 아래의 직접 실행
+예시는 macOS/Linux 압축 배포판 기준입니다.
 
-## C++/Java/Python/PyPy 설치
+## 개발자용 system toolchain fallback
 
-채점기 실행 자체는 standalone 파일로 동작하지만, 제출 언어에 따라 로컬 도구가 필요합니다.
+이 절은 소스 checkout으로 개발하는 사람을 위한 선택 사항이며 최종 사용자 설치의 숨은
+사전조건이 아닙니다. stable 설치판은 `judge setup`의 검증된 managed toolchain을 사용해야
+하며, Python·uv·Git·Cosign을 사용자가 먼저 설치하도록 요구해서는 안 됩니다.
 
 - C++ 제출: `g++`
 - Java 제출: `javac`, `java`
@@ -204,8 +273,8 @@ Windows 사용자도 WSL Ubuntu 터미널에서 같은 `./algorithm-local-judge/
 
 1. `문제 팩 설치`에서 공식 저장소 또는 `.aljpack` 파일을 설치합니다.
 2. 문제와 실행 프로필을 선택합니다.
-3. 소스 파일을 업로드하거나 `Paste Code`에 코드를 붙여넣습니다.
-4. `Run Tests`를 눌러 채점합니다.
+3. 소스 파일을 업로드하거나 `Source Code`에 코드를 붙여넣습니다.
+4. `예제 채점` 또는 `전체 채점`을 눌러 채점합니다.
 5. 오답이면 `Input`, `Expected`, `Actual`, `Diff`에서 실패 케이스를 확인합니다.
 
 웹에서 할 수 있는 일:
@@ -334,10 +403,30 @@ Python 실행 파일은 `ALJ_PYTHON`, Java 도구는 `ALJ_JAVAC`, `ALJ_JAVA` 환
 
 - 기본 host는 `127.0.0.1`입니다.
 - `judge web`을 `0.0.0.0` 같은 외부 접근 가능한 주소에 bind하면 run/generate/sample API는 기본 차단됩니다.
-- 꼭 필요한 경우에만 `./algorithm-local-judge/bin/judge web --host 0.0.0.0 --allow-remote-run`을 사용하세요. 같은 네트워크 사용자가 내 컴퓨터에서 코드를 실행하게 만들 수 있으므로 권장하지 않습니다.
+- host의 `judge web --allow-remote-run`은 OS 격리를 제공하지 않으므로 사용하지 않는 것을 권장합니다. 비신뢰 풀이 실행은 `judge docker setup` 후 `judge docker web`을 사용하세요.
 - pasted source text는 2 MiB, uploaded source file은 4 MiB, Web `.aljpack` upload는 200 MiB를 넘으면 거절됩니다.
 - remote download는 200 MiB, archive extraction은 total 200 MiB, file 50 MiB, member 5000개 제한을 적용합니다.
 - 신뢰하지 않는 `.aljpack`이나 저장소는 설치하지 마세요. 문제 도구와 제출 코드는 로컬에서 실행됩니다.
+
+## Docker 준비 상태 확인
+
+`judge doctor`는 Docker CLI 설치 여부와 daemon 연결 상태를 함께 확인합니다. `judge web`도
+서버를 열기 전에 같은 preflight 결과와 복구 안내를 출력합니다. Docker가 없는 trusted local
+mode는 기존처럼 시작되지만, Docker 준비 상태를 필수 조건으로 만들려면 다음처럼 명시합니다.
+
+```bash
+ALJ_SANDBOX_MODE=docker ./algorithm-local-judge/bin/judge web
+```
+
+이 모드에서 Docker CLI 또는 daemon을 사용할 수 없으면 host 실행으로 fallback하지 않고 서버
+시작을 중단합니다. 이 설정은 Docker 실행 backend를 자동으로 전환한다는 의미가 아닙니다.
+실제 격리 launcher는 `judge docker setup`과 `judge docker web`이며, 두 명령은 이 preflight를
+항상 필수로 적용합니다.
+
+- macOS: Docker Desktop을 설치하고 실행합니다.
+  <https://docs.docker.com/desktop/setup/install/mac-install/>
+- Linux: 배포판에 맞는 Docker Engine을 설치하고 daemon을 시작합니다.
+  <https://docs.docker.com/engine/install/>
 
 ## 문제가 생겼을 때
 

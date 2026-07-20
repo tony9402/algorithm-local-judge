@@ -1,0 +1,8 @@
+[algorithm-local-judge]
+name=Algorithm Local Judge
+baseurl=@REPO_BASE_URL@
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=@GPG_KEY_URL@
+metadata_expire=1h

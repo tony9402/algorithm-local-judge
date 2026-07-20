@@ -123,7 +123,7 @@ def require_member(names: set[str], root_name: str, relative: str) -> None:
 
 
 def validate_static_assets(names: set[str], root_name: str) -> None:
-    """패키징된 judge 웹 UI가 실행에 필요한 정적 자산과 모듈화된 하위 자산을 포함하는지 검증합니다.
+    """패키징된 두 웹 UI가 실행에 필요한 정적 자산을 포함하는지 검증합니다.
 
     Args:
         names (set[str]): 아카이브에 포함된 전체 멤버 이름 집합입니다.
@@ -142,6 +142,23 @@ def validate_static_assets(names: set[str], root_name: str) -> None:
         raise JudgeError("standalone archive missing modular judge Web static assets")
     if not any(name.startswith(style_prefix) and name.endswith(".css") for name in names):
         raise JudgeError("standalone archive missing modular judge Web styles")
+
+    studio_required = [
+        "bin/studio-web/static/app.js",
+        "bin/studio-web/static/styles.css",
+        "bin/studio-web/static/index.html",
+        "bin/studio-web/static/fragments/workspace.html",
+        "bin/studio-web/static/vendor/codemirror/codemirror.min.css",
+        "bin/studio-web/static/vendor/codemirror/codemirror.min.js",
+    ]
+    for relative in studio_required:
+        require_member(names, root_name, relative)
+    studio_module_prefix = f"{root_name}/bin/studio-web/static/app/"
+    studio_style_prefix = f"{root_name}/bin/studio-web/static/styles/"
+    if not any(name.startswith(studio_module_prefix) and name.endswith(".js") for name in names):
+        raise JudgeError("standalone archive missing modular Problem Studio static assets")
+    if not any(name.startswith(studio_style_prefix) and name.endswith(".css") for name in names):
+        raise JudgeError("standalone archive missing modular Problem Studio styles")
 
 
 def scan_standalone_archive(archive_path: Path) -> None:
@@ -162,6 +179,12 @@ def scan_standalone_archive(archive_path: Path) -> None:
         }
         if not names.intersection(executable_candidates):
             raise JudgeError("standalone archive missing bin/judge executable")
+        studio_executable_candidates = {
+            f"{root_name}/bin/problem-studio",
+            f"{root_name}/bin/problem-studio.exe",
+        }
+        if not names.intersection(studio_executable_candidates):
+            raise JudgeError("standalone archive missing bin/problem-studio executable")
         if f"{root_name}/README.md" not in names:
             raise JudgeError("standalone archive missing README.md")
         if f"{root_name}/THIRD_PARTY_NOTICES.md" not in names:

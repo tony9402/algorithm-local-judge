@@ -1,0 +1,99 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://algorithm-local-judge.invalid/schemas/release-manifest-v1.json",
+    "title": "Algorithm Local Judge immutable release manifest",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schemaVersion", "release", "requiredPlatforms", "artifacts", "sbom", "officialPack"],
+    "properties": {
+        "schemaVersion": {"const": 1},
+        "release": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["version", "tag", "channel", "sourceCommit", "immutable"],
+            "properties": {
+                "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+                "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"},
+                "channel": {"enum": ["candidate", "stable"]},
+                "sourceCommit": {"type": "string"},
+                "immutable": {"const": true}
+            }
+        },
+        "requiredPlatforms": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}
+        },
+        "artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/artifact"}
+        },
+        "sbom": {"$ref": "#/$defs/signedFile"},
+        "officialPack": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "repository", "ref", "asset", "sha256", "signature"],
+            "properties": {
+                "status": {"enum": ["configured", "unconfigured"]},
+                "repository": {"type": ["string", "null"]},
+                "ref": {"type": ["string", "null"]},
+                "asset": {"type": ["string", "null"]},
+                "sha256": {"type": ["string", "null"]},
+                "signature": {"type": ["string", "null"]}
+            }
+        }
+    },
+    "$defs": {
+        "sidecar": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "sha256"],
+            "properties": {
+                "name": {"type": "string", "minLength": 1},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+        },
+        "signedFile": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "format", "sha256", "checksum", "signature"],
+            "properties": {
+                "name": {"type": "string", "minLength": 1},
+                "format": {"const": "CycloneDX"},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "checksum": {"$ref": "#/$defs/sidecar"},
+                "signature": {"$ref": "#/$defs/sidecar"}
+            }
+        },
+        "artifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "kind", "platform", "sha256", "checksum", "signature", "launchers", "nativeSigning"],
+            "properties": {
+                "name": {"type": "string", "minLength": 1},
+                "kind": {"enum": ["standalone", "deb", "rpm", "pkg", "msi", "winget-manifest", "homebrew", "installer-script", "apt-repository"]},
+                "platform": {"type": "string", "minLength": 1},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "checksum": {"$ref": "#/$defs/sidecar"},
+                "signature": {"$ref": "#/$defs/sidecar"},
+                "launchers": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {"enum": ["judge", "problem-studio"]}
+                },
+                "nativeSigning": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["type", "status", "attestation"],
+                    "properties": {
+                        "type": {"enum": ["sigstore-only", "developer-id", "authenticode", "apt-gpg", "rpm-gpg"]},
+                        "status": {"enum": ["unconfigured", "ready", "verified"]},
+                        "attestation": {"type": ["string", "null"]}
+                    }
+                }
+            }
+        }
+    }
+}
