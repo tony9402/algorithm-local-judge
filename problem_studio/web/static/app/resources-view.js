@@ -3,6 +3,7 @@
  */
 
 import { normalizeErrorDetail } from "./api.js";
+import { bindControlPolicy } from "./control-policy.js";
 import { $, escapeHtml, optional } from "./dom.js";
 import {
   EXPECTED_STATUS_BY_TOKEN,
@@ -82,12 +83,12 @@ export function roleForFile(path) {
 }
 
 function tabResourceGroup(path) {
-  if (path === "problem.json") return "Metadata";
-  if (path?.startsWith("generator/")) return "Generator";
-  if (path?.startsWith("validator/")) return "Validator";
-  if (path?.startsWith("checker/")) return "Checker";
-  if (path?.startsWith("solutions/")) return "Solutions";
-  return "Files";
+  if (path === "problem.json") return "메타데이터";
+  if (path?.startsWith("generator/")) return "생성기";
+  if (path?.startsWith("validator/")) return "검증기";
+  if (path?.startsWith("checker/")) return "채점기";
+  if (path?.startsWith("solutions/")) return "솔루션";
+  return "파일";
 }
 export function solutionExpectedStatusFromPath(path) {
   const parts = solutionParts(path);
@@ -174,31 +175,53 @@ function renderSolutionResourceItem(list, file) {
         : ""
     }
   `;
-  item.querySelector(".solution-row-main")?.addEventListener("click", () => {
+  const mainButton = item.querySelector(".solution-row-main");
+  const testButton = item.querySelector("[data-solution-test]");
+  const casesButton = item.querySelector("[data-solution-cases]");
+  const editButton = item.querySelector("[data-solution-edit]");
+  const deleteButton = item.querySelector("[data-solution-delete]");
+  bindControlPolicy(mainButton, "resource.open");
+  bindControlPolicy(testButton, "solution.action");
+  bindControlPolicy(casesButton, "solution.cases", {
+    context: () => ({ hasSolutionCheck: Boolean(solutionRowFacts(file).check) }),
+    enabledTitle: "케이스별 채점 결과 보기",
+  });
+  bindControlPolicy(editButton, "solution.action");
+  bindControlPolicy(deleteButton, "solution.delete", {
+    context: () => ({
+      isReferenceSolution: isReferenceSolutionPath(file.path),
+      hasReplacementSolution: state.files.some(
+        (candidate) => candidate.path !== file.path
+          && candidate.path.startsWith("solutions/")
+          && solutionParts(candidate.path).expected === "ac"
+      ),
+    }),
+  });
+  mainButton?.addEventListener("click", () => {
     selectSolutionPath(file.path);
   });
-  item.querySelector("[data-solution-test]")?.addEventListener("click", (event) => {
+  testButton?.addEventListener("click", (event) => {
     event.stopPropagation();
     void resourceCallbacks.withErrors(
       () => resourceCallbacks.verifySingleSolution(file.path),
       "솔루션 하나를 테스트하는 중입니다."
     );
   });
-  item.querySelector("[data-solution-cases]")?.addEventListener("click", (event) => {
+  casesButton?.addEventListener("click", (event) => {
     event.stopPropagation();
     void resourceCallbacks.withErrors(
       () => resourceCallbacks.openSolutionCasesModal(file.path),
       "채점 결과를 여는 중입니다."
     );
   });
-  item.querySelector("[data-solution-edit]")?.addEventListener("click", (event) => {
+  editButton?.addEventListener("click", (event) => {
     event.stopPropagation();
     void resourceCallbacks.withErrors(
       () => resourceCallbacks.openSolutionEditModal(file.path),
       "솔루션 편집창을 여는 중입니다."
     );
   });
-  item.querySelector("[data-solution-delete]")?.addEventListener("click", (event) => {
+  deleteButton?.addEventListener("click", (event) => {
     event.stopPropagation();
     void resourceCallbacks.withErrors(
       () => resourceCallbacks.deleteSolution(file.path),
@@ -220,10 +243,24 @@ export function renderTabFiles() {
   }
   list.innerHTML = "";
   if (!files.length) {
-    list.textContent =
-      state.selectedTab === "solutions" ? "업로드된 솔루션이 없습니다." : "작업 대상이 없습니다.";
+    const emptyTitle = state.selectedTab === "solutions"
+      ? "업로드된 솔루션이 없습니다."
+      : state.selectedTab === "build"
+        ? "검증/빌드 작업은 오른쪽 대시보드에서 시작합니다."
+        : "이 단계에서 관리할 파일이 없습니다.";
+    const emptyDescription = state.selectedTab === "build"
+      ? "전체 테스트를 통과하면 현재 문제의 팩을 만들 수 있습니다."
+      : "현재 문제를 선택하면 관련 파일이 여기에 표시됩니다.";
+    list.innerHTML = `
+      <div class="resource-empty-state" role="status">
+        <strong>${escapeHtml(emptyTitle)}</strong>
+        <span>${escapeHtml(emptyDescription)}</span>
+      </div>
+    `;
     list.classList.add("muted");
-    if (summary) summary.textContent = list.textContent;
+    if (summary) summary.textContent = state.selectedTab === "build"
+      ? "오른쪽 검증 대시보드에서 실행"
+      : emptyTitle;
     return;
   }
   const visibleFiles = files.filter((file) => {
@@ -249,7 +286,13 @@ export function renderTabFiles() {
     summary.textContent = statusParts.join(" · ");
   }
   if (!visibleFiles.length) {
-    list.textContent = "필터와 일치하는 작업 대상이 없습니다.";
+    list.innerHTML = `
+      <div class="resource-empty-state" role="status">
+        <strong>필터와 일치하는 파일이 없습니다.</strong>
+        <span>${escapeHtml(files.length)}개 파일 중 0개가 표시됩니다. 검색어를 바꿔 보세요.</span>
+      </div>
+    `;
+    if (summary) summary.textContent = `${files.length}개 중 0개 표시 · 필터 결과 없음`;
     list.classList.add("muted");
     return;
   }
@@ -285,6 +328,7 @@ export function renderTabFiles() {
     const active = file.path === state.selectedFile;
     item.classList.toggle("active", active);
     item.setAttribute("aria-pressed", active ? "true" : "false");
+    bindControlPolicy(item, "resource.open");
     item.addEventListener("click", () => {
       void resourceCallbacks.withErrors(
         () => resourceCallbacks.openFile(file.path),
@@ -310,10 +354,10 @@ export function renderSolutionValidationSummary() {
   panel.innerHTML = `
     <div class="solution-stress-head">
       <div>
-        <strong>${result.passed ? "Stress 테스트 통과" : "Stress mismatch 확인 필요"}</strong>
+        <strong>${result.passed ? "스트레스 테스트 통과" : "스트레스 불일치 확인 필요"}</strong>
         <p>${escapeHtml(result.profile || "hidden")} · ${escapeHtml(result.iterations || 0)}회 · ${escapeHtml(duration)} · mismatch ${escapeHtml(result.mismatchCount || 0)}</p>
       </div>
-      <button type="button" data-stress-rerun>다시 Stress 실행</button>
+        <button type="button" data-stress-rerun>스트레스 테스트 다시 실행</button>
     </div>
     <div class="solution-summary-chips">
       <span>run ${escapeHtml(result.stressRunId || "-")}</span>
@@ -339,7 +383,7 @@ export function renderSolutionValidationSummary() {
           button.dataset.stressSolutionKey,
           button.dataset.stressAppendMode || null
         ),
-        "Stress mismatch를 여는 중입니다."
+        "스트레스 불일치를 여는 중입니다."
       );
     });
   }
@@ -363,7 +407,7 @@ function renderStressMismatchCard(item) {
       <div class="stress-mismatch-actions">
         <button type="button" data-stress-preview="${escapeAttribute(caseId)}" data-stress-solution-key="${escapeAttribute(solutionKey)}">Preview</button>
         <button type="button" data-stress-preview="${escapeAttribute(caseId)}" data-stress-solution-key="${escapeAttribute(solutionKey)}" data-stress-append-mode="fixed">Fixed로 추가</button>
-        <button type="button" data-stress-preview="${escapeAttribute(caseId)}" data-stress-solution-key="${escapeAttribute(solutionKey)}" data-stress-append-mode="generator">Generator 재현</button>
+        <button type="button" data-stress-preview="${escapeAttribute(caseId)}" data-stress-solution-key="${escapeAttribute(solutionKey)}" data-stress-append-mode="generator">생성기 입력으로 재현</button>
       </div>
     </article>
   `;

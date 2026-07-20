@@ -1,12 +1,12 @@
-"""서비스 실행 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""서비스 실행 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 import contextlib
 import io
 import queue
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -263,6 +263,9 @@ def run_problem_events(
     profile: str | None,
     source: Path,
     language: str | None = None,
+    on_started: Callable[[], None] | None = None,
+    on_result: Callable[[dict[str, Any]], None] | None = None,
+    on_error: Callable[[Exception], None] | None = None,
 ) -> Iterator[str]:
     """문제 events 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
@@ -282,6 +285,8 @@ def run_problem_events(
     def worker() -> None:
         output = io.StringIO()
         try:
+            if on_started is not None:
+                on_started()
             run_profile = resolve_run_profile(profile)
             progress("Starting judge run.")
             with contextlib.redirect_stdout(output):
@@ -294,8 +299,12 @@ def run_problem_events(
                     language=language_for_source(source, language),
                 )
             result = build_run_result(run_dir, source, output.getvalue())
+            if on_result is not None:
+                on_result(result)
             events.put({"event": "result", "data": result})
         except Exception as exc:
+            if on_error is not None:
+                on_error(exc)
             events.put({"event": "error", "data": {"message": str(exc)}})
         finally:
             events.put(SSE_DONE)

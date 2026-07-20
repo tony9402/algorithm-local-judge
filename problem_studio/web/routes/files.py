@@ -1,5 +1,5 @@
-"""파일 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""파일 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -11,7 +11,10 @@ from problem_studio.core.editor import (
 )
 from problem_studio.web.routes.common import route_result, workspace_from_request
 from problem_studio.web.schemas import FileWriteRequest
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/problems/{problem_id}/files", tags=["files"])
 
@@ -28,7 +31,10 @@ def api_problem_files(request: Request, problem_id: str) -> dict:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 데이터입니다.
     """
     return route_result(
-        lambda: {"files": list_problem_files(workspace_from_request(request), problem_id)}
+        lambda: (
+            ensure_local_web_action_allowed(request, "problem file listing read")
+            or {"files": list_problem_files(workspace_from_request(request), problem_id)}
+        )
     )
 
 
@@ -45,7 +51,10 @@ def api_problem_file_read(request: Request, problem_id: str, file_path: str) -> 
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 읽기 데이터입니다.
     """
     return route_result(
-        lambda: read_problem_file(workspace_from_request(request), problem_id, file_path)
+        lambda: (
+            ensure_local_web_action_allowed(request, "problem file read")
+            or read_problem_file(workspace_from_request(request), problem_id, file_path)
+        )
     )
 
 

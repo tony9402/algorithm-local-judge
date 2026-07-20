@@ -1,6 +1,6 @@
 @import url("./badges.css?v=20260520-01");
 @import url("./output.css?v=20260520-01");
-@import url("./samples.css?v=20260520-01");
+@import url("./samples.css?v=20260712-02");
 @import url("./status-grid.css?v=20260520-01");
 @import url("./progress.css?v=20260520-01");
 @import url("./artifacts.css?v=20260520-01");
@@ -8,6 +8,39 @@
 .case-results {
   display: grid;
   gap: 10px;
+}
+
+.last-result-anchor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
+  border-radius: 6px;
+  background: var(--accent-soft);
+  padding: 12px;
+}
+
+.last-result-anchor.hidden {
+  display: none;
+}
+
+.last-result-anchor > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 9px;
+}
+
+.last-result-anchor small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.last-result-anchor button {
+  flex: 0 0 auto;
 }
 
 .case-results.hidden {
@@ -58,6 +91,15 @@
 }
 
 @media (max-width: 720px) {
+  .last-result-anchor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .last-result-anchor button {
+    min-height: 44px;
+  }
+
   .case-result-row {
     grid-template-columns: 1fr;
   }

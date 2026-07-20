@@ -130,7 +130,7 @@ function renderSolutionArtifactPreview() {
         <strong>${escapeHtml(artifact.runId || "")} · ${escapeHtml(artifact.caseId || "")}</strong>
         <span>${escapeHtml(key)}</span>
       </div>
-      <button type="button" data-solution-artifact-copy>Copy</button>
+      <button type="button" data-solution-artifact-copy>복사</button>
     </div>
     <div class="solution-artifact-tabs">
       ${["input", "expected", "actual", "diff"]

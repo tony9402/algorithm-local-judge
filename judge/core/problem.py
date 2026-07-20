@@ -1,43 +1,9 @@
+"""Compatibility alias for the canonical :mod:`alj_core.problem` module."""
+
 from __future__ import annotations
 
-from judge.core.problem_constants import (
-    PRECOMPILED_TOOL_MODE,
-    REQUIRED_TOOL_FIELDS,
-    TOOL_NAMES,
-)
-from judge.core.problem_discovery import (
-    discover_problem_ids,
-    find_problem_dir,
-    installed_problem_roots,
-    installed_source_problem_roots,
-    problem_roots,
-    problem_sort_key,
-    problem_workspace_root,
-    validate_problem_sequence,
-)
-from judge.core.problem_metadata import (
-    forbidden_metadata_keys,
-    is_precompiled_problem,
-    load_problem,
-    tool_output_path,
-    tool_paths,
-)
+import sys
 
-__all__ = [
-    "PRECOMPILED_TOOL_MODE",
-    "REQUIRED_TOOL_FIELDS",
-    "TOOL_NAMES",
-    "discover_problem_ids",
-    "find_problem_dir",
-    "forbidden_metadata_keys",
-    "installed_problem_roots",
-    "installed_source_problem_roots",
-    "is_precompiled_problem",
-    "load_problem",
-    "problem_roots",
-    "problem_sort_key",
-    "problem_workspace_root",
-    "tool_output_path",
-    "tool_paths",
-    "validate_problem_sequence",
-]
+from alj_core import problem as _canonical
+
+sys.modules[__name__] = _canonical

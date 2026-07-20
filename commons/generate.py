@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 """cases.yml에 정의된 고정 입력, 템플릿, 생성기 기반 케이스를 확장해 채점 입력 파일과 매니페스트를 만드는 유틸리티입니다."""
+
 from __future__ import annotations
 
 import argparse

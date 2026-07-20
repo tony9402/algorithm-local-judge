@@ -20,6 +20,10 @@ import {
   refreshModalEditor,
   setModalEditorValue,
 } from "../editor/codemirror.js";
+import {
+  clearSolutionModalSnapshot,
+  rememberSolutionModalSnapshot,
+} from "../unsaved-changes.js";
 import { getEditorValue } from "../editor/core.js";
 import {
   roleForFile,
@@ -86,23 +90,81 @@ function solutionJobToken() {
 function isCurrentProblemContext(problemId, repositoryName) {
   return state.selectedProblem === problemId && (state.activeRepository || null) === repositoryName;
 }
-function isActiveSolutionVerificationRun(problemId, repositoryName, token) {
+function solutionVerificationContextKey(problemId, repositoryName) {
+  return JSON.stringify([repositoryName || null, problemId, "all"]);
+}
+function latestSolutionVerificationRun(problemId, repositoryName) {
+  const key = solutionVerificationContextKey(problemId, repositoryName);
+  return state.latestSolutionVerificationByContext?.[key] || null;
+}
+function isLatestSolutionVerificationRun(problemId, repositoryName, generation, token) {
+  const latest = latestSolutionVerificationRun(problemId, repositoryName);
+  return Boolean(
+    latest
+      && latest.generation === generation
+      && latest.token === token
+  );
+}
+function isActiveSolutionVerificationRun(
+  problemId,
+  repositoryName,
+  generation,
+  token
+) {
+  if (!isLatestSolutionVerificationRun(problemId, repositoryName, generation, token)) {
+    return false;
+  }
   const active = state.activeSolutionVerification;
   return Boolean(
     active
       && active.problemId === problemId
       && (active.repositoryName || null) === repositoryName
+      && active.generation === generation
       && active.token === token
   );
 }
-function setActiveSolutionVerification(problemId, patch = {}) {
-  const active = state.activeSolutionVerification;
-  if (active?.token && patch.token && active.token !== patch.token && patch.jobId) return;
+function beginSolutionVerification(problemId, repositoryName, token) {
+  const key = solutionVerificationContextKey(problemId, repositoryName);
+  const generation =
+    Number(latestSolutionVerificationRun(problemId, repositoryName)?.generation || 0) + 1;
+  state.latestSolutionVerificationByContext = {
+    ...(state.latestSolutionVerificationByContext || {}),
+    [key]: {
+      problemId,
+      repositoryName,
+      operationKind: "all",
+      generation,
+      token,
+    },
+  };
   state.activeSolutionVerification = {
-    ...(active || {}),
     problemId,
+    repositoryName,
+    generation,
+    token,
     status: "running",
     startedAt: Date.now(),
+  };
+  renderSolutionStatusViews();
+  return generation;
+}
+function updateActiveSolutionVerification(
+  problemId,
+  repositoryName,
+  generation,
+  token,
+  patch = {}
+) {
+  if (!isCurrentProblemContext(problemId, repositoryName)) return;
+  if (!isActiveSolutionVerificationRun(
+    problemId,
+    repositoryName,
+    generation,
+    token
+  )) return;
+  const active = state.activeSolutionVerification;
+  state.activeSolutionVerification = {
+    ...active,
     ...patch,
   };
   renderSolutionStatusViews();
@@ -128,10 +190,17 @@ function resetSolutionVerificationForRun(problemId, repositoryName, allPaths) {
   );
   resolveTabFeedback("solutions", (item) => item.key === "solution-verify:all");
 }
-function clearActiveSolutionVerification(problemId, token) {
+function clearActiveSolutionVerification(
+  problemId,
+  repositoryName,
+  generation,
+  token
+) {
+  if (!isLatestSolutionVerificationRun(problemId, repositoryName, generation, token)) return;
   const active = state.activeSolutionVerification;
   if (!active || active.problemId !== problemId) return;
-  if (token && active.token && active.token !== token) return;
+  if ((active.repositoryName || null) !== repositoryName) return;
+  if (active.generation !== generation || active.token !== token) return;
   state.activeSolutionVerification = null;
   renderSolutionStatusViews();
 }
@@ -195,10 +264,21 @@ function checkMatchesSource(check, source) {
   const right = normalizedSolutionPath(source);
   return left === right || left.endsWith(`/${right}`) || right.endsWith(`/${left}`);
 }
-function applyPartialSolutionCheck(problemId, repositoryName, token, partialCheck, partialSummary = {}) {
+function applyPartialSolutionCheck(
+  problemId,
+  repositoryName,
+  generation,
+  token,
+  partialCheck,
+  partialSummary = {}
+) {
   if (!partialCheck || !isCurrentProblemContext(problemId, repositoryName)) return;
-  const active = state.activeSolutionVerification;
-  if (!active || active.problemId !== problemId || active.token !== token) return;
+  if (!isActiveSolutionVerificationRun(
+    problemId,
+    repositoryName,
+    generation,
+    token
+  )) return;
   const existing = state.lastSolutionVerification || {};
   const checks = Array.isArray(existing.checks) ? [...existing.checks] : [];
   const index = checks.findIndex((check) => checkMatchesSource(check, partialCheck.source));
@@ -236,7 +316,7 @@ function applyPartialSolutionCheck(problemId, repositoryName, token, partialChec
  * 솔루션 create 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  */
 export function openSolutionCreateModal() {
-  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  if (!state.selectedProblem) throw new Error("먼저 문제를 선택하세요.");
   initializeSourceModalEditors();
   $("solutionCreateName").value = "wrong_solution";
   $("solutionCreateExpected").value = "wa";
@@ -244,6 +324,7 @@ export function openSolutionCreateModal() {
   setModalEditorValue("create", "");
   updateSolutionPreview();
   solutionCallbacks.openModal("solutionCreateModal");
+  rememberSolutionModalSnapshot("create");
   refreshModalEditor("create");
 }
 /**
@@ -271,6 +352,7 @@ export async function openSolutionEditModal(path) {
   setModalEditorValue("edit", source || "");
   updateSolutionRenamePreview();
   solutionCallbacks.openModal("solutionEditModal");
+  rememberSolutionModalSnapshot("edit", path);
   refreshModalEditor("edit");
 }
 /**
@@ -301,7 +383,7 @@ export async function uploadSolutions(files) {
   ]);
   solutionCallbacks.markFullTestDirty("솔루션 업로드로 전체 테스트가 다시 필요합니다.");
   solutionCallbacks.renderTaskPanel();
-  showResult(`${uploaded.length} solution file(s) uploaded.`, "summary success");
+  showResult(`솔루션 ${uploaded.length}개 파일을 업로드했습니다.`, "summary success");
 }
 /**
  * 솔루션에 필요한 초기 파일과 메타데이터를 생성합니다.
@@ -334,6 +416,7 @@ export async function createSolution() {
   solutionCallbacks.markSolutionDirty(result.created.path, "새 솔루션이 추가되어 검증이 필요합니다.");
   selectSolutionPath(result.created.path);
   solutionCallbacks.renderTaskPanel();
+  clearSolutionModalSnapshot();
   solutionCallbacks.closeModals();
   showResult("새 솔루션 파일을 만들었습니다.", "summary success");
 }
@@ -368,6 +451,7 @@ export async function renameSolution() {
   solutionCallbacks.markSolutionDirty(nextPath, "솔루션 변경으로 재검증이 필요합니다.", { oldPath });
   selectSolutionPath(nextPath);
   solutionCallbacks.renderTaskPanel();
+  clearSolutionModalSnapshot();
   solutionCallbacks.closeModals();
   showResult("솔루션을 저장했습니다.", "summary success");
 }
@@ -406,15 +490,28 @@ export async function deleteSolution(path) {
   if (!state.selectedProblem || !normalizedPath.startsWith("solutions/")) {
     throw new Error("삭제할 솔루션 파일을 먼저 선택하세요.");
   }
+  const referencePath = normalizedSolutionPath(state.detail?.metadata?.tools?.solution || "");
+  const isReference = referencePath === normalizedPath;
+  const replacement = isReference
+    ? state.files
+      .filter((file) => file.path.startsWith("solutions/"))
+      .map((file) => normalizedSolutionPath(file.path))
+      .find((candidate) => candidate !== normalizedPath && solutionParts(candidate).expected === "ac")
+    : null;
+  if (isReference && !replacement) {
+    throw new Error("기준 정답을 삭제하려면 먼저 다른 Accepted 솔루션을 추가하세요.");
+  }
   const confirmed = window.confirm(
-    `${normalizedPath} 솔루션 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`
+    isReference
+      ? `${normalizedPath} 기준 정답을 삭제할까요?\n새 기준 정답: ${replacement}\n이 작업은 되돌릴 수 없습니다.`
+      : `${normalizedPath} 솔루션 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`
   );
   if (!confirmed) return null;
   const result = await api(
     `/api/problems/${encodeURIComponent(state.selectedProblem)}/solutions`,
     {
       method: "DELETE",
-      body: JSON.stringify({ path: normalizedPath }),
+      body: JSON.stringify({ path: normalizedPath, replacement }),
     }
   );
   state.files = result.files || state.files;
@@ -423,7 +520,12 @@ export async function deleteSolution(path) {
   if (!selectAfterSolutionDelete(normalizedPath)) renderSolutionStatusViews();
   solutionCallbacks.markFullTestDirty("솔루션 삭제로 전체 테스트가 다시 필요합니다.");
   solutionCallbacks.renderTaskPanel();
-  showResult("솔루션 파일을 삭제했습니다.", "summary success");
+  showResult(
+    result.referenceChanged
+      ? `솔루션 파일을 삭제하고 ${result.replacement}을 새 기준 정답으로 지정했습니다.`
+      : "솔루션 파일을 삭제했습니다.",
+    "summary success"
+  );
   return result;
 }
 export async function verifySolutions(options = {}) {
@@ -431,9 +533,9 @@ export async function verifySolutions(options = {}) {
   const problemId = state.selectedProblem;
   const repositoryName = state.activeRepository || null;
   const token = solutionJobToken();
+  const generation = beginSolutionVerification(problemId, repositoryName, token);
   const allPaths = solutionFilePaths();
   resetSolutionVerificationForRun(problemId, repositoryName, allPaths);
-  setActiveSolutionVerification(problemId, { repositoryName, token, status: "running" });
   try {
     const result = await runQueuedJob(
       `/api/problems/${encodeURIComponent(problemId)}/solutions/verify/jobs`,
@@ -442,15 +544,26 @@ export async function verifySolutions(options = {}) {
         ...options,
         label: "솔루션 기대 결과 검증",
         onProgress: (job) => {
-          setActiveSolutionVerification(problemId, {
+          if (!isActiveSolutionVerificationRun(
+            problemId,
             repositoryName,
+            generation,
+            token
+          )) return;
+          updateActiveSolutionVerification(
+            problemId,
+            repositoryName,
+            generation,
             token,
-            jobId: job.jobId,
-            status: job.status,
-          });
+            {
+              jobId: job.jobId,
+              status: job.status,
+            }
+          );
           applyPartialSolutionCheck(
             problemId,
             repositoryName,
+            generation,
             token,
             job.progress?.partialCheck,
             job.progress?.partialSummary
@@ -465,7 +578,21 @@ export async function verifySolutions(options = {}) {
       totalCount: result.totalCount ?? allPaths.length,
       checkedAt: Date.now(),
     };
-    if (!isActiveSolutionVerificationRun(problemId, repositoryName, token)) return verification;
+    if (!isLatestSolutionVerificationRun(problemId, repositoryName, generation, token)) {
+      return verification;
+    }
+    const isCurrentContext = isCurrentProblemContext(problemId, repositoryName);
+    if (
+      isCurrentContext
+      && !isActiveSolutionVerificationRun(
+        problemId,
+        repositoryName,
+        generation,
+        token
+      )
+    ) {
+      return verification;
+    }
     const currentRunPassed = Boolean(verification.passed);
     const dirtySolutionPaths = dirtyPathsAfterClearing(problemId, repositoryName, allPaths);
     solutionCallbacks.persistProblemLastResult?.(
@@ -476,7 +603,7 @@ export async function verifySolutions(options = {}) {
       problemId,
       repositoryName
     );
-    if (!isCurrentProblemContext(problemId, repositoryName)) return verification;
+    if (!isCurrentContext) return verification;
     state.lastSolutionVerification = verification;
     solutionCallbacks.setDirtySolutionPaths(dirtySolutionPaths);
     renderSolutionStatusViews();
@@ -508,11 +635,21 @@ export async function verifySolutions(options = {}) {
     if (currentRunPassed) showResult("Solutions verified.", "summary success");
     return verification;
   } catch (error) {
-    if (!isActiveSolutionVerificationRun(problemId, repositoryName, token)) return null;
     if (!isCurrentProblemContext(problemId, repositoryName)) return null;
+    if (!isActiveSolutionVerificationRun(
+      problemId,
+      repositoryName,
+      generation,
+      token
+    )) return null;
     throw error;
   } finally {
-    clearActiveSolutionVerification(problemId, token);
+    clearActiveSolutionVerification(
+      problemId,
+      repositoryName,
+      generation,
+      token
+    );
   }
 }
 export async function verifySingleSolution(path) {
@@ -745,10 +882,10 @@ export async function runSolutionStress(options = {}) {
       result.passed ? "success" : "error"
     );
     if (result.passed) {
-      showResult("Stress test passed.", "summary success");
+      showResult("스트레스 테스트를 통과했습니다.", "summary success");
     } else {
       showAlert("Stress mismatch를 찾았습니다. 솔루션 탭에서 preview 후 데이터로 추가할 수 있습니다.", "error", {
-        title: "Stress mismatch",
+        title: "스트레스 불일치",
         timeout: 5000,
       });
     }
@@ -828,7 +965,7 @@ function stressReviewBody(artifact) {
           <strong>${escapeHtml(artifact.stressRunId || "")} · ${escapeHtml(artifact.caseId || "")}</strong>
           <span>${escapeHtml(selected)}</span>
         </div>
-        <button type="button" data-stress-artifact-copy>Copy</button>
+        <button type="button" data-stress-artifact-copy>복사</button>
       </div>
       <div class="solution-artifact-tabs">
         ${["input", "expected", "actual", "diff"]
@@ -849,7 +986,7 @@ function stressReviewBody(artifact) {
     </div>
     <div class="stress-append-panel">
       <label>
-        Profile
+        프로필 (Profile)
         <input id="stressAppendProfile" value="${escapeHtml(profile)}" />
       </label>
       <label>

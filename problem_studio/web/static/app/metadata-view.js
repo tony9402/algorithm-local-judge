@@ -10,6 +10,7 @@ import {
   SAFE_PROBLEM_ID,
   state,
 } from "./state.js";
+import { dirtySources, rememberMetadataSnapshot } from "./unsaved-changes.js";
 
 const metadataCallbacks = {
   folderLabel: (folder) => String(folder || "").trim() || "기본",
@@ -151,6 +152,27 @@ export function currentMetadataDraft() {
 export function currentProblemIdDraft() {
   return textInputValue("metadataProblemIdInput", state.selectedProblem || "");
 }
+export function currentMetadataFormDraft() {
+  const fieldIds = [
+    "metadataProblemIdInput",
+    "metadataTitle",
+    "metadataFolder",
+    "metadataVersion",
+    "metadataDefaultProfile",
+    ...METADATA_TIMEOUT_FIELDS.map(([id]) => id),
+    ...METADATA_MEMORY_FIELDS.map(([id]) => id),
+    ...METADATA_TOOL_FIELDS.map(([id]) => id),
+  ];
+  return Object.fromEntries(fieldIds.map((id) => [id, $(id).value]));
+}
+
+export function restoreMetadataFormDraft(draft = {}) {
+  for (const [id, value] of Object.entries(draft)) {
+    const field = optional(id);
+    if (field && "value" in field) field.value = String(value ?? "");
+  }
+  updateMetadataPreview();
+}
 export function applyProblemMetadataToUi(metadata, options = {}) {
   if (!state.selectedProblem || !metadata) return;
   if (state.detail) state.detail.metadata = { ...(state.detail.metadata || {}), ...metadata };
@@ -199,7 +221,8 @@ export function updateMetadataPreview() {
   );
   renderMetadataValidation();
 }
-export function populateMetadataForm(metadata) {
+export function populateMetadataForm(metadata, options = {}) {
+  if (!options.force && dirtySources("metadata").length) return;
   const limits = metadata?.limits || {};
   const tools = metadata?.tools || {};
   setText("metadataProblemId", state.selectedProblem || metadata?.problemId || "-");
@@ -218,5 +241,6 @@ export function populateMetadataForm(metadata) {
   $("metadataToolValidator").value = tools.validator || "validator/validator.cpp";
   $("metadataToolChecker").value = tools.checker || "checker/judge.cpp";
   $("metadataToolSolution").value = tools.solution || "solutions/main_solution.ac.cpp";
+  rememberMetadataSnapshot(currentMetadataFormDraft());
   renderMetadataValidation();
 }

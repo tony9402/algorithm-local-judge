@@ -9,15 +9,22 @@
         localStorage.getItem("alj-theme") ||
         (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     </script>
-    <link rel="stylesheet" href="/static/styles.css?v=20260522-01" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260712-04" />
   </head>
   <body>
     <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+    <div
+      id="jobsAnnouncements"
+      class="jobs-live-announcement"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
     <div class="shell">
       <header class="topbar">
         <div>
           <h1>Local Judge</h1>
-          <p id="subtitle">Ready</p>
+          <p id="subtitle">준비됨</p>
         </div>
         <div class="top-actions">
           <button id="themeToggleButton" class="theme-toggle" type="button" aria-pressed="false">
@@ -26,18 +33,37 @@
           <button id="problemJumpButton" type="button">문제 선택</button>
           <button id="topAddProblemButton" type="button">문제 팩 설치</button>
           <button id="cacheManageButton" type="button">캐시 정리</button>
-          <button id="jobsButton" type="button" aria-expanded="false">채점 결과 0</button>
+          <button id="submissionsButton" type="button" aria-haspopup="dialog">제출 기록</button>
+          <button
+            id="jobsButton"
+            type="button"
+            aria-expanded="false"
+            aria-controls="jobsPanel"
+          >작업 센터 0</button>
         </div>
       </header>
 
+      <section
+        id="connectionBanner"
+        class="connection-banner hidden"
+        role="alert"
+        aria-labelledby="connectionBannerTitle"
+      >
+        <div>
+          <strong id="connectionBannerTitle">로컬 서버에 연결할 수 없습니다.</strong>
+          <p id="connectionBannerMessage">서버 상태를 확인한 뒤 다시 연결하세요.</p>
+        </div>
+        <button id="connectionRetryButton" type="button">다시 연결</button>
+      </section>
+
       <main class="layout">
         <aside class="sidebar">
-          <section>
+          <section class="sidebar-install">
             <button id="addProblemButton" class="primary full-button" type="button">문제 팩 설치</button>
           </section>
 
-          <section>
-            <div class="section-title">Problems</div>
+          <section class="sidebar-problems" aria-labelledby="problemsSectionTitle">
+            <div id="problemsSectionTitle" class="section-title">문제</div>
             <label class="problem-search">
               문제 검색
               <input id="problemSearchInput" type="search" placeholder="ID, 제목, 폴더" />
@@ -49,17 +75,35 @@
               </label>
               <button id="problemFolderSaveButton" type="button">생성</button>
             </div>
-            <div id="problemList" class="list muted">Loading...</div>
+            <div
+              id="problemList"
+              class="list muted"
+              role="region"
+              aria-label="문제 목록"
+              tabindex="0"
+            >불러오는 중...</div>
+            <p id="problemDragHelp" class="visually-hidden">
+              편집 가능한 문제는 드래그하여 폴더를 변경하거나 행의 이동 버튼을 사용하세요.
+            </p>
           </section>
 
-          <section>
-            <div class="section-title">Packs</div>
-            <div id="packList" class="list muted">Loading...</div>
+          <section class="sidebar-packs">
+            <button
+              id="packSectionToggle"
+              class="sidebar-section-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="packList"
+            >
+              <span>문제 팩</span>
+              <span class="sidebar-section-chevron" aria-hidden="true">▸</span>
+            </button>
+            <div id="packList" class="list muted hidden">불러오는 중...</div>
           </section>
 
-          <section>
-          <div class="section-title">Cache</div>
-            <div id="cacheSummary" class="cache-summary muted">Loading...</div>
+          <section class="sidebar-cache">
+            <div class="section-title">캐시</div>
+            <div id="cacheSummary" class="cache-summary muted">불러오는 중...</div>
           </section>
         </aside>
 
@@ -67,15 +111,15 @@
           <section class="panel run-panel">
             <div class="panel-heading">
               <div>
-                <h2>Run</h2>
+                <h2>채점</h2>
                 <p>코드를 붙여넣거나 파일을 불러온 뒤 채점합니다.</p>
               </div>
-              <span id="languageBadge" class="badge neutral">No source</span>
+              <span id="languageBadge" class="badge neutral">코드 없음</span>
             </div>
 
             <div class="grid two">
               <label>
-                Problem
+                문제
                 <select id="problemSelect"></select>
               </label>
               <label class="hidden">
@@ -95,24 +139,38 @@
               <button id="fullRunButton" class="primary" type="button">전체 채점</button>
               <button id="runButton" class="hidden" type="button">채점</button>
               <details class="advanced-run-options">
-                <summary>Advanced</summary>
+                <summary>고급 옵션</summary>
                 <div class="advanced-actions">
                   <label class="check">
                     <input id="forceGenerateInput" type="checkbox" />
-                    Force generate
+                    데이터 강제 생성
                   </label>
-                  <button id="casesCompileButton" type="button">Check Cases</button>
-                  <button id="generateButton" type="button">Generate Data</button>
+                  <button id="casesCompileButton" type="button">케이스 검사</button>
+                  <button id="generateButton" type="button">데이터 생성</button>
                 </div>
               </details>
             </div>
+
+            <section
+              id="lastResultAnchor"
+              class="last-result-anchor hidden"
+              aria-labelledby="lastResultTitle"
+              aria-live="polite"
+            >
+              <div>
+                <span id="lastResultBadge" class="badge neutral">결과 없음</span>
+                <strong id="lastResultTitle">최근 채점 결과</strong>
+                <small id="lastResultMetrics">채점을 실행하면 결과가 여기에 표시됩니다.</small>
+              </div>
+              <button id="lastResultButton" type="button" disabled>결과 보기</button>
+            </section>
 
             <div id="uploadSourcePanel" class="drop-zone hidden"></div>
 
             <div id="textSourcePanel">
               <div class="grid two">
                 <label>
-                  Filename
+                  파일 이름
                   <input id="filenameInput" type="text" placeholder="main.cpp" />
                 </label>
                 <label>
@@ -126,10 +184,10 @@
                 </label>
               </div>
               <label class="source-upload-button">
-                파일 업로드
+                파일에서 불러오기
                 <input id="sourceFileInput" type="file" accept=".cpp,.cc,.cxx,.py,.java" />
               </label>
-              <label class="source-code-label" for="sourceTextInput">Source Code</label>
+              <label class="source-code-label" for="sourceTextInput">소스 코드</label>
               <div class="code-editor">
                 <div class="editor-toolbar">
                   <span id="editorFileLabel">main.py</span>
@@ -145,21 +203,35 @@
                       spellcheck="false"
                       autocomplete="off"
                       autocapitalize="off"
-                      placeholder="Paste source code here"
-                      aria-label="Source Code"
+                      placeholder="소스 코드를 붙여넣으세요"
+                      aria-label="소스 코드"
                     ></textarea>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="source-history">
-              <div class="source-history-heading">
-                <span>Cached Sources</span>
-                <small>Cache 정리 전까지 최근 채점 코드를 불러올 수 있습니다.</small>
+            <section class="recent-submissions" aria-labelledby="recentSubmissionsTitle">
+              <div class="recent-submissions-heading">
+                <div>
+                  <strong id="recentSubmissionsTitle">최근 제출</strong>
+                  <small>현재 문제에 제출한 코드와 결과입니다.</small>
+                </div>
+                <button id="recentSubmissionsAllButton" type="button">전체 제출 보기</button>
               </div>
-            <div class="source-history-filters">
-              <div class="segmented source-history-scope" aria-label="Source history scope">
+              <div id="recentSubmissionsList" class="recent-submissions-list muted" aria-live="polite">
+                아직 제출한 코드가 없습니다.
+              </div>
+            </section>
+
+            <details class="source-history">
+              <summary class="source-history-heading">
+                <span>이전 캐시 코드(호환)</span>
+                <small>캐시 정리 전까지 이전 채점 코드를 불러올 수 있습니다.</small>
+              </summary>
+              <div class="source-history-content">
+                <div class="source-history-filters">
+              <div class="segmented source-history-scope" aria-label="이전 캐시 코드 범위">
                 <button
                   id="sourceHistoryProblemScopeButton"
                   class="active"
@@ -181,80 +253,97 @@
               <input
                 id="sourceHistoryFilterInput"
                 type="search"
-                  placeholder="Search filename, problem, language"
-                  aria-label="Search cached sources"
+                  placeholder="파일 이름, 문제, 언어 검색"
+                  aria-label="이전 캐시 코드 검색"
                 />
-                <select id="sourceHistoryStatusFilter" aria-label="Filter cached sources by status">
-                  <option value="all">All statuses</option>
-                  <option value="accepted">Accepted</option>
-                  <option value="wrong_answer">Wrong answer</option>
-                  <option value="compile_error">Compile error</option>
-                  <option value="runtime_error">Runtime error</option>
-                  <option value="time_limit">Time limit</option>
-                  <option value="memory_limit">Memory limit</option>
+                <select id="sourceHistoryStatusFilter" aria-label="판정으로 이전 캐시 코드 필터링">
+                  <option value="all">전체 판정</option>
+                  <option value="accepted">맞았습니다</option>
+                  <option value="wrong_answer">오답</option>
+                  <option value="compile_error">컴파일 오류</option>
+                  <option value="runtime_error">런타임 오류</option>
+                  <option value="time_limit">시간 초과</option>
+                  <option value="memory_limit">메모리 초과</option>
                 </select>
               </div>
               <div id="sourceHistoryList" class="source-history-list muted">
-                No cached sources.
+                이전 캐시 코드가 없습니다.
               </div>
-            </div>
+              </div>
+            </details>
           </section>
 
           <section class="panel sample-panel">
             <div class="panel-heading">
               <div>
-                <h2>Samples</h2>
-                <p id="sampleMeta">Select a problem.</p>
+                <h2>예제</h2>
+                <p id="sampleMeta">문제를 선택하세요.</p>
               </div>
             </div>
-            <div id="sampleCases" class="sample-list muted">Loading...</div>
+            <details class="sample-diagnostics">
+              <summary>고급 진단</summary>
+              <code id="sampleDiagnosticLabel">진단 정보 없음</code>
+            </details>
+            <div id="sampleCases" class="sample-list muted">불러오는 중...</div>
           </section>
 
           <section class="panel">
             <div class="panel-heading">
               <div>
-                <h2>Status</h2>
-                <p id="resultMeta">No run yet.</p>
+                <h2>상태</h2>
+                <p id="resultMeta">아직 채점 기록이 없습니다.</p>
               </div>
               <div class="heading-actions">
                 <label id="debugToggle" class="check debug-toggle hidden">
                   <input id="debugModeInput" type="checkbox" />
-                  Debug
+                  진단
                 </label>
-                <span id="statusBadge" class="badge neutral">Idle</span>
+                <span id="statusBadge" class="badge neutral">대기</span>
               </div>
             </div>
             <div id="statusGrid" class="status-grid">
               <div class="status-card">
-                <span>Cases</span>
-                <strong id="casesStatusValue">Idle</strong>
-                <small id="casesStatusMeta">Selected cases.yml plan</small>
+                <span>케이스</span>
+                <strong id="casesStatusValue">대기</strong>
+                <small id="casesStatusMeta">선택한 cases.yml 계획</small>
               </div>
               <div class="status-card">
-                <span>Data</span>
-                <strong id="dataStatusValue">Idle</strong>
-                <small id="dataStatusMeta">Selected judge data</small>
+                <span>데이터</span>
+                <strong id="dataStatusValue">대기</strong>
+                <small id="dataStatusMeta">선택한 채점 데이터</small>
               </div>
               <div class="status-card">
-                <span>Judge</span>
-                <strong id="judgeStatusValue">Idle</strong>
+                <span>채점</span>
+                <strong id="judgeStatusValue">대기</strong>
                 <small id="judgeStatusMeta">-</small>
               </div>
               <div class="status-card">
-                <span>Run</span>
+                <span>실행</span>
                 <strong id="runStatusValue">-</strong>
-                <small id="runStatusMeta">No run</small>
+                <small id="runStatusMeta">채점 기록 없음</small>
               </div>
             </div>
-            <div id="resultSummary" class="result-summary muted">Ready.</div>
+            <div id="resultSummary" class="result-summary muted">준비됨.</div>
             <div id="caseResults" class="case-results hidden" aria-live="polite"></div>
-            <section id="jobsPanel" class="jobs-panel hidden" aria-label="작업 센터" tabindex="-1">
+            <section
+              id="jobsPanel"
+              class="jobs-panel hidden"
+              role="complementary"
+              aria-labelledby="jobsPanelTitle"
+              tabindex="-1"
+            >
               <div class="jobs-panel-heading">
                 <div>
-                  <strong>작업 센터</strong>
-                  <p id="jobsMeta">No queued jobs.</p>
+                  <strong id="jobsPanelTitle">작업 센터</strong>
+                  <p id="jobsMeta">대기 중인 작업이 없습니다.</p>
                 </div>
-                <button id="jobsCloseButton" class="icon-button" type="button" aria-label="작업 센터 닫기">×</button>
+                <button
+                  id="jobsCloseButton"
+                  class="icon-button"
+                  type="button"
+                  aria-label="작업 센터 닫기"
+                  data-jobs-autofocus
+                >×</button>
               </div>
               <div class="jobs-panel-actions">
                 <div class="segmented jobs-filters" aria-label="작업 필터">
@@ -271,7 +360,7 @@
                   <button id="jobsClearButton" type="button">완료 기록 정리</button>
                 </div>
               </div>
-              <div id="jobsList" class="jobs-list muted">No jobs.</div>
+              <div id="jobsList" class="jobs-list muted">작업 기록이 없습니다.</div>
             </section>
             <div
               id="generationProgress"
@@ -282,7 +371,7 @@
               aria-valuenow="0"
             >
               <div class="progress-heading">
-                <span>Data generation</span>
+                <span>데이터 생성</span>
                 <strong id="generationProgressText">0 / 0</strong>
               </div>
               <div class="progress-track">
@@ -295,21 +384,21 @@
           <section id="wrongPanel" class="panel hidden">
             <div class="panel-heading">
               <div>
-                <h2>Wrong Case</h2>
+                <h2>오답 케이스</h2>
                 <p id="wrongMeta"></p>
               </div>
-              <div class="artifact-actions" aria-label="Wrong case artifact actions">
-                <button id="artifactCopyButton" type="button">Copy</button>
-                <button id="artifactDownloadButton" type="button">Download</button>
-                <button id="artifactWrapButton" type="button" aria-pressed="false">Wrap</button>
-                <button id="artifactExpandButton" type="button" aria-pressed="false">Expand</button>
+              <div class="artifact-actions" aria-label="오답 케이스 산출물 작업">
+                <button id="artifactCopyButton" type="button">복사</button>
+                <button id="artifactDownloadButton" type="button">다운로드</button>
+                <button id="artifactWrapButton" type="button" aria-pressed="false">줄 바꿈</button>
+                <button id="artifactExpandButton" type="button" aria-pressed="false">크게 보기</button>
               </div>
             </div>
             <div class="mode-tabs">
-              <button class="artifact-tab active" data-artifact="input" type="button">Input</button>
-              <button class="artifact-tab" data-artifact="expected" type="button">Expected</button>
-              <button class="artifact-tab" data-artifact="actual" type="button">Actual</button>
-              <button class="artifact-tab" data-artifact="diff" type="button">Diff</button>
+              <button class="artifact-tab active" data-artifact="input" type="button">입력</button>
+              <button class="artifact-tab" data-artifact="expected" type="button">예상 출력</button>
+              <button class="artifact-tab" data-artifact="actual" type="button">실제 출력</button>
+              <button class="artifact-tab" data-artifact="diff" type="button">차이점</button>
             </div>
             <div id="artifactNotice" class="artifact-notice hidden"></div>
             <pre id="artifactOutput" class="output large"></pre>
@@ -321,36 +410,135 @@
 
     <div id="modalBackdrop" class="modal-backdrop hidden"></div>
 
+    <section
+      id="problemPickerModal"
+      class="modal problem-picker-modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="problemPickerModalTitle"
+      aria-describedby="problemPickerModalDescription"
+    >
+      <div class="modal-heading">
+        <div>
+          <h2 id="problemPickerModalTitle">문제 선택</h2>
+          <p id="problemPickerModalDescription">문제 ID, 제목 또는 폴더로 검색하세요.</p>
+        </div>
+        <button class="icon-button" type="button" data-modal-close aria-label="문제 선택 닫기">×</button>
+      </div>
+      <label class="problem-picker-search">
+        문제 검색
+        <input
+          id="problemPickerSearchInput"
+          type="search"
+          placeholder="ID, 제목, 폴더"
+          autocomplete="off"
+          data-modal-autofocus
+        />
+      </label>
+      <div id="problemPickerResults" class="problem-picker-results" role="status" aria-live="polite">
+        문제를 불러오는 중입니다.
+      </div>
+      <div
+        id="problemPickerList"
+        class="problem-picker-list list muted"
+        role="region"
+        aria-label="검색된 문제 목록"
+      >
+        불러오는 중...
+      </div>
+    </section>
+
+    <section
+      id="problemFolderMoveModal"
+      class="modal problem-folder-move-modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="problemFolderMoveModalTitle"
+      aria-describedby="problemFolderMoveModalDescription"
+    >
+      <div class="modal-heading">
+        <div>
+          <h2 id="problemFolderMoveModalTitle">문제 폴더 이동</h2>
+          <p id="problemFolderMoveModalDescription">
+            <strong id="problemFolderMoveProblemLabel"></strong> 문제를 옮길 폴더를 선택하세요.
+          </p>
+        </div>
+        <button class="icon-button" type="button" data-modal-close aria-label="문제 폴더 이동 닫기">×</button>
+      </div>
+      <label>
+        이동할 폴더
+        <select id="problemFolderMoveSelect" data-modal-autofocus></select>
+      </label>
+      <div class="problem-folder-move-dialog-actions">
+        <button id="problemFolderMoveCancelButton" type="button" data-modal-close>취소</button>
+        <button id="problemFolderMoveConfirmButton" class="primary" type="button">이동</button>
+      </div>
+    </section>
+
     <section id="packModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="packModalTitle">
       <div class="modal-heading">
         <div>
           <h2 id="packModalTitle">문제 팩 설치</h2>
-          <p>신뢰한 repository 또는 .aljpack만 설치하세요. 공식 설치는 .aljpack release asset을 우선 사용하고 없으면 source archive로 fallback합니다.</p>
+          <p>검증된 공식 문제 세트를 바로 설치할 수 있습니다.</p>
         </div>
-        <button class="icon-button" type="button" data-modal-close aria-label="Close">×</button>
+        <button class="icon-button" type="button" data-modal-close aria-label="문제 팩 설치 닫기">×</button>
       </div>
-      <div class="stack-form">
-        <label>
-          문제 팩 업로드
-          <input id="packFileInput" type="file" accept=".aljpack" />
-        </label>
-        <button id="uploadPackButton" type="button">업로드한 팩 설치</button>
-        <div class="grid two">
-          <label>
-            공식 저장소
-            <input id="officialRepoInput" type="text" placeholder="owner/repository" />
-          </label>
-          <label>
-            Asset 이름
-            <input id="packAssetInput" type="text" placeholder="latest matching .aljpack" />
-          </label>
-          <label>
-            Branch / Tag
-            <input id="packRefInput" type="text" placeholder="default branch" />
-          </label>
+      <div class="pack-install-flow">
+        <button id="defaultPackInstallButton" class="primary" type="button" data-modal-autofocus>
+          기본 문제 세트 설치
+        </button>
+        <div
+          id="packProgress"
+          class="pack-progress hidden"
+          role="progressbar"
+          aria-labelledby="packProgressLabel"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+          aria-valuetext="설치 대기"
+        >
+          <div class="pack-progress-heading">
+            <strong id="packProgressLabel">문제 세트 설치</strong>
+            <span id="packProgressText">0%</span>
+          </div>
+          <div class="pack-progress-track" aria-hidden="true">
+            <span id="packProgressFill" class="pack-progress-fill"></span>
+          </div>
         </div>
-        <button id="downloadPackButton" type="button">공식 문제 설치</button>
-        <div id="packStatus" class="modal-status muted">이번 세션에서 설치한 문제 팩이 없습니다.</div>
+        <div id="packStatus" class="modal-status muted" role="status" aria-live="polite">
+          설치할 준비가 되었습니다.
+        </div>
+        <div class="pack-install-actions">
+          <button id="packRetryButton" class="hidden" type="button">다시 시도</button>
+          <button id="packJobsButton" class="hidden" type="button">작업 센터에서 보기</button>
+        </div>
+
+        <details class="pack-advanced-install">
+          <summary>고급 설치</summary>
+          <p>신뢰한 repository 또는 .aljpack만 설치하세요. 특정 버전이나 내려받은 파일을 지정할 수 있습니다.</p>
+          <div class="stack-form">
+            <label>
+              문제 팩 업로드
+              <input id="packFileInput" type="file" accept=".aljpack" />
+            </label>
+            <button id="uploadPackButton" type="button">업로드한 팩 설치</button>
+            <div class="grid two">
+              <label>
+                공식 저장소
+                <input id="officialRepoInput" type="text" placeholder="소유자/저장소" />
+              </label>
+              <label>
+                Asset 이름
+                <input id="packAssetInput" type="text" placeholder="일치하는 최신 .aljpack" />
+              </label>
+              <label>
+                Branch / Tag
+                <input id="packRefInput" type="text" placeholder="기본 브랜치" />
+              </label>
+            </div>
+            <button id="downloadPackButton" type="button">지정한 공식 문제 팩 설치</button>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -358,9 +546,9 @@
       <div class="modal-heading">
         <div>
           <h2 id="cacheModalTitle">캐시 정리</h2>
-          <p>생성 데이터와 run 기록을 정리합니다.</p>
+          <p>생성 데이터와 run 상세 산출물을 정리합니다. 제출 코드와 결과 요약은 제출 기록에 유지됩니다.</p>
         </div>
-        <button class="icon-button" type="button" data-modal-close aria-label="Close">×</button>
+        <button class="icon-button" type="button" data-modal-close aria-label="캐시 정리 닫기">×</button>
       </div>
       <div id="cacheModalSummary" class="status-grid compact"></div>
       <div class="actions">
@@ -377,11 +565,137 @@
           <h2 id="resultModalTitle">채점 결과</h2>
           <p id="resultModalMeta">제출 기록을 선택하세요.</p>
         </div>
-        <button class="icon-button" type="button" data-modal-close aria-label="Close">×</button>
+        <button class="icon-button" type="button" data-modal-close aria-label="채점 결과 닫기">×</button>
       </div>
       <div id="resultCaseResults" class="case-results" aria-live="polite"></div>
     </section>
 
-    <script type="module" src="/static/app.js?v=20260522-01"></script>
+    <section
+      id="submissionsDrawer"
+      class="modal submissions-drawer hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="submissionsDrawerTitle"
+      aria-describedby="submissionsDrawerDescription"
+    >
+      <div class="modal-heading submissions-drawer-heading">
+        <div>
+          <h2 id="submissionsDrawerTitle">제출 기록</h2>
+          <p id="submissionsDrawerDescription">제출한 코드마다 채점 상태와 결과를 확인합니다. 작업·캐시 정리와 별도로 보존됩니다.</p>
+        </div>
+        <button class="icon-button" type="button" data-modal-close aria-label="제출 기록 닫기">×</button>
+      </div>
+
+      <div class="submissions-layout">
+        <section id="submissionsMaster" class="submissions-master" aria-label="제출 목록">
+          <div class="segmented submissions-scope" aria-label="제출 기록 범위">
+            <button id="submissionsProblemScopeButton" class="active" type="button" aria-pressed="true">
+              현재 문제
+            </button>
+            <button id="submissionsAllScopeButton" type="button" aria-pressed="false">전체</button>
+          </div>
+          <div class="submissions-filters">
+            <label class="submissions-search">
+              제출 검색
+              <input id="submissionsQueryInput" type="search" placeholder="파일명, 문제 ID, 실행 ID" data-modal-autofocus />
+            </label>
+            <label>
+              판정
+              <select id="submissionsStatusFilter">
+                <option value="">전체 판정</option>
+                <option value="accepted">맞았습니다</option>
+                <option value="wrong_answer">오답</option>
+                <option value="compile_error">컴파일 오류</option>
+                <option value="runtime_error">런타임 오류</option>
+                <option value="time_limit">시간 초과</option>
+                <option value="memory_limit">메모리 초과</option>
+                <option value="queued">대기 중</option>
+                <option value="running">실행 중</option>
+                <option value="cancelled">취소됨</option>
+                <option value="interrupted">실행 중단</option>
+                <option value="system_error">시스템 오류</option>
+              </select>
+            </label>
+            <label>
+              언어
+              <select id="submissionsLanguageFilter">
+                <option value="">전체 언어</option>
+                <option value="cpp">C++</option>
+                <option value="python">Python</option>
+                <option value="pypy">PyPy</option>
+                <option value="java">Java</option>
+              </select>
+            </label>
+            <label>
+              프로필
+              <select id="submissionsProfileFilter">
+                <option value="">전체 프로필</option>
+                <option value="sample">샘플</option>
+                <option value="full">전체</option>
+              </select>
+            </label>
+            <label>
+              정렬
+              <select id="submissionsOrderSelect">
+                <option value="newest">최신순</option>
+                <option value="oldest">오래된순</option>
+              </select>
+            </label>
+          </div>
+          <div class="submissions-filter-actions">
+            <span id="submissionsCount" role="status">0개 제출</span>
+            <div>
+              <button id="submissionsResetButton" type="button">필터 초기화</button>
+              <button id="submissionsClearAllButton" class="danger" type="button" aria-describedby="submissionsClearAllHint">전체 제출 삭제</button>
+            </div>
+          </div>
+          <p id="submissionsClearAllHint" class="submission-action-hint">
+            실행 중인 제출이 없을 때 전체 기록을 삭제할 수 있습니다.
+          </p>
+          <div id="submissionsList" class="submissions-list muted" aria-live="polite">
+            제출 기록을 불러오는 중입니다.
+          </div>
+          <div class="submissions-paging" aria-label="제출 기록 페이지">
+            <button id="submissionsPrevButton" type="button">이전</button>
+            <span id="submissionsPageLabel">1 / 1</span>
+            <button id="submissionsNextButton" type="button">다음</button>
+          </div>
+        </section>
+
+        <section id="submissionDetail" class="submission-detail" aria-label="제출 상세" aria-live="polite">
+          <div id="submissionDetailEmpty" class="submission-detail-empty">
+            <strong>확인할 제출을 선택하세요.</strong>
+            <p>판정, 테스트케이스, 제출 코드와 진단을 한곳에서 볼 수 있습니다.</p>
+          </div>
+          <div id="submissionDetailContent" class="hidden">
+            <button id="submissionBackButton" class="submission-back-button" type="button">← 제출 기록</button>
+            <div class="submission-detail-heading">
+              <div>
+                <div class="submission-detail-badges">
+                  <span id="submissionDetailBadge" class="badge neutral">결과 없음</span>
+                  <span id="submissionDetailLanguage" class="submission-language language-other" aria-label="제출 언어: 없음">언어 없음</span>
+                </div>
+                <h3 id="submissionDetailTitle" tabindex="-1">제출 상세</h3>
+                <p id="submissionDetailMeta"></p>
+              </div>
+              <div class="submission-detail-actions">
+                <button id="submissionLoadButton" type="button">편집기에 불러오기</button>
+                <button id="submissionDeleteButton" class="danger" type="button" aria-describedby="submissionDeleteHint">제출 삭제</button>
+              </div>
+            </div>
+            <p id="submissionDeleteHint" class="submission-action-hint hidden"></p>
+            <div class="submission-tabs" role="tablist" aria-label="제출 상세 항목">
+              <button id="submissionResultTab" class="active" type="button" role="tab" aria-selected="true" aria-controls="submissionDetailPanel" data-submission-tab="result">결과</button>
+              <button id="submissionCasesTab" type="button" role="tab" aria-selected="false" aria-controls="submissionDetailPanel" data-submission-tab="cases">테스트케이스</button>
+              <button id="submissionSourceTab" type="button" role="tab" aria-selected="false" aria-controls="submissionDetailPanel" data-submission-tab="source">제출 코드</button>
+              <button id="submissionDiagnosticsTab" type="button" role="tab" aria-selected="false" aria-controls="submissionDetailPanel" data-submission-tab="diagnostics">진단</button>
+            </div>
+            <div id="submissionDetailPanel" class="submission-detail-panel" role="tabpanel" aria-labelledby="submissionResultTab" tabindex="0"></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <script type="module" src="/static/app.js?v=20260712-04"></script>
   </body>
 </html>

@@ -1,5 +1,5 @@
-"""환경 진단 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다.
-"""
+"""환경 진단 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다."""
+
 from __future__ import annotations
 
 import argparse
@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from judge.core.docker_runtime import collect_docker_diagnostics, sandbox_mode
 from judge.core.errors import JudgeError
 from judge.core.pack import installed_packs
 from judge.core.paths import (
@@ -23,6 +24,7 @@ from judge.core.paths import (
     user_data_root,
 )
 from judge.core.remote_github import official_pack_repository
+from judge.core.toolchains import TOOL_SPECS, managed_provider_status, resolve_tool_details
 
 DOCTOR_SCHEMA_VERSION = 1
 INSTALL_HINTS = {
@@ -32,8 +34,17 @@ INSTALL_HINTS = {
     ),
     "javaCompiler": "Install a JDK and set ALJ_JAVAC when javac is not on PATH.",
     "javaRuntime": "Install a JDK/JRE and set ALJ_JAVA when java is not on PATH.",
+    "pythonRuntime": "Install CPython and set ALJ_PYTHON when python3/python is not on PATH.",
     "pypyRuntime": "Install PyPy and set ALJ_PYPY when pypy3/pypy is not on PATH.",
     "git": "Install Git and make sure the git command is on PATH.",
+}
+
+TOOL_DIAGNOSTICS = {
+    "cpp": ("C++ compiler", "cxx"),
+    "javaCompiler": ("Java compiler", "javac"),
+    "javaRuntime": ("Java runtime", "java"),
+    "pythonRuntime": ("Python runtime", "python"),
+    "pypyRuntime": ("PyPy runtime", "pypy"),
 }
 
 
@@ -78,6 +89,41 @@ def tool_status(
     }
 
 
+def resolved_tool_status(label: str, tool_id: str, hint_key: str) -> dict[str, Any]:
+    """Report the same executable selected by the compiler/runtime resolver."""
+    spec = TOOL_SPECS[tool_id]
+    configured = os.environ.get(spec.env_name)
+    try:
+        resolved = resolve_tool_details(tool_id)
+    except JudgeError as exc:
+        return {
+            "label": label,
+            "status": "missing",
+            "path": None,
+            "env": spec.env_name,
+            "configured": configured,
+            "candidates": list(spec.candidates),
+            "source": None,
+            "profileId": None,
+            "profileVersion": None,
+            "error": str(exc),
+            "installHint": INSTALL_HINTS.get(hint_key, ""),
+        }
+    return {
+        "label": label,
+        "status": "ok",
+        "path": resolved.path,
+        "env": spec.env_name,
+        "configured": configured,
+        "candidates": list(spec.candidates),
+        "source": resolved.source,
+        "profileId": resolved.profile_id,
+        "profileVersion": resolved.profile_version,
+        "error": None,
+        "installHint": INSTALL_HINTS.get(hint_key, ""),
+    }
+
+
 def path_status(label: str, path: Path) -> dict[str, Any]:
     """지정한 경로의 존재 여부와 디렉터리 여부를 doctor 리포트용 상태로 정리합니다.
 
@@ -112,28 +158,15 @@ def collect_diagnostics() -> dict[str, Any]:
         official_repository = None
         official_repository_status = "warning"
         official_repository_error = str(exc)
+    docker = collect_docker_diagnostics()
+    docker["required"] = sandbox_mode() == "docker"
     tools = {
-        "cpp": tool_status("C++ compiler", ["g++"], hint_key="cpp"),
-        "javaCompiler": tool_status(
-            "Java compiler",
-            ["javac"],
-            "ALJ_JAVAC",
-            hint_key="javaCompiler",
-        ),
-        "javaRuntime": tool_status(
-            "Java runtime",
-            ["java"],
-            "ALJ_JAVA",
-            hint_key="javaRuntime",
-        ),
-        "pypyRuntime": tool_status(
-            "PyPy runtime",
-            ["pypy3", "pypy"],
-            "ALJ_PYPY",
-            hint_key="pypyRuntime",
-        ),
-        "git": tool_status("Git", ["git"], hint_key="git"),
+        key: resolved_tool_status(label, tool_id, key)
+        for key, (label, tool_id) in TOOL_DIAGNOSTICS.items()
     }
+    tools["git"] = tool_status("Git", ["git"], hint_key="git")
+    tools["docker"] = docker
+    toolchains = managed_provider_status()
     paths = {
         "projectRoot": path_status("Project root", repo_root()),
         "appRoot": path_status("Application root", app_root()),
@@ -148,6 +181,8 @@ def collect_diagnostics() -> dict[str, Any]:
         paths["projectRoot"]["status"],
         official_repository_status,
     ]
+    if docker["required"]:
+        required_statuses.append(docker["status"])
     status = "ok" if all(value == "ok" for value in required_statuses) else "warning"
     return {
         "schemaVersion": DOCTOR_SCHEMA_VERSION,
@@ -159,6 +194,7 @@ def collect_diagnostics() -> dict[str, Any]:
             "version": platform.python_version(),
         },
         "tools": tools,
+        "toolchains": toolchains,
         "paths": paths,
         "installedPacks": {
             "status": "ok",
@@ -197,7 +233,7 @@ def print_text_report(diagnostics: dict[str, Any], verbose: bool) -> None:
     """doctor 진단 결과를 사람이 읽기 쉬운 콘솔 리포트로 출력합니다.
 
     Args:
-        diagnostics (dict[str, Any]): print 텍스트 report을 계산하거나 검증할 때 필요한 진단 정보 입력입니다.
+        diagnostics (dict[str, Any]): 출력할 진단 정보입니다.
         verbose (bool): 상세 경로, 설치 힌트, 원본 설정을 출력에 포함할지 여부입니다.
     """
     print(f"Judge doctor: {diagnostics['status']}")
@@ -206,14 +242,45 @@ def print_text_report(diagnostics: dict[str, Any], verbose: bool) -> None:
     print(f"Python: {status_icon(python['status'])} {python['version']} ({python['path']})")
 
     print("Tools:")
-    for key in ("cpp", "javaCompiler", "javaRuntime", "pypyRuntime", "git"):
+    for key in (
+        "cpp",
+        "javaCompiler",
+        "javaRuntime",
+        "pythonRuntime",
+        "pypyRuntime",
+        "git",
+        "docker",
+    ):
         tool = diagnostics["tools"][key]
         value = tool["path"] or ", ".join(tool["candidates"])
+        if key == "docker":
+            requirement = "required" if tool.get("required") else "optional"
+            value = f"{value} ({requirement})"
         print(f"  {tool['label']}: {status_icon(tool['status'])} {value}")
         if tool["status"] != "ok" and tool.get("installHint"):
-            print(f"    install: {tool['installHint']}")
+            action = "setup" if key == "docker" else "install"
+            print(f"    {action}: {tool['installHint']}")
         if verbose and tool.get("configured"):
             print(f"    configured by {tool['env']}: {tool['configured']}")
+        if verbose and tool.get("source"):
+            print(f"    resolver source: {tool['source']}")
+            if tool.get("profileId"):
+                print(f"    managed profile: {tool['profileId']} {tool['profileVersion']}")
+        if key == "docker" and verbose:
+            print(f"    daemon: {tool['daemonStatus']}")
+            if tool.get("serverVersion"):
+                print(f"    server version: {tool['serverVersion']}")
+            if tool.get("error"):
+                print(f"    detail: {tool['error']}")
+
+    toolchains = diagnostics["toolchains"]
+    active = toolchains.get("active") or {}
+    toolchain_value = (
+        f"{active.get('profileId')} {active.get('version')}"
+        if active
+        else toolchains.get("error") or "not configured"
+    )
+    print(f"Managed toolchain: {status_icon(toolchains['status'])} {toolchain_value}")
 
     print("Paths:")
     for key in ("projectRoot", "dataHome", "cacheHome", "packHome", "sourceHome"):

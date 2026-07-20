@@ -1,10 +1,8 @@
-"""컴파일러 common 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""컴파일러 common 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
-import os
 import re
-import shutil
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +11,7 @@ from typing import Any
 from alj_core.config import COMPILE_FLAGS
 from alj_core.errors import JudgeError
 from alj_core.paths import rel
+from alj_core.toolchains import resolve_tool as resolve_toolchain_tool
 from alj_core.utils.process import run_command
 
 CPP_SUFFIXES = {".cpp", ".cc", ".cxx"}
@@ -29,8 +28,7 @@ _COMPILER_IDENTITY_CACHE: dict[tuple[str, str, tuple[str, ...]], dict[str, Any]]
 
 @dataclass(frozen=True)
 class PreparedSubmission:
-    """prepared 제출 상태와 관련 동작을 하나의 객체로 표현합니다.
-    """
+    """prepared 제출 상태와 관련 동작을 하나의 객체로 표현합니다."""
 
     command: list[str]
     language: str
@@ -103,16 +101,7 @@ def resolve_tool(env_name: str, candidates: list[str]) -> str:
     Returns:
         str: 호출자가 식별자, 경로, 메시지로 사용할 도구 문자열입니다.
     """
-    configured = os.environ.get(env_name)
-    if configured:
-        return configured
-    for candidate in candidates:
-        resolved = shutil.which(candidate)
-        if resolved:
-            return resolved
-    raise JudgeError(
-        f"required tool not found. Set {env_name} or install one of: {', '.join(candidates)}"
-    )
+    return resolve_toolchain_tool(env_name, candidates)
 
 
 def compiler_identity(

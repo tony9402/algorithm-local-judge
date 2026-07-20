@@ -1,5 +1,5 @@
-"""검증기, 기준 솔루션, 체커 실행을 담당하는 저지 런타임 유틸리티입니다.
-"""
+"""검증기, 기준 솔루션, 체커 실행을 담당하는 저지 런타임 유틸리티입니다."""
+
 from __future__ import annotations
 
 from pathlib import Path

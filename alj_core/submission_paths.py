@@ -1,5 +1,5 @@
-"""제출 경로 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""제출 경로 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from datetime import datetime

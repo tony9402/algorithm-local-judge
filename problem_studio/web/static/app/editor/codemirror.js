@@ -15,11 +15,13 @@ import {
 import { nextWordEndIndex, nextWordPosition, previousWordPosition } from "./position.js";
 
 export {
+  currentSolutionModalDraft,
   focusModalEditor,
   getModalEditorValue,
   initializeSourceModalEditors,
   modalEditorKeyForElement,
   refreshModalEditor,
+  restoreSolutionModalDraft,
   setModalEditorValue,
   updateModalEditorOptions,
 } from "./modal-codemirror.js";

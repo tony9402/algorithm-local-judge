@@ -78,6 +78,128 @@ h2 {
   width: min(760px, calc(100vw - 32px));
 }
 
+.problem-picker-modal {
+  width: min(680px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.problem-picker-results {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.problem-picker-list {
+  min-height: 0;
+  max-height: min(60dvh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.problem-picker-group {
+  display: grid;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding-inline: 0;
+}
+
+.problem-picker-folder-header {
+  padding: 2px 4px;
+}
+
+.problem-folder-move-modal {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.problem-folder-move-modal #problemFolderMoveProblemLabel {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.problem-folder-move-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.problem-folder-move-dialog-actions button {
+  min-height: 44px;
+  min-width: 88px;
+}
+
+.pack-install-flow {
+  display: grid;
+  gap: 14px;
+}
+
+.pack-install-flow > .primary {
+  width: 100%;
+  min-height: 44px;
+}
+
+.pack-install-actions,
+.pack-progress-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pack-install-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.pack-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.pack-progress-heading {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pack-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.pack-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.pack-advanced-install {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.pack-advanced-install > summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.pack-advanced-install > p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .modal-heading {
   display: flex;
   justify-content: space-between;

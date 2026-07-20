@@ -1,17 +1,17 @@
-"""케이스 expansion 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""케이스 expansion 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from commons.generate import expand_cases
 from alj_core.cases_diagnostics import (
     diagnostic,
     expansion_error_location,
     find_case_line,
 )
 from alj_core.cases_models import CaseCompileDiagnostic
+from commons.generate import expand_cases
 
 
 def expand_profile_cases(

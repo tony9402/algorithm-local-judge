@@ -1,5 +1,5 @@
-"""서버 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""서버 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 import threading
@@ -9,6 +9,7 @@ from pathlib import Path
 
 import uvicorn
 
+from commons.job_persistence import default_job_history_path
 from problem_studio.web.app import create_app
 from problem_studio.web.security_policy import is_local_binding
 
@@ -61,6 +62,7 @@ def run_server(
             git_write_enabled=git_write_enabled,
             workspace_write_enabled=local_binding,
             workspace_warning=not local_binding,
+            job_history_path=default_job_history_path("problem-studio"),
         ),
         host=host,
         port=port,

@@ -1,5 +1,5 @@
-"""Git API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""Git API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,7 +24,10 @@ from problem_studio.web.routes.common import (
     workspace_root_from_request,
 )
 from problem_studio.web.schemas import GitCloneRequest, GitCommitRequest
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/workspace/git", tags=["workspace-git"])
 
@@ -80,7 +83,11 @@ def api_git_status(request: Request) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 Git 상태 데이터입니다.
     """
-    return route_result(lambda: status_payload(request))
+    return route_result(
+        lambda: (
+            ensure_local_web_action_allowed(request, "Git status read") or status_payload(request)
+        )
+    )
 
 
 @router.post("/clone")

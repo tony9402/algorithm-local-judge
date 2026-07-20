@@ -1,7 +1,11 @@
 """검증/팩 빌드 실패를 UI가 바로 렌더링할 수 있는 구조로 정리합니다."""
+
 from __future__ import annotations
 
 from typing import Any
+
+from alj_core.errors import JudgeError
+from alj_core.toolchains import managed_provider_status, resolve_tool_details
 
 STAGE_LABELS = {
     "cases": "cases.yml 검사",
@@ -18,6 +22,25 @@ STAGE_TARGETS = {
     "solutions": "solutions/",
     "pack": "dist/packs",
 }
+
+
+def toolchain_diagnostics() -> dict[str, Any]:
+    """Expose the same executable selection used by Judge compilation and execution."""
+    tools = {}
+    for tool_id in ("cxx", "javac", "java", "python", "pypy"):
+        try:
+            resolved = resolve_tool_details(tool_id)
+        except JudgeError as exc:
+            tools[tool_id] = {"status": "missing", "path": None, "error": str(exc)}
+        else:
+            tools[tool_id] = {
+                "status": "ok",
+                "path": resolved.path,
+                "source": resolved.source,
+                "profileId": resolved.profile_id,
+                "profileVersion": resolved.profile_version,
+            }
+    return {"provider": managed_provider_status(), "tools": tools}
 
 
 def stage_label(stage: str | None) -> str:

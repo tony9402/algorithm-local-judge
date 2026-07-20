@@ -2,23 +2,33 @@
  * 작업 공간 화면 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
  */
 
-import { $, escapeHtml, optional, setText } from "./dom.js";
+import { $, escapeHtml, optional, pathDisclosureHtml, setText } from "./dom.js";
 import { currentProblemResult } from "./results.js";
 import { state } from "./state.js";
 import { rememberView } from "./view-persistence.js";
+import { trapFocusWithin } from "./modal.js";
 
 const workspaceCallbacks = {
+  closeGitDrawer: () => {},
   selectProblem: async () => {},
   withErrors: async (action) => action(),
+  closeJobCenter: () => {},
 };
-const COMPACT_SIDEBAR_QUERY = "(max-width: 1380px)";
+const COMPACT_SIDEBAR_QUERY = "(max-width: 1199px)";
+let sidebarTrigger = null;
+let lastRenderedSelectedProblem = null;
 
 function compactSidebarActive() {
   return window.matchMedia?.(COMPACT_SIDEBAR_QUERY).matches ?? false;
 }
 function updateSidebarAccessibility(open = document.body.classList.contains("sidebar-open")) {
   const sidebar = optional("studioSidebar");
-  const hidden = compactSidebarActive() && !open;
+  const compact = compactSidebarActive();
+  const hidden = compact && !open;
+  sidebar?.setAttribute("role", compact ? "dialog" : "navigation");
+  if (compact) sidebar?.setAttribute("aria-modal", "true");
+  else sidebar?.removeAttribute("aria-modal");
+  sidebar?.setAttribute("aria-label", compact ? "문제 탐색" : "문제 탐색");
   if (hidden) {
     sidebar?.setAttribute("inert", "");
     sidebar?.setAttribute("aria-hidden", "true");
@@ -26,6 +36,11 @@ function updateSidebarAccessibility(open = document.body.classList.contains("sid
     sidebar?.removeAttribute("inert");
     sidebar?.removeAttribute("aria-hidden");
   }
+  optional("sidebarToggle")?.toggleAttribute("inert", compact && open);
+  optional("alertStack")?.toggleAttribute("inert", compact && open);
+  document.querySelector(".workspace")?.toggleAttribute("inert", compact && open);
+  document.body.classList.toggle("sidebar-modal-open", compact && open);
+  optional("sidebarBackdrop")?.setAttribute("aria-hidden", compact && open ? "false" : "true");
 }
 export function configureWorkspaceView(callbacks = {}) {
   Object.assign(workspaceCallbacks, callbacks);
@@ -51,13 +66,33 @@ export function updateMobileHeader(title = null, meta = null) {
  *
  * @param {boolean} open sidebar open을 계산하거나 검증할 때 필요한 open 입력입니다.
  */
-export function setSidebarOpen(open) {
+export function setSidebarOpen(open, options = {}) {
+  const compact = compactSidebarActive();
+  if (!compact) open = false;
+  if (open) {
+    workspaceCallbacks.closeGitDrawer({ restoreFocus: false });
+    workspaceCallbacks.closeJobCenter({ restoreFocus: false });
+    sidebarTrigger = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : optional("sidebarToggle");
+  }
   document.body.classList.toggle("sidebar-open", open);
   optional("sidebarToggle")?.setAttribute("aria-expanded", open ? "true" : "false");
   updateSidebarAccessibility(open);
   updateMobileHeader();
+  if (open) {
+    window.requestAnimationFrame(() => {
+      const search = optional("problemFilterInput");
+      const close = optional("sidebarClose");
+      (search || close)?.focus();
+    });
+  } else {
+    if (options.restoreFocus !== false && sidebarTrigger?.isConnected) sidebarTrigger.focus();
+    sidebarTrigger = null;
+  }
 }
 export function syncSidebarAccessibility() {
+  if (!compactSidebarActive()) document.body.classList.remove("sidebar-open");
   updateSidebarAccessibility();
   updateMobileHeader();
 }
@@ -70,9 +105,14 @@ export function toggleSidebar() {
 /**
  * sidebar 모달이나 열린 상태를 닫고 관련 임시 상태를 정리합니다.
  */
-export function closeSidebar() {
-  setSidebarOpen(false);
+export function closeSidebar(options = {}) {
+  setSidebarOpen(false, options);
 }
+
+document.addEventListener("keydown", (event) => {
+  if (!compactSidebarActive() || !document.body.classList.contains("sidebar-open")) return;
+  trapFocusWithin(event, optional("studioSidebar"));
+});
 export function problemLabel(problem) {
   return `${problem.problemId} ${problem.title || ""}`.trim();
 }
@@ -120,6 +160,61 @@ function problemMatchesFilter(problem, query) {
     validationStatus?.label,
   ].filter(Boolean).join(" ").toLowerCase();
   return haystack.includes(query);
+}
+
+function problemListContextKey() {
+  const collapsed = Object.keys(state.problemFolderCollapsed || {})
+    .filter((key) => state.problemFolderCollapsed[key])
+    .sort();
+  return JSON.stringify([
+    state.activeRepository || "legacy",
+    String(state.problemFilter || "").trim().toLowerCase(),
+    collapsed,
+  ]);
+}
+
+function captureProblemListPosition(list) {
+  const previousContext = list.dataset.scrollContext;
+  if (!previousContext) return null;
+  const items = Array.from(list.querySelectorAll(".list-item[data-problem-id]"));
+  const firstVisible = items.find(
+    (item) => item.offsetTop + item.offsetHeight > list.scrollTop
+  );
+  const position = {
+    problemId: firstVisible?.dataset.problemId || "",
+    offset: firstVisible ? firstVisible.offsetTop - list.scrollTop : 0,
+    scrollTop: list.scrollTop,
+  };
+  state.problemListScrollByContext[previousContext] = position;
+  return position;
+}
+
+function restoreProblemListPosition(list, fallbackPosition) {
+  const context = problemListContextKey();
+  list.dataset.scrollContext = context;
+  const position = state.problemListScrollByContext[context] || fallbackPosition;
+  const target = position?.problemId
+    ? Array.from(list.querySelectorAll(".list-item[data-problem-id]")).find(
+        (item) => item.dataset.problemId === position.problemId
+      )
+    : null;
+  if (target) list.scrollTop = Math.max(0, target.offsetTop - Number(position.offset || 0));
+  else if (position) list.scrollTop = Math.max(0, Number(position.scrollTop || 0));
+  else list.scrollTop = 0;
+}
+
+function revealSelectedProblemIfNeeded(list) {
+  if (lastRenderedSelectedProblem === state.selectedProblem) return;
+  lastRenderedSelectedProblem = state.selectedProblem;
+  const selected = list.querySelector(".list-item.active");
+  if (!selected) return;
+  const listRect = list.getBoundingClientRect();
+  const selectedRect = selected.getBoundingClientRect();
+  if (selectedRect.top < listRect.top) {
+    list.scrollTop -= listRect.top - selectedRect.top;
+  } else if (selectedRect.bottom > listRect.bottom) {
+    list.scrollTop += selectedRect.bottom - listRect.bottom;
+  }
 }
 
 function problemFolderKey(folder) {
@@ -173,6 +268,57 @@ export function syncWorkspaceProblemSummaries() {
     folders: problemFolderSummaries(state.problems),
   };
   renderWorkspace(state.workspace);
+}
+export function renderProblemSelectionState() {
+  const emptyState = optional("workspaceEmptyState");
+  const authoringWorkspace = optional("problemAuthoringWorkspace");
+  const problems = state.problems || [];
+  const selected = Boolean(
+    state.selectedProblem
+    && state.detail?.problemId === state.selectedProblem
+    && problems.some((problem) => problem.problemId === state.selectedProblem)
+  );
+  const firstProblem = problems.length === 0;
+  const problemList = optional("problemList");
+  for (const item of problemList?.querySelectorAll(".list-item[data-problem-id]") || []) {
+    const active = item.dataset.problemId === state.selectedProblem;
+    item.classList.toggle("active", active);
+    if (active) item.setAttribute("aria-current", "page");
+    else item.removeAttribute("aria-current");
+  }
+  if (problemList) revealSelectedProblemIfNeeded(problemList);
+  optional("workspaceBuildAllButton")?.classList.toggle("hidden", firstProblem);
+  emptyState?.classList.toggle("hidden", selected);
+  emptyState?.setAttribute("aria-hidden", selected ? "true" : "false");
+  authoringWorkspace?.classList.toggle("hidden", !selected);
+  authoringWorkspace?.setAttribute("aria-hidden", selected ? "false" : "true");
+  if (selected) {
+    authoringWorkspace?.removeAttribute("inert");
+    return;
+  }
+  authoringWorkspace?.setAttribute("inert", "");
+  setText(
+    "workspaceEmptyTitle",
+    firstProblem ? "첫 문제를 만들어 시작하세요" : "제작할 문제를 선택하세요"
+  );
+  setText(
+    "workspaceEmptyDescription",
+    firstProblem
+      ? "문제를 만들면 메타데이터, 테스트 데이터, 채점기와 솔루션을 한곳에서 관리할 수 있습니다."
+      : "왼쪽 문제 목록에서 작업할 문제를 선택하거나 새 문제를 만드세요."
+  );
+  setText("emptyCreateProblemButton", firstProblem ? "첫 문제 만들기" : "새 문제 만들기");
+  setText("problemTitle", firstProblem ? "워크스페이스 준비됨" : "문제를 선택하세요");
+  setText(
+    "problemMeta",
+    firstProblem
+      ? "문제 0개 · 아래에서 첫 작업을 선택하세요."
+      : "문제 목록에서 제작할 문제를 선택하세요."
+  );
+  updateMobileHeader(
+    firstProblem ? "워크스페이스 준비됨" : "문제를 선택하세요",
+    `${problems.length}개 문제`
+  );
 }
 /**
  * 작업 공간 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
@@ -243,13 +389,13 @@ export function renderRepositorySelector(data = state.workspace || {}) {
   select.value = state.activeRepository || "";
 
   const active = repositories.find((item) => item.name === state.activeRepository);
-  const branch = active?.branch || (state.activeRepository ? "branch 없음" : "legacy");
+  const branch = active?.branch || (state.activeRepository ? "브랜치 정보 없음" : "일반 workspace");
   const count = active?.problemCount ?? data.problemCount ?? 0;
-  const remote = active?.remote || (state.activeRepository ? "remote 없음" : data.workspace || "");
+  const remote = active?.remote || (state.activeRepository ? "원격 저장소 없음" : data.workspace || "");
   status.innerHTML = `
     <div><strong>${escapeHtml(state.activeRepository || "현재 워크스페이스")}</strong></div>
     <div>${escapeHtml(branch)} · ${count}개 문제</div>
-    <div title="${escapeHtml(remote)}">${escapeHtml(remote)}</div>
+    <div>${pathDisclosureHtml(remote)}</div>
   `;
 }
 /**
@@ -260,6 +406,7 @@ export function renderRepositorySelector(data = state.workspace || {}) {
 export function renderProblems(problems) {
   state.problems = problems;
   const list = $("problemList");
+  const previousPosition = captureProblemListPosition(list);
   list.innerHTML = "";
   const filterInput = optional("problemFilterInput");
   if (filterInput && filterInput.value !== state.problemFilter) {
@@ -268,6 +415,8 @@ export function renderProblems(problems) {
   if (!problems.length) {
     list.textContent = "등록된 문제가 없습니다.";
     list.classList.add("muted");
+    list.dataset.scrollContext = problemListContextKey();
+    renderProblemSelectionState();
     return;
   }
   const query = String(state.problemFilter || "").trim().toLowerCase();
@@ -277,6 +426,7 @@ export function renderProblems(problems) {
   if (!visibleProblems.length) {
     list.textContent = "검색 결과가 없습니다.";
     list.classList.add("muted");
+    list.dataset.scrollContext = problemListContextKey();
     return;
   }
   list.classList.remove("muted");
@@ -315,6 +465,7 @@ export function renderProblems(problems) {
       const validationStatus = problemValidationStatus(problem);
       item.className = ["list-item", validationStatus?.className].filter(Boolean).join(" ");
       item.type = "button";
+      item.dataset.problemId = problem.problemId;
       if (validationStatus?.title) item.title = validationStatus.title;
       item.innerHTML = `
         <span class="problem-title-row">
@@ -339,6 +490,9 @@ export function renderProblems(problems) {
       section.appendChild(item);
     }
   }
+  restoreProblemListPosition(list, previousPosition);
+  window.requestAnimationFrame(() => revealSelectedProblemIfNeeded(list));
+  renderProblemSelectionState();
 }
 export function setProblemFilter(value) {
   state.problemFilter = String(value || "");

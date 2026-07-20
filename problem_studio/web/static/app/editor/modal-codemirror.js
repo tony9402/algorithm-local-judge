@@ -37,11 +37,6 @@ function handleModalBeforeInput(event) {
     event.preventDefault();
   }
 }
-function stopVimEscapeFromClosingModal(event) {
-  if (event.key === "Escape" && state.editorMode === "vim") {
-    event.stopPropagation();
-  }
-}
 export function modalEditorKeyForElement(element) {
   const modal = element?.closest?.("#solutionCreateModal, #solutionEditModal");
   if (modal?.id === "solutionCreateModal") return "create";
@@ -122,7 +117,6 @@ export function initializeSourceModalEditors() {
     const wrapper = cm.getWrapperElement();
     wrapper.classList.add("source-modal-codemirror", "studio-codemirror");
     wrapper.addEventListener("beforeinput", handleModalBeforeInput, true);
-    wrapper.addEventListener("keydown", stopVimEscapeFromClosingModal);
     state.modalEditors[config.key] = cm;
   }
   updateModalEditorOptions();
@@ -167,6 +161,40 @@ function updateModalWrapperMode(editor) {
 export function getModalEditorValue(key) {
   if (state.modalEditors[key]) return state.modalEditors[key].getValue();
   return optional(key === "create" ? "solutionCreateSource" : "solutionEditSource")?.value || "";
+}
+export function currentSolutionModalDraft() {
+  const createVisible = !optional("solutionCreateModal")?.classList.contains("hidden");
+  const mode = createVisible ? "create" : "edit";
+  return mode === "create"
+    ? {
+        mode,
+        name: optional("solutionCreateName")?.value || "",
+        expected: optional("solutionCreateExpected")?.value || "",
+        language: optional("solutionCreateLanguage")?.value || "",
+        source: getModalEditorValue("create"),
+      }
+    : {
+        mode,
+        path: state.editingSolutionPath || "",
+        name: optional("solutionName")?.value || "",
+        expected: optional("solutionExpected")?.value || "",
+        language: optional("solutionLanguage")?.value || "",
+        source: getModalEditorValue("edit"),
+      };
+}
+
+export function restoreSolutionModalDraft(draft = {}) {
+  const create = draft.mode === "create";
+  const prefix = create ? "solutionCreate" : "solution";
+  const name = optional(create ? "solutionCreateName" : "solutionName");
+  const expected = optional(create ? "solutionCreateExpected" : "solutionExpected");
+  const language = optional(create ? "solutionCreateLanguage" : "solutionLanguage");
+  if (name) name.value = draft.name || "";
+  if (expected) expected.value = draft.expected || "wa";
+  if (language) language.value = draft.language || "cpp";
+  setModalEditorValue(create ? "create" : "edit", draft.source || "");
+  if (!create && draft.path) state.editingSolutionPath = draft.path;
+  return prefix;
 }
 /**
  * 모달 편집기 value 값을 내부 상태나 DOM 요소에 반영합니다.

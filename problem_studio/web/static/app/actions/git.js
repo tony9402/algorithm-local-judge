@@ -4,8 +4,8 @@
 
 import { api } from "../api.js";
 import { optional } from "../dom.js";
-import { renderGitStatus } from "../git-view.js?v=20260522-01";
-import { saveOpenFileIfDirty } from "./files.js";
+import { renderGitStatus } from "../git-view.js?v=20260712-01";
+import { guardUnsavedTransition } from "../unsaved-changes.js";
 
 const gitCallbacks = {
   refresh: async () => {},
@@ -30,6 +30,17 @@ export async function refreshGitStatus() {
   }
 }
 export async function runGitAction(action, options = {}) {
+  if (action === "pull") {
+    return guardUnsavedTransition(
+      "Git 당겨오기",
+      () => runGitActionWithoutGuard(action, options),
+      { scope: "workspace" }
+    );
+  }
+  return runGitActionWithoutGuard(action, options);
+}
+
+async function runGitActionWithoutGuard(action, options = {}) {
   const result = await api(`/api/workspace/git/${action}`, {
     method: "POST",
     body: JSON.stringify(options),
@@ -47,8 +58,15 @@ export async function runGitAction(action, options = {}) {
 export async function commitGitChanges() {
   const message = optional("gitCommitMessage")?.value.trim() || "";
   if (!message) throw new Error("commit message is required.");
-  await saveOpenFileIfDirty();
-  await runGitAction("commit", { message });
+  return guardUnsavedTransition(
+    "Git commit",
+    () => commitGitChangesWithoutGuard(message),
+    { scope: "workspace" }
+  );
+}
+
+async function commitGitChangesWithoutGuard(message) {
+  await runGitActionWithoutGuard("commit", { message });
   const input = optional("gitCommitMessage");
   if (input) input.value = "";
   await gitCallbacks.refresh();

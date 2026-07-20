@@ -1,5 +1,5 @@
-"""프로세스 기능을 담당하는 모듈입니다.
-"""
+"""프로세스 기능을 담당하는 모듈입니다."""
+
 from __future__ import annotations
 
 import os
@@ -12,11 +12,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from alj_core.utils.windows_job import WindowsJob, WindowsJobError, create_windows_job
+
 
 @dataclass(frozen=True)
 class CommandResult:
-    """명령 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
-    """
+    """명령 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다."""
 
     returncode: int
     stdout: bytes
@@ -26,6 +27,8 @@ class CommandResult:
     stdout_truncated: bool = False
     stderr_truncated: bool = False
     output_truncated: bool = False
+    memory_limit_exceeded: bool = False
+    system_error: bool = False
 
 
 DEFAULT_CAPTURE_LIMIT_BYTES = 1024 * 1024
@@ -36,8 +39,7 @@ PROCESS_GROUP_KILL_GRACE_SECONDS = 0.2
 
 
 class MemorySampler:
-    """메모리 sampler 상태와 관련 동작을 하나의 객체로 표현합니다.
-    """
+    """메모리 sampler 상태와 관련 동작을 하나의 객체로 표현합니다."""
 
     def __init__(self, pid: int) -> None:
         self.pid = pid
@@ -73,8 +75,8 @@ def process_memory_bytes(pid: int) -> int | None:
 def linux_process_memory_bytes(pid: int) -> int | None:
     """linux 프로세스 메모리 바이트 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
-        Args:
-            pid (int): linux 프로세스 메모리 바이트을 계산하거나 검증할 때 필요한 pid 입력입니다.
+    Args:
+        pid (int): linux 프로세스 메모리 바이트을 계산하거나 검증할 때 필요한 pid 입력입니다.
     """
     status = Path(f"/proc/{pid}/status")
     try:
@@ -91,8 +93,8 @@ def linux_process_memory_bytes(pid: int) -> int | None:
 def darwin_process_memory_bytes(pid: int) -> int | None:
     """darwin 프로세스 메모리 바이트 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
 
-        Args:
-            pid (int): darwin 프로세스 메모리 바이트을 계산하거나 검증할 때 필요한 pid 입력입니다.
+    Args:
+        pid (int): darwin 프로세스 메모리 바이트을 계산하거나 검증할 때 필요한 pid 입력입니다.
     """
     try:
         result = subprocess.run(
@@ -170,12 +172,25 @@ def truncate_output_file(path: Path, limit: int) -> bool:
     return True
 
 
-def terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+def terminate_process_group(
+    process: subprocess.Popen[bytes], windows_job: WindowsJob | None = None
+) -> None:
     """terminate 프로세스 group 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
 
     Args:
         process (subprocess.Popen[bytes]): terminate 프로세스 group을 계산하거나 검증할 때 필요한 프로세스 입력입니다.
     """
+    if windows_job is not None:
+        job_error = None
+        try:
+            windows_job.terminate()
+        except OSError as exc:
+            job_error = exc
+        if process.poll() is None:
+            process.kill()
+        if job_error is not None:
+            raise job_error
+        return
     if process.poll() is not None:
         return
     if os.name != "nt":
@@ -209,25 +224,30 @@ def run_command_result(
     stdout_limit_bytes: int = DEFAULT_CAPTURE_LIMIT_BYTES,
     stderr_limit_bytes: int = DEFAULT_CAPTURE_LIMIT_BYTES,
     output_limit_bytes: int = DEFAULT_FILE_OUTPUT_LIMIT_BYTES,
+    memory_limit_bytes: int | None = None,
 ) -> CommandResult:
     """명령 결과 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
 
-        Args:
-            command (Sequence[str]): 명령 결과을 계산하거나 검증할 때 필요한 명령 입력입니다.
-            timeout_ms (int | None): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
-            cwd (Path | None): 명령 결과을 계산하거나 검증할 때 필요한 cwd 입력입니다.
-            input_path (Path | None): 검증기, 솔루션, 체커에 전달할 테스트 입력 파일입니다.
-            output_path (Path | None): 제출 프로그램이 생성한 실제 출력 파일입니다.
-            log_path (Path | None): log 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
-            stdout_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 표준 출력 제한 바이트 입력입니다.
-            stderr_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 표준 오류 제한 바이트 입력입니다.
-            output_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 출력 제한 바이트 입력입니다.
+    Args:
+        command (Sequence[str]): 명령 결과을 계산하거나 검증할 때 필요한 명령 입력입니다.
+        timeout_ms (int | None): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+        cwd (Path | None): 명령 결과을 계산하거나 검증할 때 필요한 cwd 입력입니다.
+        input_path (Path | None): 검증기, 솔루션, 체커에 전달할 테스트 입력 파일입니다.
+        output_path (Path | None): 제출 프로그램이 생성한 실제 출력 파일입니다.
+        log_path (Path | None): log 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        stdout_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 표준 출력 제한 바이트 입력입니다.
+        stderr_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 표준 오류 제한 바이트 입력입니다.
+        output_limit_bytes (int): 명령 결과을 계산하거나 검증할 때 필요한 출력 제한 바이트 입력입니다.
+        memory_limit_bytes (int | None): Windows에서 전체 프로세스 트리에 적용할 메모리 상한입니다.
     """
     stdin = None
     stdout = subprocess.PIPE
     start = time.perf_counter()
     process = None
     sampler = None
+    windows_job = None
+    memory_limit_exceeded = False
+    system_error = False
     try:
         if input_path is not None:
             stdin = input_path.open("rb")
@@ -236,6 +256,7 @@ def run_command_result(
             stdout = output_path.open("wb")
 
         popen_command = command_with_child_limits(command)
+        windows_job = create_windows_job(memory_limit_bytes)
         process = subprocess.Popen(
             popen_command,
             cwd=cwd,
@@ -243,7 +264,11 @@ def run_command_result(
             stdout=stdout,
             stderr=subprocess.PIPE,
             start_new_session=os.name != "nt",
+            creationflags=windows_job.creation_flags if windows_job is not None else 0,
         )
+        if windows_job is not None:
+            windows_job.assign(process)
+            windows_job.resume(process.pid)
         sampler = MemorySampler(process.pid)
         sampler.start()
         try:
@@ -252,7 +277,7 @@ def run_command_result(
             )
             returncode = process.returncode
         except subprocess.TimeoutExpired as exc:
-            terminate_process_group(process)
+            terminate_process_group(process, windows_job)
             stdout_data, stderr = process.communicate()
             returncode = 124
             timeout_message = str(exc).encode("utf-8")
@@ -265,12 +290,36 @@ def run_command_result(
                 )
         elapsed_ms = max(0, int(round((time.perf_counter() - start) * 1000)))
         memory_bytes = sampler.stop() if sampler is not None else None
+        if windows_job is not None:
+            job_memory_bytes = windows_job.peak_memory_bytes()
+            if job_memory_bytes is not None:
+                memory_bytes = (
+                    job_memory_bytes
+                    if memory_bytes is None
+                    else max(memory_bytes, job_memory_bytes)
+                )
+            memory_limit_exceeded = windows_job.memory_limit_exceeded(returncode, memory_bytes)
     except OSError as exc:
         elapsed_ms = max(0, int(round((time.perf_counter() - start) * 1000)))
+        system_error = isinstance(exc, WindowsJobError)
+        if process is not None and process.poll() is None:
+            try:
+                terminate_process_group(process, windows_job)
+            except OSError:
+                if process.poll() is None:
+                    process.kill()
+            process.wait()
         if log_path:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             log_path.write_text(str(exc), encoding="utf-8")
-        return CommandResult(127, b"", str(exc).encode("utf-8"), elapsed_ms, None)
+        return CommandResult(
+            127,
+            b"",
+            str(exc).encode("utf-8"),
+            elapsed_ms,
+            None,
+            system_error=system_error,
+        )
     finally:
         if sampler is not None and process is not None and process.poll() is None:
             sampler.stop()
@@ -278,6 +327,8 @@ def run_command_result(
             stdin.close()
         if output_path is not None and hasattr(stdout, "close"):
             stdout.close()
+        if windows_job is not None:
+            windows_job.close()
 
     stdout_data = stdout_data or b""
     stderr = stderr or b""
@@ -309,6 +360,8 @@ def run_command_result(
         stdout_truncated,
         stderr_truncated,
         output_truncated,
+        memory_limit_exceeded,
+        system_error,
     )
 
 

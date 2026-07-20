@@ -1,4 +1,5 @@
 """Judge Web 제출 간격 제한을 관리합니다."""
+
 from __future__ import annotations
 
 import threading

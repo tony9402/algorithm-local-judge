@@ -12,7 +12,20 @@ const state = {
   artifactExpanded: false,
   artifactWrap: false,
   cache: null,
+  packsExpanded: false,
   sources: [],
+  submissions: [],
+  selectedSubmissionId: null,
+  selectedSubmission: null,
+  submissionDetailTab: "result",
+  submissionsScope: "problem",
+  submissionsPage: 1,
+  submissionsPageSize: 20,
+  submissionsTotalPages: 1,
+  hasActiveSubmissions: false,
+  hasAnySubmissions: false,
+  submissionsListToken: 0,
+  submissionDetailToken: 0,
   sourceHistoryFilter: "",
   sourceHistoryScope: "problem",
   sourceHistoryStatusFilter: "all",
@@ -28,8 +41,12 @@ const state = {
   jobsTotal: 0,
   jobsTotalPages: 1,
   jobsServerPaged: false,
+  activePackJobId: null,
   isBusy: false,
   pendingJobAction: false,
+  connectionAttemptToken: 0,
+  connectionRetrying: false,
+  secondaryErrors: {},
   problemDrafts: {},
   config: {
     sampleProfile: "sample",
@@ -48,8 +65,18 @@ function judgeProfile() {
   return selector?.value || state.config?.judgeProfile || "full";
 }
 
+const PROFILE_LABELS = {
+  full: "전체",
+  sample: "샘플",
+  hidden: "숨김",
+};
+
+function profileLabel(profile) {
+  return PROFILE_LABELS[profile] || profile || "알 수 없는 프로필";
+}
+
 function profileCaseText(count, profile = judgeProfile()) {
-  return `${count}개 ${profile} 케이스`;
+  return `${count}개 ${profileLabel(profile)} 테스트케이스`;
 }
 
 window.AljApp = {
@@ -57,6 +84,7 @@ window.AljApp = {
   COLLAPSED_FOLDERS_KEY,
   SELECTED_PROBLEM_KEY,
   judgeProfile,
+  profileLabel,
   profileCaseText,
   sampleProfile,
   state,

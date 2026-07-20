@@ -1,5 +1,5 @@
-"""케이스 models 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""케이스 models 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -9,8 +9,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class CaseCompileDiagnostic:
-    """케이스 컴파일 진단 정보 상태와 관련 동작을 하나의 객체로 표현합니다.
-    """
+    """케이스 컴파일 진단 정보 상태와 관련 동작을 하나의 객체로 표현합니다."""
 
     severity: str
     path: str
@@ -34,8 +33,7 @@ class CaseCompileDiagnostic:
 
 @dataclass(frozen=True)
 class CompiledCase:
-    """compiled 케이스에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
-    """
+    """compiled 케이스에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다."""
 
     index: int
     name: str
@@ -53,8 +51,7 @@ class CompiledCase:
 
 @dataclass(frozen=True)
 class CompiledProfile:
-    """compiled 프로필에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
-    """
+    """compiled 프로필에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다."""
 
     name: str
     cases: list[CompiledCase] = field(default_factory=list)
@@ -69,8 +66,7 @@ class CompiledProfile:
 
 @dataclass(frozen=True)
 class CaseCompileResult:
-    """케이스 컴파일 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
-    """
+    """케이스 컴파일 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다."""
 
     path: Path
     profiles: list[CompiledProfile] = field(default_factory=list)

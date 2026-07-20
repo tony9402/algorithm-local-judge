@@ -1,5 +1,5 @@
-"""CLI 기능을 담당하는 모듈입니다.
-"""
+"""CLI 기능을 담당하는 모듈입니다."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,6 +8,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from alj_core.errors import JudgeError
+from alj_core.studio_cli_options import add_web_arguments
+from alj_core.version import __version__
 from problem_studio.commands.web import handle as handle_web
 
 
@@ -18,19 +20,11 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: 공통 옵션과 하위 명령이 등록된 argparse 파서입니다.
     """
     parser = argparse.ArgumentParser(prog="problem-studio", allow_abbrev=False)
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 
     web_parser = subparsers.add_parser("web", allow_abbrev=False)
-    web_parser.add_argument("--workspace", default=".")
-    web_parser.add_argument("--clone")
-    web_parser.add_argument("--branch")
-    web_parser.add_argument("--repo")
-    web_parser.add_argument("--repo-name")
-    web_parser.add_argument("--host", default="127.0.0.1")
-    web_parser.add_argument("--port", type=int, default=8775)
-    web_open = web_parser.add_mutually_exclusive_group()
-    web_open.add_argument("--open", dest="open", action="store_true", default=True)
-    web_open.add_argument("--no-open", dest="open", action="store_false")
+    add_web_arguments(web_parser)
 
     return parser
 
@@ -38,9 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
 def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     """파싱된 하위 명령 이름을 등록된 핸들러에 연결하고 명령이 없으면 도움말을 출력합니다.
 
-        Args:
-            args (argparse.Namespace): argparse가 파싱한 명령 옵션과 대상 값을 담은 네임스페이스입니다.
-            parser (argparse.ArgumentParser): 하위 명령과 공통 옵션을 등록하거나 오류를 출력할 argparse 파서입니다.
+    Args:
+        args (argparse.Namespace): argparse가 파싱한 명령 옵션과 대상 값을 담은 네임스페이스입니다.
+        parser (argparse.ArgumentParser): 하위 명령과 공통 옵션을 등록하거나 오류를 출력할 argparse 파서입니다.
     """
     if args.command is None:
         parser.print_help()

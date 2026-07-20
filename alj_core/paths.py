@@ -1,5 +1,5 @@
-"""경로 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""경로 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import os
@@ -10,8 +10,12 @@ from pathlib import Path
 from alj_core.config import SAFE_ID_RE
 from alj_core.errors import JudgeError
 
+APP_NAME = "algorithm-local-judge"
 ENV_PROJECT_ROOT = "ALJ_PROJECT_ROOT"
+ENV_DATA_HOME = "ALJ_DATA_HOME"
 ENV_CACHE_HOME = "ALJ_CACHE_HOME"
+ENV_PACK_HOME = "ALJ_PACK_HOME"
+ENV_SOURCE_HOME = "ALJ_SOURCE_HOME"
 
 
 def repo_root() -> Path:
@@ -45,12 +49,47 @@ def _configured_path(env_name: str) -> Path | None:
     return Path(value).expanduser().resolve()
 
 
+def _windows_local_app_data() -> Path:
+    value = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if value:
+        return Path(value).expanduser()
+    return Path.home() / "AppData" / "Local"
+
+
+def user_data_root() -> Path:
+    if configured := _configured_path(ENV_DATA_HOME):
+        return configured
+    if os.name == "nt":
+        return (_windows_local_app_data() / APP_NAME).resolve()
+    base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    return (base / APP_NAME).expanduser().resolve()
+
+
+def default_cache_root() -> Path:
+    if configured := _configured_path(ENV_CACHE_HOME):
+        return configured
+    if os.name == "nt":
+        return (_windows_local_app_data() / APP_NAME / "cache").resolve()
+    base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    return (base / APP_NAME).expanduser().resolve()
+
+
+def problem_pack_root() -> Path:
+    if configured := _configured_path(ENV_PACK_HOME):
+        return configured
+    return user_data_root() / "problem-packs"
+
+
+def problem_source_root() -> Path:
+    if configured := _configured_path(ENV_SOURCE_HOME):
+        return configured
+    return user_data_root() / "problem-sources"
+
+
 def cache_root(root: Path | None = None) -> Path:
     if root is not None:
         return root / ".judge-cache"
-    if configured := _configured_path(ENV_CACHE_HOME):
-        return configured
-    return repo_root() / ".judge-cache"
+    return default_cache_root()
 
 
 def build_root(root: Path | None = None) -> Path:
@@ -66,7 +105,9 @@ def build_root(root: Path | None = None) -> Path:
 
 
 def rel(path: Path, root: Path | None = None) -> str:
-    roots = [root] if root is not None else [repo_root(), app_root(), cache_root()]
+    roots = (
+        [root] if root is not None else [repo_root(), app_root(), user_data_root(), cache_root()]
+    )
     resolved = path.resolve()
     for candidate in roots:
         if candidate is None:

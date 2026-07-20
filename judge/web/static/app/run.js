@@ -32,8 +32,8 @@ async function restoreRunResult(result) {
   app.$("wrongPanel").classList.add("hidden");
   app.hideGenerationProgress();
   app.setBadge(app.verdictLabel(result.status), statusClassName(result.status));
-  app.setText("resultMeta", `${result.problemId} · ${result.profile} · ${result.language} · ${result.runId}`);
-  app.setStatusCard("data", "준비됨", result.profile);
+  app.setText("resultMeta", `${result.problemId} · ${app.profileLabel(result.profile)} · ${result.language} · ${result.runId}`);
+  app.setStatusCard("data", "준비됨", app.profileLabel(result.profile));
   app.setStatusCard(
     "judge",
     app.verdictLabel(result.status),
@@ -44,6 +44,7 @@ async function restoreRunResult(result) {
     runSummary(result),
     result.status === "accepted" ? "result-summary success" : "result-summary error"
   );
+  renderLastResultAnchor(result);
   if (result.firstFailedCase) {
     await loadWrongCase(result.runId, result.firstFailedCase);
   }
@@ -57,22 +58,26 @@ async function runSubmission(profile = app.judgeProfile()) {
   app.$("caseResults").classList.add("hidden");
   app.clearDebugLog();
   app.setBadge("채점 중", "neutral");
-  app.setStatusCard("data", "확인 중", profile);
+  app.setStatusCard("data", "확인 중", app.profileLabel(profile));
   app.setStatusCard("judge", "대기 중");
   app.setStatusCard("run", "-", "진행 중");
-  app.setSummary(`${profile} 케이스로 채점 중입니다.`, "result-summary");
+  app.setSummary(`${app.profileLabel(profile)} 테스트케이스로 채점 중입니다.`, "result-summary");
+  renderLastResultPending(profile);
   const compileResult = await app.compileCasesData({ showSuccess: false, profile });
-  if (!compileResult.valid) return;
+  if (!compileResult.valid) {
+    renderLastResultUnavailable("채점 준비를 완료하지 못했습니다.");
+    return;
+  }
   const totalCases = app.compiledCaseCount(compileResult);
   app.setGenerationProgress(0, totalCases, "데이터 생성");
-  app.appendRunLog("Starting judge run.");
+  app.appendRunLog("채점을 시작합니다.");
   const problemId = app.$("problemSelect").value;
   const result = await streamRun(runFormData(profile), () => recordSubmissionCooldown(problemId));
-  if (!result) throw new Error("Run finished without a result.");
+  if (!result) throw new Error("채점 결과를 받지 못했습니다.");
   state.lastRunResult = result;
   app.setBadge(app.verdictLabel(result.status), statusClassName(result.status));
-  app.setText("resultMeta", `${result.problemId} · ${result.profile} · ${result.language} · ${result.runId}`);
-  app.setStatusCard("data", "준비됨", result.profile);
+  app.setText("resultMeta", `${result.problemId} · ${app.profileLabel(result.profile)} · ${result.language} · ${result.runId}`);
+  app.setStatusCard("data", "준비됨", app.profileLabel(result.profile));
   app.setStatusCard(
     "judge",
     app.verdictLabel(result.status),
@@ -80,6 +85,7 @@ async function runSubmission(profile = app.judgeProfile()) {
   );
   app.setStatusCard("run", result.runId, runMetricsText(result));
   app.setSummary(runSummary(result), result.status === "accepted" ? "result-summary success" : "result-summary error");
+  renderLastResultAnchor(result);
   if (result.message) state.debugLogs.push(result.message);
   app.renderDebugLog();
   if (result.firstFailedCase) {
@@ -113,7 +119,7 @@ function caseStatusLabel(status) {
   if (status === "runtime_error") return "런타임 오류";
   if (status === "time_limit") return "시간 초과";
   if (status === "memory_limit") return "메모리 초과";
-  return status?.replaceAll("_", " ") || "-";
+  return status ? `알 수 없음 (${status})` : "-";
 }
 
 function renderCaseResults(result, targetId = "resultCaseResults") {
@@ -141,7 +147,7 @@ function showResultModal(result) {
   state.lastRunResult = result;
   app.setText(
     "resultModalMeta",
-    `${result.problemId || "-"} · ${result.profile || "-"} · ${result.language || "-"} · ${result.runId || "-"}`
+    `${result.problemId || "-"} · ${app.profileLabel(result.profile)} · ${result.language || "-"} · ${result.runId || "-"}`
   );
   renderCaseResults(result, "resultCaseResults");
   app.openModal("resultModal");
@@ -190,6 +196,39 @@ function runMetricsText(result) {
   const memory = metrics.maxMemoryLabel || "확인 불가";
   return `최대 시간 ${time} · 최대 메모리 ${memory}`;
 }
+
+function renderLastResultAnchor(result) {
+  const anchor = app.optional("lastResultAnchor");
+  if (!anchor || !result) return;
+  anchor.classList.remove("hidden");
+  app.setText("lastResultBadge", app.verdictLabel(result.status));
+  const badge = app.optional("lastResultBadge");
+  if (badge) badge.className = `badge ${statusClassName(result.status)}`;
+  app.setText("lastResultMetrics", runMetricsText(result));
+  const button = app.optional("lastResultButton");
+  if (button) button.disabled = false;
+}
+
+function renderLastResultPending(profile) {
+  const anchor = app.optional("lastResultAnchor");
+  if (!anchor) return;
+  anchor.classList.remove("hidden");
+  app.setText("lastResultBadge", "채점 중");
+  const badge = app.optional("lastResultBadge");
+  if (badge) badge.className = "badge neutral";
+  app.setText("lastResultMetrics", `${app.profileLabel(profile)} 테스트케이스를 준비하고 있습니다.`);
+  const button = app.optional("lastResultButton");
+  if (button) button.disabled = true;
+}
+
+function renderLastResultUnavailable(message) {
+  app.setText("lastResultBadge", "준비 실패");
+  const badge = app.optional("lastResultBadge");
+  if (badge) badge.className = "badge wrong";
+  app.setText("lastResultMetrics", message);
+  const button = app.optional("lastResultButton");
+  if (button) button.disabled = true;
+}
 /**
  * 오답 케이스을 파일이나 캐시에서 읽고 필요한 기본값을 적용합니다.
  *
@@ -201,7 +240,7 @@ async function loadWrongCase(runId, caseId) {
   state.artifacts = artifacts;
   state.selectedArtifact = "input";
   state.artifactExpanded = false;
-  app.setText("wrongMeta", `${runId} · case ${caseId}`);
+  app.setText("wrongMeta", `${runId} · 테스트케이스 ${caseId}`);
   app.$("wrongPanel").classList.remove("hidden");
   renderArtifact();
 }
@@ -278,12 +317,12 @@ function renderArtifact() {
   if (downloadButton) downloadButton.disabled = !text;
   if (wrapButton) {
     wrapButton.setAttribute("aria-pressed", state.artifactWrap ? "true" : "false");
-    wrapButton.textContent = state.artifactWrap ? "No wrap" : "Wrap";
+    wrapButton.textContent = state.artifactWrap ? "줄 바꿈 해제" : "줄 바꿈";
   }
   if (expandButton) {
     expandButton.classList.toggle("hidden", !collapsible);
     expandButton.setAttribute("aria-pressed", state.artifactExpanded ? "true" : "false");
-    expandButton.textContent = state.artifactExpanded ? "Collapse" : "Expand";
+    expandButton.textContent = state.artifactExpanded ? "접기" : "펼치기";
   }
 }
 /**
@@ -306,7 +345,14 @@ async function copyArtifact() {
     document.execCommand("copy");
     textarea.remove();
   }
-  app.showToast(`Copied ${state.selectedArtifact} artifact.`);
+  const artifactLabels = {
+    input: "입력",
+    expected: "예상 출력",
+    actual: "실제 출력",
+    diff: "차이점",
+  };
+  const label = artifactLabels[state.selectedArtifact] || "산출물";
+  app.showToast(`${label} 산출물을 복사했습니다.`);
 }
 
 function downloadArtifact() {
@@ -320,7 +366,7 @@ function downloadArtifact() {
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  app.showToast(`Download prepared: ${link.download}`);
+  app.showToast(`다운로드를 준비했습니다: ${link.download}`);
 }
 /**
  * 산출물 wrap 표시 상태를 현재 값의 반대로 전환합니다.
@@ -343,6 +389,9 @@ Object.assign(app, {
   loadWrongCase,
   renderArtifact,
   renderCaseResults,
+  renderLastResultAnchor,
+  renderLastResultPending,
+  renderLastResultUnavailable,
   recordSubmissionCooldown,
   restoreRunResult,
   resultCaseCount,

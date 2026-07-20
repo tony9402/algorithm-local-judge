@@ -1,5 +1,5 @@
-"""limited io 기능을 담당하는 모듈입니다.
-"""
+"""limited io 기능을 담당하는 모듈입니다."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -39,10 +39,10 @@ def ensure_bytes_limit(size: int, limit_bytes: int, label: str) -> None:
 def ensure_text_limit(text: str, limit_bytes: int, label: str) -> bytes:
     """텍스트 제한 조건을 확인하고 위반 시 호출자가 중단할 수 있는 예외를 발생시킵니다.
 
-        Args:
-            text (str): 화면에 표시하거나 비교에 사용할 텍스트입니다.
-            limit_bytes (int): 텍스트 제한을 계산하거나 검증할 때 필요한 제한 바이트 입력입니다.
-            label (str): 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
+    Args:
+        text (str): 화면에 표시하거나 비교에 사용할 텍스트입니다.
+        limit_bytes (int): 텍스트 제한을 계산하거나 검증할 때 필요한 제한 바이트 입력입니다.
+        label (str): 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
     """
     data = text.encode("utf-8")
     ensure_bytes_limit(len(data), limit_bytes, label)
@@ -88,12 +88,12 @@ def copy_limited(
 ) -> int:
     """limited 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
-        Args:
-            source (BinaryIO): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
-            target (Path): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
-            limit_bytes (int): limited을 계산하거나 검증할 때 필요한 제한 바이트 입력입니다.
-            label (str): 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
-            chunk_size (int): limited을 계산하거나 검증할 때 필요한 chunk size 입력입니다.
+    Args:
+        source (BinaryIO): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        target (Path): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
+        limit_bytes (int): limited을 계산하거나 검증할 때 필요한 제한 바이트 입력입니다.
+        label (str): 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
+        chunk_size (int): limited을 계산하거나 검증할 때 필요한 chunk size 입력입니다.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     written = 0
@@ -116,11 +116,11 @@ def copy_limited(
 def write_text_limited(text: str, target: Path, *, limit_bytes: int, label: str) -> int:
     """텍스트 limited 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
-        Args:
-            text (str): 화면에 표시하거나 비교에 사용할 텍스트입니다.
-            target (Path): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
-            limit_bytes (int): 텍스트 limited을 계산하거나 검증할 때 필요한 제한 바이트 입력입니다.
-            label (str): 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
+    Args:
+        text (str): 화면에 표시하거나 비교에 사용할 텍스트입니다.
+        target (Path): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
+        limit_bytes (int): 텍스트 limited을 계산하거나 검증할 때 필요한 제한 바이트 입력입니다.
+        label (str): 진단 결과나 UI 항목에서 사람이 읽을 수 있게 표시할 이름입니다.
     """
     data = ensure_text_limit(text, limit_bytes, label)
     target.parent.mkdir(parents=True, exist_ok=True)

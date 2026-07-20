@@ -9,8 +9,12 @@ let jobs = [];
 let allJobs = [];
 let pollTimer = null;
 const waiters = new Map();
+const jobStatuses = new Map();
+const announcedTerminalJobs = new Set();
+let jobsPanelHome = null;
 const ACTIVE = new Set(["queued", "running", "cancelling"]);
 const TERMINAL = new Set(["succeeded", "failed", "cancelled", "stale"]);
+const JOBS_COMPACT_QUERY = "(max-width: 720px)";
 
 function verdictLabel(status) {
   return {
@@ -20,7 +24,7 @@ function verdictLabel(status) {
     runtime_error: "런타임 오류",
     time_limit: "시간 초과",
     memory_limit: "메모리 초과",
-  }[status] || status || "결과 없음";
+  }[status] || (status ? `알 수 없는 판정 (${status})` : "결과 없음");
 }
 
 function statusLabel(status) {
@@ -32,7 +36,7 @@ function statusLabel(status) {
     failed: "실패",
     cancelled: "취소됨",
     stale: "만료됨",
-  }[status] || status;
+  }[status] || (status ? `알 수 없는 상태 (${status})` : "상태 없음");
 }
 
 function outcomeLabel(outcome) {
@@ -42,7 +46,7 @@ function outcomeLabel(outcome) {
     failed: "주의 필요",
     cancelled: "취소됨",
     stale: "만료됨",
-  }[outcome] || outcome || "";
+  }[outcome] || (outcome ? `알 수 없는 결과 (${outcome})` : "");
 }
 
 function jobOutcome(job) {
@@ -127,7 +131,7 @@ function targetText(job) {
   const target = job.target || {};
   return [
     target.problemId || (job.problemId !== "__packs__" ? job.problemId : ""),
-    target.profile,
+    target.profile ? app.profileLabel(target.profile) : "",
     target.source,
     target.filename,
     target.repository,
@@ -139,7 +143,10 @@ function percent(job) {
   const progress = job.progress || {};
   const current = Number(progress.current);
   const total = Number(progress.total);
-  if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) return ACTIVE.has(job.status) ? 12 : 0;
+  if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+    if (ACTIVE.has(job.status)) return 12;
+    return TERMINAL.has(job.status) ? 100 : 0;
+  }
   return Math.max(0, Math.min(100, Math.round((current / total) * 100)));
 }
 
@@ -157,7 +164,7 @@ function failureDetails(job) {
     const first = job.result.diagnostics?.[0] || {};
     return [{
       label: "cases.yml 검사",
-      target: [first.path, first.line ? `line ${first.line}` : "", first.location].filter(Boolean).join(" · "),
+      target: [first.path, first.line ? `${first.line}번째 줄` : "", first.location].filter(Boolean).join(" · "),
       message: first.message || "cases.yml 검사에 실패했습니다.",
       profile: first.profile,
       line: first.line,
@@ -167,7 +174,7 @@ function failureDetails(job) {
     const first = (job.result.cases || []).find((item) => item.status && item.status !== "ok") || {};
     return [{
       label: app.verdictLabel(job.result.status),
-      target: first.case ? `case ${first.case}` : targetText(job),
+      target: first.case ? `테스트케이스 ${first.case}` : targetText(job),
       message: first.message || `${app.verdictLabel(job.result.status)} 결과입니다.`,
       status: job.result.status,
       profile: job.result.profile,
@@ -189,8 +196,8 @@ function renderFailureDetails(job) {
       const target = detail.target || detail.case || detail.location || detail.problemId || "";
       const message = detail.message || job.error || job.lastLog || "확인할 실패 결과가 있습니다.";
       const meta = [
-        detail.profile ? `프로필 ${detail.profile}` : "",
-        detail.line ? `line ${detail.line}` : "",
+        detail.profile ? `프로필 ${app.profileLabel(detail.profile)}` : "",
+        detail.line ? `${detail.line}번째 줄` : "",
         detail.status ? verdictLabel(detail.status) : "",
       ].filter(Boolean).join(" · ");
       return `
@@ -302,8 +309,15 @@ function renderJobRow(job) {
           <span class="job-outcome ${app.escapeHtml(outcome)}">${app.escapeHtml(displayStatus(job))}</span>
         </div>
       </div>
-      <div class="job-row-target">${app.escapeHtml(targetText(job) || job.kind)}</div>
-      <div class="job-progress-track" aria-hidden="true"><span class="job-progress-fill" style="width:${progress}%"></span></div>
+      <div class="job-row-target">${app.escapeHtml(targetText(job) || displayKind(job))}</div>
+      <div
+        class="job-progress-track"
+        role="progressbar"
+        aria-label="${app.escapeHtml(job.title || displayKind(job))} 진행률"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="${progress}"
+      ><span class="job-progress-fill" style="width:${progress}%"></span></div>
       <div class="job-row-log">${app.escapeHtml(job.lastLog || job.error || job.progress?.message || "")}</div>
       ${renderFailureDetails(job)}
       ${renderJobLogs(job)}
@@ -316,16 +330,39 @@ function renderJobRow(job) {
   `;
 }
 
+function trackJobTransitions(nextJobs) {
+  const announcements = [];
+  for (const job of nextJobs) {
+    const previous = jobStatuses.get(job.jobId);
+    if (
+      previous
+      && !TERMINAL.has(previous)
+      && TERMINAL.has(job.status)
+      && !announcedTerminalJobs.has(job.jobId)
+    ) {
+      announcedTerminalJobs.add(job.jobId);
+      announcements.push(
+        `${job.title || displayKind(job)} 작업이 ${displayStatus(job)} 상태로 끝났습니다.`
+      );
+    }
+    jobStatuses.set(job.jobId, job.status);
+  }
+  if (announcements.length) app.setText("jobsAnnouncements", announcements.join(" "));
+}
+
 /**
  * 작업 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  */
 async function refreshJobs() {
   try {
     const payload = await app.api("/api/jobs?order=queued_desc&page=1&page_size=100");
-    jobs = payload.jobs || [];
+    const nextJobs = payload.jobs || [];
+    trackJobTransitions(nextJobs);
+    jobs = nextJobs;
     allJobs = jobs;
     state.jobsServerPaged = false;
     renderJobs();
+    app.renderPackJobProgress?.(jobs);
     resolveWaiters();
   } finally {
     scheduleJobsPoll();
@@ -374,19 +411,87 @@ function appendJobLogs(job) {
  *
  * @param {boolean} open 작업을 계산하거나 검증할 때 필요한 open 입력입니다.
  */
+function jobsAreCompact() {
+  return window.matchMedia(JOBS_COMPACT_QUERY).matches;
+}
+
+function syncJobsSemantics() {
+  const panel = app.optional("jobsPanel");
+  const button = app.optional("jobsButton");
+  if (!panel || !button) return;
+  if (jobsAreCompact()) {
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    button.setAttribute("aria-haspopup", "dialog");
+  } else {
+    panel.setAttribute("role", "complementary");
+    panel.removeAttribute("aria-modal");
+    button.removeAttribute("aria-haspopup");
+  }
+}
+
+function setJobsClosed() {
+  const panel = app.optional("jobsPanel");
+  const button = app.optional("jobsButton");
+  if (!panel || !button) return;
+  panel.classList.add("hidden");
+  document.body.classList.remove("jobs-open");
+  button.setAttribute("aria-expanded", "false");
+}
+
+function moveJobsPanelToOverlayRoot() {
+  const panel = app.optional("jobsPanel");
+  if (!panel) return;
+  if (!jobsPanelHome) {
+    jobsPanelHome = { parent: panel.parentNode, nextSibling: panel.nextSibling };
+  }
+  document.body.appendChild(panel);
+}
+
+function restoreJobsPanelHome() {
+  const panel = app.optional("jobsPanel");
+  if (!panel || !jobsPanelHome?.parent) return;
+  jobsPanelHome.parent.insertBefore(panel, jobsPanelHome.nextSibling);
+}
+
+function onJobsOverlayClosed() {
+  setJobsClosed();
+  restoreJobsPanelHome();
+  syncJobsSemantics();
+}
+
+function closeJobsForOverlay() {
+  if (app.optional("jobsPanel")?.classList.contains("hidden")) return;
+  setJobsClosed();
+  restoreJobsPanelHome();
+}
+
 function openJobs(open = true) {
   const panel = app.optional("jobsPanel");
   const button = app.optional("jobsButton");
   if (!panel || !button) return;
+  syncJobsSemantics();
+  if (!open) {
+    if (jobsAreCompact() && panel.getAttribute("role") === "dialog" && app.hasActiveModal?.()) {
+      app.closeModals();
+    } else {
+      setJobsClosed();
+      button.focus();
+    }
+    return;
+  }
+  if (jobsAreCompact()) {
+    button.setAttribute("aria-expanded", "true");
+    document.body.classList.add("jobs-open");
+    moveJobsPanelToOverlayRoot();
+    app.openModal("jobsPanel");
+    return;
+  }
+  restoreJobsPanelHome();
+  if (app.hasActiveModal?.()) return;
   panel.classList.toggle("hidden", !open);
   document.body.classList.toggle("jobs-open", open);
   button.setAttribute("aria-expanded", String(open));
-  if (open) {
-    const closeButton = app.optional("jobsCloseButton");
-    window.setTimeout(() => (closeButton || panel).focus(), 0);
-  } else {
-    button.focus();
-  }
 }
 
 function setJobsFilter(filter) {
@@ -399,9 +504,10 @@ async function runQueuedJob(path, options = {}) {
   const { onQueued, ...requestOptions } = options;
   state.pendingJobAction = true;
   app.updateActionState?.();
+  app.updatePackActionState?.();
   try {
     const job = await app.api(path, requestOptions);
-    openJobs(true);
+    trackJobTransitions([job]);
     if (typeof onQueued === "function") onQueued(job);
     app.showToast(`${job.title || "작업"} 대기열에 추가됨`, "info");
     await refreshJobs();
@@ -415,6 +521,7 @@ async function runQueuedJob(path, options = {}) {
   } finally {
     state.pendingJobAction = false;
     app.updateActionState?.();
+    app.updatePackActionState?.();
   }
 }
 
@@ -447,7 +554,7 @@ async function applyJobResult(jobId) {
     await app.refreshSecondaryData();
   } else if (job.kind === "judge-generate") {
     app.setStatusCard("data", "생성 완료", app.profileCaseText(job.result.caseCount, job.result.profile));
-    app.setSummary(`${job.result.profile} 테스트 데이터 준비 완료: ${job.result.label}`, "result-summary success");
+    app.setSummary(`${app.profileLabel(job.result.profile)} 테스트 데이터 준비 완료: ${job.result.label}`, "result-summary success");
   } else if (job.kind === "judge-cases-compile") {
     app.renderCasesCompileResult?.(job.result);
   } else if (job.kind?.startsWith("judge-pack")) {
@@ -462,6 +569,7 @@ async function applyJobResult(jobId) {
  * 작업 이벤트를 DOM 요소와 핸들러에 연결합니다.
  */
 function bindJobs() {
+  syncJobsSemantics();
   app.on("jobsButton", "click", () => openJobs(app.optional("jobsPanel")?.classList.contains("hidden")));
   app.on("jobsCloseButton", "click", () => openJobs(false));
   app.on("jobsClearButton", "click", () => app.withErrors(clearCompletedJobs));
@@ -486,11 +594,32 @@ function bindJobs() {
     const resultId = target.getAttribute("data-job-result");
     if (resultId) void app.withErrors(() => applyJobResult(resultId));
   });
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key === "Escape"
+      && !event.defaultPrevented
+      && !jobsAreCompact()
+      && !app.optional("jobsPanel")?.classList.contains("hidden")
+    ) {
+      event.preventDefault();
+      openJobs(false);
+    }
+  });
+  window.matchMedia(JOBS_COMPACT_QUERY).addEventListener("change", () => {
+    if (!app.optional("jobsPanel")?.classList.contains("hidden")) {
+      if (app.hasActiveModal?.()) app.closeModals();
+      else closeJobsForOverlay();
+    }
+    syncJobsSemantics();
+  });
   void refreshJobs();
 }
 
 Object.assign(app, {
   bindJobs,
+  closeJobsForOverlay,
+  onJobsOverlayClosed,
+  openJobs,
   refreshJobs,
   runQueuedJob,
   verdictLabel,

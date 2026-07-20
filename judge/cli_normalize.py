@@ -1,5 +1,5 @@
-"""CLI normalize 기능을 담당하는 모듈입니다.
-"""
+"""CLI normalize 기능을 담당하는 모듈입니다."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -13,8 +13,8 @@ RUN_GLOBAL_OPTIONS_WITH_VALUES = {"--problem", "--profile", "--language"}
 def run_global_option_name(token: str) -> str | None:
     """global option 이름 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
-        Args:
-            token (str): global option 이름을 계산하거나 검증할 때 필요한 token 입력입니다.
+    Args:
+        token (str): global option 이름을 계산하거나 검증할 때 필요한 token 입력입니다.
     """
     if token in RUN_GLOBAL_OPTIONS_WITH_VALUES:
         return token
@@ -27,9 +27,9 @@ def run_global_option_name(token: str) -> str | None:
 def run_global_command_error(option: str, command: str) -> JudgeError:
     """global 명령 오류 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
-        Args:
-            option (str): global 명령 오류을 계산하거나 검증할 때 필요한 option 입력입니다.
-            command (str): global 명령 오류을 계산하거나 검증할 때 필요한 명령 입력입니다.
+    Args:
+        option (str): global 명령 오류을 계산하거나 검증할 때 필요한 option 입력입니다.
+        command (str): global 명령 오류을 계산하거나 검증할 때 필요한 명령 입력입니다.
     """
     hint = {
         "generate": "judge generate <problem> --profile <profile>",

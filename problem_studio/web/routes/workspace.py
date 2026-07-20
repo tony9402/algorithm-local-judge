@@ -1,5 +1,5 @@
-"""작업 공간 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""작업 공간 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -11,7 +11,10 @@ from problem_studio.web.routes.common import (
     workspace_status_from_request,
 )
 from problem_studio.web.schemas import WorkspaceOpenRequest
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
 
@@ -26,7 +29,12 @@ def api_workspace(request: Request) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 공간 데이터입니다.
     """
-    return route_result(lambda: workspace_status_from_request(request))
+    return route_result(
+        lambda: (
+            ensure_local_web_action_allowed(request, "workspace status read")
+            or workspace_status_from_request(request)
+        )
+    )
 
 
 @router.post("/open")

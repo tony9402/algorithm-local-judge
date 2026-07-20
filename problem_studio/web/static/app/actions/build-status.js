@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml, optional } from "../dom.js";
+import { bindControlPolicy } from "../control-policy.js";
 import {
   TAB_INSTANCE_ID,
   activePackJobForProblem,
@@ -11,6 +12,7 @@ import {
   state,
 } from "../state.js";
 import { allRunAllLocks, currentRunAllLock } from "./build-locks.js";
+import { currentProblemResult, hasFreshFullTest } from "../results.js";
 export function formatTime(value) {
   if (!value) return "";
   return new Date(value).toLocaleTimeString("ko-KR", {
@@ -22,7 +24,7 @@ export function packJobSummary(job) {
   if (!job) return "";
   return [
     job.problemId ? `${job.problemId} 문제` : "",
-    job.packId ? `Pack ${job.packId}` : "",
+    job.packId ? `팩 ${job.packId}` : "",
     job.outputDir || "",
   ]
     .filter(Boolean)
@@ -40,11 +42,6 @@ function updateRunAllButton() {
   const packActive = Boolean(activePackJob);
   const bulkActive = Boolean(state.activeBulkJob);
   const bulkCancelling = state.activeBulkJob?.status === "cancelling" || state.activeBulkJob?.cancelRequested;
-  button.disabled =
-    lockedByAnotherTab
-    || packActive
-    || bulkActive
-    || document.body.getAttribute("aria-busy") === "true";
   button.textContent = packActive
     ? "팩 빌드 진행 중"
     : bulkActive
@@ -52,11 +49,24 @@ function updateRunAllButton() {
       : lockedByAnotherTab
         ? "전체 테스트 진행 중"
         : "전체 테스트";
-  button.title = packActive
+  const enabledTitle = packActive
     ? packJobSummary(activePackJob)
     : lockedByAnotherTab
       ? `${lock.problemId || "다른 문제"} · ${formatTime(lock.startedAt)} 시작`
       : "";
+  bindControlPolicy(button, "build.run-all", {
+    context: () => ({
+      bulkActive,
+      bulkReason: state.activeBulkJob?.title || "전체 문제 테스트/팩 빌드",
+      lockedByAnotherTab,
+      packActive,
+      packReason: packJobSummary(activePackJob),
+      runAllReason: lock
+        ? `${lock.problemId || "다른 문제"} · ${formatTime(lock.startedAt)} 시작`
+        : "",
+    }),
+    enabledTitle,
+  });
 }
 /**
  * 문제팩 button 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
@@ -70,8 +80,13 @@ function updatePackButton() {
   const bulkCancelling = state.activeBulkJob?.status === "cancelling" || state.activeBulkJob?.cancelRequested;
   const lock = currentRunAllLock();
   const runAllActive = Boolean(lock);
-  button.disabled =
-    active || bulkActive || runAllActive || document.body.getAttribute("aria-busy") === "true";
+  const result = currentProblemResult();
+  const hasAttemptedFullTest = Boolean(result?.fullTest || state.lastFullTest);
+  const packPrerequisiteMissing = Boolean(
+    state.selectedProblem
+      && hasAttemptedFullTest
+      && (result?.dirtyAfterFullTest || !hasFreshFullTest())
+  );
   button.textContent = active
     ? "팩 빌드 중"
     : bulkActive
@@ -79,18 +94,44 @@ function updatePackButton() {
       : runAllActive
         ? "전체 테스트 진행 중"
         : "팩 빌드";
-  button.title = active
+  const enabledTitle = active
     ? packJobSummary(activePackJob)
     : bulkActive
       ? state.activeBulkJob.title || "전체 문제 테스트/팩 빌드"
       : runAllActive
         ? `${lock.problemId || "다른 문제"} · ${formatTime(lock.startedAt)} 시작`
         : "";
+  bindControlPolicy(button, "build.pack", {
+    context: () => ({
+      bulkActive,
+      bulkReason: state.activeBulkJob?.title || "전체 문제 테스트/팩 빌드",
+      packActive: active,
+      packReason: packJobSummary(activePackJob),
+      packPrerequisiteMissing,
+      packPrerequisiteReason: result?.dirtyAfterFullTest
+        ? (result.dirtyReason || "변경사항이 있어 전체 테스트를 다시 실행해야 합니다.")
+        : "전체 테스트를 통과한 뒤 팩을 빌드할 수 있습니다.",
+      runAllActive,
+      runAllReason: lock
+        ? `${lock.problemId || "다른 문제"} · ${formatTime(lock.startedAt)} 시작`
+        : "",
+    }),
+    enabledTitle,
+  });
 }
 export function bulkProblemIds() {
   return (state.problems || []).map((problem) => problem.problemId).filter(Boolean);
 }
 export function selectedBulkProblemIdsFromModal() {
+  const serialized = optional("bulkProblemList")?.dataset.selectedProblemIds;
+  if (serialized) {
+    try {
+      const selected = JSON.parse(serialized);
+      if (Array.isArray(selected)) return selected.filter(Boolean);
+    } catch {
+      // 이전 DOM 계약으로 계속 읽습니다.
+    }
+  }
   return Array.from(document.querySelectorAll("[data-bulk-problem]:checked"))
     .map((input) => input.value)
     .filter(Boolean);
@@ -114,10 +155,12 @@ export function updateBulkStartButton() {
       ? `${totalCount}개 중 ${selectedCount}개 문제 선택 · ${workers ? `${workers}개 워커` : "워커 자동"}`
       : "팩에 포함할 문제를 하나 이상 선택하세요.";
   }
-  button.disabled = selectedCount === 0 || document.body.getAttribute("aria-busy") === "true";
   button.textContent = selectedCount
     ? `선택한 ${selectedCount}개 문제로 팩 빌드`
     : "문제를 선택하세요";
+  bindControlPolicy(button, "build.bulk-start", {
+    context: () => ({ selectedCount }),
+  });
 }
 
 function bulkBuildButtons() {
@@ -137,12 +180,6 @@ function updateBuildAllPacksButton() {
   const runAllActive = locks.length > 0;
   const hasProblems = bulkProblemIds().length > 0;
   for (const button of buttons) {
-    button.disabled =
-      !hasProblems
-      || active
-      || bulkActive
-      || runAllActive
-      || document.body.getAttribute("aria-busy") === "true";
     button.textContent = active
       ? "팩 빌드 진행 중"
       : bulkActive
@@ -150,7 +187,7 @@ function updateBuildAllPacksButton() {
         : runAllActive
           ? "전체 테스트 진행 중"
           : "전체 문제 테스트/팩 빌드";
-    button.title = !hasProblems
+    const enabledTitle = !hasProblems
       ? "등록된 문제가 없습니다."
       : active
         ? activePackJobs.map(packJobSummary).filter(Boolean).join(" / ")
@@ -159,6 +196,20 @@ function updateBuildAllPacksButton() {
           : runAllActive
             ? locks.map((lock) => `${lock.problemId || "전체 문제"} · ${formatTime(lock.startedAt)} 시작`).join(" / ")
             : "모든 문제를 순서대로 테스트하고 통과한 문제 팩을 생성합니다.";
+    bindControlPolicy(button, "build.bulk-all", {
+      context: () => ({
+        bulkActive,
+        bulkReason: state.activeBulkJob?.title || "전체 문제 테스트/팩 빌드",
+        hasProblems,
+        packActive: active,
+        packReason: activePackJobs.map(packJobSummary).filter(Boolean).join(" / "),
+        runAllActive,
+        runAllReason: locks
+          .map((lock) => `${lock.problemId || "전체 문제"} · ${formatTime(lock.startedAt)} 시작`)
+          .join(" / "),
+      }),
+      enabledTitle,
+    });
   }
 }
 function repositoryDataAttribute(repositoryName) {

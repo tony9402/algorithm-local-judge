@@ -1,5 +1,5 @@
-"""보안 정책 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""보안 정책 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 from fastapi import Request
@@ -38,8 +38,21 @@ def ensure_local_write_allowed(request: Request, action: str) -> None:
         )
 
 
+def ensure_local_web_action_allowed(request: Request, action: str) -> None:
+    """차단된 non-local 웹 읽기/상태 action을 일관되게 거부합니다.
+
+    ``workspace_write_enabled``는 로컬 서버에서도 관리자가 쓰기만 끌 수 있는
+    설정이므로, 민감한 파일 읽기에는 실제 바인딩 상태를 별도로 확인해야 합니다.
+    """
+    if not bool(getattr(request.app.state, "local_binding", True)):
+        raise SecurityPolicyError(
+            f"{action} is disabled because Problem Studio is bound to a non-local host"
+        )
+
+
 __all__ = [
     "LOCAL_BINDING_HOSTS",
+    "ensure_local_web_action_allowed",
     "ensure_local_write_allowed",
     "is_local_binding",
     "workspace_write_enabled",

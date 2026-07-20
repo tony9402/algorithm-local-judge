@@ -1,12 +1,23 @@
-<section id="newProblemModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="newProblemModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="newProblemModalTitle"
+  aria-describedby="newProblemModalDescription"
+>
   <div class="modal-content">
     <div class="panel-heading">
-      <h2>문제 만들기</h2>
+      <div>
+        <h2 id="newProblemModalTitle">문제 만들기</h2>
+        <p id="newProblemModalDescription">문제 제작에 필요한 기본 파일과 설정을 만듭니다.</p>
+      </div>
       <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
     </div>
     <label>
       문제 ID
-      <input id="newProblemId" placeholder="graph-shortest-path" />
+      <input id="newProblemId" data-modal-initial-focus placeholder="graph-shortest-path" />
     </label>
     <label>
       제목
@@ -75,21 +86,34 @@
   </div>
 </section>
 
-<section id="deleteProblemModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="deleteProblemModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="deleteProblemModalTitle"
+  aria-describedby="deleteProblemDescription deleteProblemWarning"
+>
   <div class="modal-content">
     <div class="panel-heading">
       <div>
-        <h2>문제 삭제</h2>
+        <h2 id="deleteProblemModalTitle">문제 삭제</h2>
         <p id="deleteProblemDescription">선택한 문제를 삭제합니다.</p>
       </div>
       <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
     </div>
-    <div class="danger-note">
+    <div id="deleteProblemWarning" class="danger-note">
       문제 폴더와 내부 파일이 삭제됩니다. 되돌릴 수 없습니다.
     </div>
     <label>
       확인 문구
-      <input id="deleteProblemConfirmInput" placeholder="확인했습니다" autocomplete="off" />
+      <input
+        id="deleteProblemConfirmInput"
+        data-modal-initial-focus
+        placeholder="확인했습니다"
+        autocomplete="off"
+      />
     </label>
     <button id="deleteProblemButton" class="danger full" type="button" disabled>
       문제 삭제

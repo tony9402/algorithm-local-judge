@@ -1,5 +1,5 @@
-"""문제팩 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다.
-"""
+"""문제팩 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다."""
+
 from __future__ import annotations
 
 import argparse
@@ -7,7 +7,10 @@ from pathlib import Path
 
 from judge.core.errors import JudgeError
 from judge.core.pack import build_pack, install_pack, installed_packs, remove_pack, verify_pack
+from judge.core.pack_signatures import default_bundle_path, sign_pack, verify_pack_signature
 from judge.core.paths import current_platform_id, rel
+from judge.core.problem_install_policy import PACK_INSTALL_TRUST_WARNING
+from judge.core.remote_github import official_pack_repository
 from judge.core.remote_trust import (
     add_user_trusted_repository,
     default_trusted_repositories,
@@ -47,9 +50,28 @@ def handle(args: argparse.Namespace) -> int:
             f"({', '.join(pack.get('supportedPlatforms', []))})"
         )
         return 0
+    if args.pack_command == "sign":
+        archive = Path(args.archive)
+        bundle = Path(args.bundle) if args.bundle else None
+        signed_bundle = sign_pack(archive, bundle, args.key)
+        print(f"Signed pack: {rel(archive.resolve())}")
+        print(f"Sigstore bundle: {rel(signed_bundle)}")
+        return 0
+    if args.pack_command == "verify-signature":
+        archive = Path(args.archive)
+        bundle = Path(args.bundle) if args.bundle else default_bundle_path(archive)
+        repository = official_pack_repository(args.repository)
+        result = verify_pack_signature(archive, bundle, repository)
+        print(f"Verified pack signature: {rel(archive.resolve())}")
+        if result.get("signatureIdentity"):
+            print(f"Publisher identity: {result['signatureIdentity']}")
+        if result.get("signaturePublicKey"):
+            print(f"Publisher key: {result['signaturePublicKey']}")
+        return 0
     if args.pack_command == "install":
         target = install_pack(Path(args.archive))
         print(f"Installed pack: {rel(target)}")
+        print(PACK_INSTALL_TRUST_WARNING)
         return 0
     if args.pack_command == "list":
         packs = installed_packs()

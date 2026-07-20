@@ -1,5 +1,5 @@
-"""common API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""common API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -40,8 +40,8 @@ def to_http_error(exc: Exception) -> HTTPException:
 def jobs_from_request(request: Request) -> BackgroundJobStore:
     """작업 요청 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
 
-        Args:
-            request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+    Args:
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
     """
     return request.app.state.jobs
 
@@ -76,23 +76,24 @@ def enqueue_background_job(
     cancel_supported: bool = True,
     cancel_mode: str = "cooperative",
     cancel_blocked_reason: str | None = None,
+    terminal_callback: Callable[[BackgroundJob], None] | None = None,
 ) -> BackgroundJob:
     """background 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
 
-        Args:
-            jobs (BackgroundJobStore): background 작업을 계산하거나 검증할 때 필요한 작업 입력입니다.
-            kind (str): background 작업을 계산하거나 검증할 때 필요한 kind 입력입니다.
-            title (str): background 작업을 계산하거나 검증할 때 필요한 title 입력입니다.
-            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
-            lane (str): background 작업을 계산하거나 검증할 때 필요한 lane 입력입니다.
-            target (dict | None): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
-            operation (Callable[[CancelToken, Callable[..., None]], dict]): background 작업을 계산하거나 검증할 때 필요한 operation 입력입니다.
-            app (str): background 작업을 계산하거나 검증할 때 필요한 애플리케이션 입력입니다.
-            result_actions (dict | None): background 작업을 계산하거나 검증할 때 필요한 결과 actions 입력입니다.
-            input_snapshot_summary (str | None): background 작업을 계산하거나 검증할 때 필요한 입력 snapshot summary 입력입니다.
-            cancel_supported (bool): background 작업 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
-            cancel_mode (str): background 작업을 계산하거나 검증할 때 필요한 cancel mode 입력입니다.
-            cancel_blocked_reason (str | None): background 작업을 계산하거나 검증할 때 필요한 cancel blocked reason 입력입니다.
+    Args:
+        jobs (BackgroundJobStore): background 작업을 계산하거나 검증할 때 필요한 작업 입력입니다.
+        kind (str): background 작업을 계산하거나 검증할 때 필요한 kind 입력입니다.
+        title (str): background 작업을 계산하거나 검증할 때 필요한 title 입력입니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        lane (str): background 작업을 계산하거나 검증할 때 필요한 lane 입력입니다.
+        target (dict | None): 파일을 복사하거나 산출물을 배치할 대상 경로입니다.
+        operation (Callable[[CancelToken, Callable[..., None]], dict]): background 작업을 계산하거나 검증할 때 필요한 operation 입력입니다.
+        app (str): background 작업을 계산하거나 검증할 때 필요한 애플리케이션 입력입니다.
+        result_actions (dict | None): background 작업을 계산하거나 검증할 때 필요한 결과 actions 입력입니다.
+        input_snapshot_summary (str | None): background 작업을 계산하거나 검증할 때 필요한 입력 snapshot summary 입력입니다.
+        cancel_supported (bool): background 작업 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        cancel_mode (str): background 작업을 계산하거나 검증할 때 필요한 cancel mode 입력입니다.
+        cancel_blocked_reason (str | None): background 작업을 계산하거나 검증할 때 필요한 cancel blocked reason 입력입니다.
     """
     return jobs.start_with_progress(
         kind=kind,
@@ -107,6 +108,7 @@ def enqueue_background_job(
         input_snapshot_summary=input_snapshot_summary,
         cancel_mode=cancel_mode,
         cancel_blocked_reason=cancel_blocked_reason,
+        terminal_callback=terminal_callback,
     )
 
 

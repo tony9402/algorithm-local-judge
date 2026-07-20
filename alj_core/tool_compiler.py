@@ -1,5 +1,5 @@
-"""도구 컴파일러 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""도구 컴파일러 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import json
@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from alj_core.compiler_common import compile_cpp, compiler_identity
-from alj_core.config import COMPILE_FLAGS, PROTOCOL_VERSION
+from alj_core.config import COMPILE_FLAGS, PROTOCOL_VERSION, effective_tool_compile_timeout_ms
 from alj_core.errors import JudgeError
 from alj_core.manifest import cached_sha256_file
 from alj_core.paths import build_root, repo_root
@@ -52,7 +52,9 @@ def _tool_compile_key(
         "problemVersion": metadata.get("version"),
         "tool": tool_name,
         "limits": {
-            "compileTimeoutMs": metadata.get("limits", {}).get("compileTimeoutMs", 5000),
+            "compileTimeoutMs": effective_tool_compile_timeout_ms(
+                metadata.get("limits", {}).get("compileTimeoutMs", 5000)
+            ),
         },
         "sourceHashes": {
             "problem": cached_sha256_file(metadata_path),
@@ -100,7 +102,7 @@ def compile_problem_tool(
 
     root = problem_workspace_root(problem_dir, root)
     limits = metadata.get("limits", {})
-    timeout_ms = limits.get("compileTimeoutMs", 5000)
+    timeout_ms = effective_tool_compile_timeout_ms(limits.get("compileTimeoutMs", 5000))
     logs = build_root(root) / "tools" / problem_id / "logs"
     output = tool_output_path(problem_id, tool_name, root)
     key = _tool_compile_key(

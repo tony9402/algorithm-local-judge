@@ -6,8 +6,19 @@ const app = window.AljApp;
 const { state } = app;
 
 function formatSavedAt(savedAt) {
-  if (!savedAt) return "saved source";
+  if (!savedAt) return "저장된 코드";
   return new Date(savedAt * 1000).toLocaleString();
+}
+
+function sourceStatusLabel(status) {
+  return {
+    accepted: "맞았습니다",
+    wrong_answer: "오답",
+    compile_error: "컴파일 오류",
+    runtime_error: "런타임 오류",
+    time_limit: "시간 초과",
+    memory_limit: "메모리 초과",
+  }[status] || (status ? `알 수 없는 상태 (${status})` : "상태 없음");
 }
 function sourceMatchesHistoryFilters(source) {
   const query = String(state.sourceHistoryFilter || "").trim().toLowerCase();
@@ -59,10 +70,10 @@ function renderSourceHistory(data) {
     const hasActiveFilter =
       Boolean(state.sourceHistoryFilter) || state.sourceHistoryStatusFilter !== "all";
     list.textContent = hasActiveFilter
-      ? "필터와 일치하는 캐시 소스가 없습니다."
-      : allSources.length
-        ? "현재 범위에 캐시 소스가 없습니다."
-        : "캐시 소스가 없습니다.";
+        ? "필터와 일치하는 이전 캐시 코드가 없습니다."
+        : allSources.length
+        ? "현재 범위에 이전 캐시 코드가 없습니다."
+        : "이전 캐시 코드가 없습니다.";
     list.classList.add("muted");
     return;
   }
@@ -74,10 +85,10 @@ function renderSourceHistory(data) {
     const text = document.createElement("div");
     text.className = "source-history-text";
     const title = document.createElement("strong");
-    title.textContent = source.filename || "source";
+    title.textContent = source.filename || "코드";
     const meta = document.createElement("span");
-    const status = source.lastRun?.status ? ` · ${source.lastRun.status.replaceAll("_", " ")}` : "";
-    meta.textContent = `${source.problemId || "unknown"} · ${source.language || "Unknown"} · ${
+    const status = source.lastRun?.status ? ` · ${sourceStatusLabel(source.lastRun.status)}` : "";
+    meta.textContent = `${source.problemId || "알 수 없는 문제"} · ${source.language || "알 수 없는 언어"} · ${
       source.sizeLabel || "0 B"
     }${status} · ${formatSavedAt(source.savedAt)}`;
     text.appendChild(title);
@@ -98,7 +109,7 @@ function renderSourceHistory(data) {
     deleteButton.className = "danger";
     deleteButton.textContent = "삭제";
     deleteButton.addEventListener("click", () => {
-      void app.withErrors(() => deleteCachedSource(source.sourceId, source.filename || "source"));
+      void app.withErrors(() => deleteCachedSource(source.sourceId, source.filename || "코드"));
     });
 
     actions.appendChild(openButton);
@@ -139,9 +150,9 @@ async function loadCachedSource(sourceId) {
   if (source.lastRunResult) {
     await app.restoreRunResult(source.lastRunResult);
   } else {
-    app.resetRunStatus("Cached source loaded. No previous run result.");
+  app.resetRunStatus("이전 캐시 코드를 불러왔습니다. 저장된 채점 결과가 없습니다.");
   }
-  app.showToast(`Cached source loaded: ${source.filename || sourceId}`);
+  app.showToast(`이전 캐시 코드 불러옴: ${source.filename || sourceId}`);
 }
 /**
  * cached 소스 파일이나 상태 항목을 안전성 검사를 거쳐 제거합니다.
@@ -150,10 +161,10 @@ async function loadCachedSource(sourceId) {
  * @param {any} filename 업로드 또는 직접 입력 소스에 붙일 파일 이름입니다.
  */
 async function deleteCachedSource(sourceId, filename) {
-  const confirmed = window.confirm(`${filename} 캐시 소스를 삭제합니다.\n삭제한 소스는 Source History에서 다시 불러올 수 없습니다.`);
+  const confirmed = window.confirm(`${filename} 이전 캐시 코드를 삭제합니다.\n삭제한 코드는 다시 불러올 수 없습니다.`);
   if (!confirmed) return;
   await app.api(`/api/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
-  app.showToast(`캐시 소스 삭제됨: ${filename}`);
+  app.showToast(`이전 캐시 코드 삭제됨: ${filename}`);
   await app.refreshSecondaryData();
 }
 /**

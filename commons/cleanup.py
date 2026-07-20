@@ -1,4 +1,5 @@
 """생성된 데이터 파일의 줄 끝 공백을 정리하는 명령줄 유틸리티입니다."""
+
 from __future__ import annotations
 
 import argparse

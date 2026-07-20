@@ -1,5 +1,5 @@
-"""Problem Studio 작업 공간의 Git 저장소 검증, 상태 조회, 커밋/푸시 정책을 담당합니다.
-"""
+"""Problem Studio 작업 공간의 Git 저장소 검증, 상태 조회, 커밋/푸시 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import os
@@ -131,8 +131,8 @@ def normalize_github_repository(owner: str, repo: str) -> str:
 def github_repository_from_remote(source: str | None) -> str | None:
     """GitHub URL, SCP 형식, owner/name 입력에서 GitHub 저장소 이름을 추출합니다.
 
-        Args:
-            source (str | None): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+    Args:
+        source (str | None): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
     """
     value = (source or "").strip()
     if not value:
@@ -170,8 +170,8 @@ def expected_problem_repository() -> str:
 def repository_name(repository: str | None) -> str | None:
     """원격 저장소 문자열에서 작업 공간 디렉터리 이름으로 사용할 저장소 이름을 추출합니다.
 
-        Args:
-            repository (str | None): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
+    Args:
+        repository (str | None): GitHub owner/name 또는 URL에서 정규화할 저장소 식별자입니다.
     """
     if not repository:
         return None
@@ -234,8 +234,8 @@ def git_stdout(workspace: Path, args: list[str], *, check: bool = True) -> str:
 def current_branch(workspace: Path) -> str | None:
     """현재 Git 브랜치 이름을 조회하고 detached HEAD 상태이면 None을 반환합니다.
 
-        Args:
-            workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+    Args:
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
     """
     result = run_git(workspace, ["rev-parse", "--abbrev-ref", "HEAD"], check=False)
     if result.returncode != 0:
@@ -249,8 +249,8 @@ def current_branch(workspace: Path) -> str | None:
 def current_head(workspace: Path) -> str | None:
     """현재 HEAD 커밋 해시를 조회해 작업 공간 상태 응답에 포함할 값으로 만듭니다.
 
-        Args:
-            workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+    Args:
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
     """
     result = run_git(workspace, ["rev-parse", "--short", "HEAD"], check=False)
     return result.stdout.strip() if result.returncode == 0 else None
@@ -259,8 +259,8 @@ def current_head(workspace: Path) -> str | None:
 def upstream_branch(workspace: Path) -> str | None:
     """현재 브랜치가 추적하는 upstream 브랜치 이름을 조회합니다.
 
-        Args:
-            workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+    Args:
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
     """
     result = run_git(
         workspace,
@@ -273,9 +273,9 @@ def upstream_branch(workspace: Path) -> str | None:
 def remote_url(workspace: Path, remote: str = "origin") -> str | None:
     """지정한 Git remote의 URL을 조회하고 로그에 안전하게 인증 정보를 제거합니다.
 
-        Args:
-            workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
-            remote (str): 조회할 Git 원격 저장소 이름입니다.
+    Args:
+        workspace (Path): Problem Studio 또는 judge 데이터가 저장되는 작업 공간 루트입니다.
+        remote (str): 조회할 Git 원격 저장소 이름입니다.
     """
     result = run_git(workspace, ["remote", "get-url", remote], check=False)
     if result.returncode != 0:

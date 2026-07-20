@@ -151,7 +151,7 @@
 .loading-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 10080;
   display: grid;
   place-items: center;
   background: rgba(15, 23, 42, 0.42);

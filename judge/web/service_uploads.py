@@ -1,5 +1,5 @@
-"""서비스 uploads 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""서비스 uploads 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 import time
@@ -84,4 +84,9 @@ def download_official_problem_pack(
     asset_name: str | None = None,
     ref: str | None = None,
 ) -> dict[str, Any]:
-    return download_problem_pack_from_github(repository, asset_name, ref)
+    return download_problem_pack_from_github(
+        repository,
+        asset_name,
+        ref,
+        require_pack=True,
+    )

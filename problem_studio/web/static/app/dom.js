@@ -28,3 +28,36 @@ export function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
+
+export function compactPath(value) {
+  const original = String(value || "");
+  if (!original) return "";
+  const normalized = original.replaceAll("\\", "/").replace(/^file:\/\//, "");
+  const home = normalized.match(/^\/(?:Users|home)\/[^/]+(\/.*)?$/);
+  if (home) {
+    const relative = home[1] || "";
+    const parts = relative.split("/").filter(Boolean);
+    return parts.length <= 3 ? `~${relative}` : `~/…/${parts.slice(-2).join("/")}`;
+  }
+  const windowsHome = normalized.match(/^[A-Za-z]:\/Users\/[^/]+(\/.*)?$/i);
+  if (windowsHome) {
+    const parts = (windowsHome[1] || "").split("/").filter(Boolean);
+    return parts.length <= 3 ? `~/${parts.join("/")}` : `~/…/${parts.slice(-2).join("/")}`;
+  }
+  const absolute = normalized.startsWith("/") || /^[A-Za-z]:\//.test(normalized);
+  if (!absolute) return original;
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.length <= 2 ? normalized : `…/${parts.slice(-2).join("/")}`;
+}
+
+export function pathDisclosureHtml(value) {
+  const full = String(value || "");
+  const compact = compactPath(full);
+  if (!full || compact === full) return escapeHtml(full);
+  return `
+    <details class="path-disclosure">
+      <summary title="${escapeHtml(full)}">${escapeHtml(compact)}</summary>
+      <code>${escapeHtml(full)}</code>
+    </details>
+  `;
+}

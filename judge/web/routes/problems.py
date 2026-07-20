@@ -1,9 +1,10 @@
-"""문제 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""문제 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
+from pydantic import ValidationError
 
 from judge.core.problem_folders import (
     create_problem_folder,
@@ -61,11 +62,14 @@ async def api_problem_folder_delete(request: Request):
         body = ProblemFolderDeleteRequest.model_validate(payload)
         result = delete_problem_folder(
             body.folder,
+            mode=body.mode,
             confirm_delete_problems=body.confirm_delete_problems,
         )
         if result.get("requiresConfirmation"):
             return JSONResponse(result, status_code=409)
         return result
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
     except Exception as exc:
         raise to_http_error(exc) from exc
 
@@ -101,10 +105,10 @@ def api_problem_samples(
 ) -> Response:
     """문제 샘플 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
 
-        Args:
-            request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
-            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
-            force (bool): 캐시나 기존 검사 결과를 무시하고 다시 실행할지 여부입니다.
+    Args:
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        force (bool): 캐시나 기존 검사 결과를 무시하고 다시 실행할지 여부입니다.
     """
     try:
         ensure_remote_run_allowed(request)

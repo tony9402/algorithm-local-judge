@@ -1,15 +1,23 @@
-<section id="workspaceBuildModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="workspaceBuildModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="workspaceBuildModalTitle"
+  aria-describedby="workspaceBuildModalDescription"
+>
   <div class="modal-content workspace-build-modal">
     <div class="panel-heading">
       <div>
-        <h2>전체 문제 테스트/팩 빌드</h2>
-        <p>선택한 문제를 병렬로 검증한 뒤 하나의 팩으로 생성합니다.</p>
+        <h2 id="workspaceBuildModalTitle">전체 문제 테스트/팩 빌드</h2>
+        <p id="workspaceBuildModalDescription">선택한 문제를 병렬로 검증한 뒤 하나의 팩으로 생성합니다.</p>
       </div>
       <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
     </div>
     <div class="form-grid">
       <label>
-        Pack ID
+        팩 ID (Pack ID)
         <input id="bulkPackIdInput" value="basic" />
       </label>
       <label>
@@ -21,11 +29,34 @@
       병렬 워커 수
       <input id="bulkMaxWorkersInput" type="number" min="1" max="16" placeholder="자동" />
     </label>
+    <div class="bulk-filter-grid">
+      <label>
+        문제 검색
+        <input id="bulkProblemSearchInput" data-modal-initial-focus type="search" placeholder="문제 번호 또는 제목" />
+      </label>
+      <label>
+        폴더
+        <select id="bulkProblemFolderFilter">
+          <option value="">모든 폴더</option>
+        </select>
+      </label>
+      <label>
+        검증 상태
+        <select id="bulkProblemStatusFilter">
+          <option value="">모든 상태</option>
+          <option value="failed">실패</option>
+          <option value="dirty">재검증 필요</option>
+        </select>
+      </label>
+    </div>
     <div class="workspace-build-toolbar">
       <strong>팩에 포함할 문제</strong>
-      <button id="bulkSelectAllButton" type="button">전체 선택</button>
+      <span class="bulk-selection-actions">
+        <button id="bulkSelectAllButton" type="button">전체 선택</button>
+        <button id="bulkDeselectAllButton" type="button">전체 해제</button>
+      </span>
     </div>
-    <div id="bulkBuildSummary" class="bulk-build-summary">선택한 문제와 워커 설정을 확인하세요.</div>
+    <div id="bulkBuildSummary" class="bulk-build-summary bulk-selection-sticky" aria-live="polite">선택한 문제와 워커 설정을 확인하세요.</div>
     <div id="bulkProblemList" class="bulk-problem-list"></div>
     <button id="workspaceBuildStartButton" class="primary" type="button">
       선택한 문제로 팩 빌드
@@ -33,34 +64,105 @@
   </div>
 </section>
 
-<section id="repositoryModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="repositoryModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="repositoryModalTitle"
+  aria-describedby="repositoryModalDescription"
+>
   <div class="modal-content">
     <div class="panel-heading">
       <div>
-        <h2>저장소 추가</h2>
-        <p>GitHub 저장소를 현재 workspace의 problems 폴더 아래로 받아옵니다.</p>
+        <h2 id="repositoryModalTitle">Git 저장소 복제</h2>
+        <p id="repositoryModalDescription">원격 Git 저장소를 이 workspace의 문제 저장소 영역에 복제합니다.</p>
       </div>
       <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
     </div>
     <label>
-      Git 저장소
-      <input id="repositoryUrlInput" placeholder="owner/repository 또는 Git URL" />
+      Git 저장소 URL
+      <input id="repositoryUrlInput" data-modal-initial-focus placeholder="https://example.com/owner/problems.git" />
     </label>
-    <div class="form-grid">
-      <label>
-        Branch
-        <input id="repositoryBranchInput" placeholder="기본 branch" />
-      </label>
-      <label>
-        Local 이름
-        <input id="repositoryNameInput" placeholder="repository" />
-      </label>
+    <details class="repository-advanced-options">
+      <summary>고급 설정</summary>
+      <div class="form-grid">
+        <label>
+          브랜치
+          <input id="repositoryBranchInput" placeholder="비우면 기본 브랜치" />
+        </label>
+        <label>
+          저장소 이름
+          <input id="repositoryNameInput" placeholder="URL에서 자동 결정" />
+        </label>
+      </div>
+    </details>
+    <div id="repositoryCloneDestination" class="repository-destination-preview">
+      생성 위치: 문제 workspace / 저장소 이름
     </div>
     <button id="repositoryCloneStartButton" class="primary full" type="button">
-      Clone and open
+      복제하고 열기
     </button>
-    <button id="repositoryRegisterButton" class="full" type="button">
-      Open existing
+  </div>
+</section>
+
+<section
+  id="repositoryOpenModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="repositoryOpenModalTitle"
+  aria-describedby="repositoryOpenModalDescription repositoryOpenSummary"
+>
+  <div class="modal-content">
+    <div class="panel-heading">
+      <div>
+        <h2 id="repositoryOpenModalTitle">기존 문제 저장소 열기</h2>
+        <p id="repositoryOpenModalDescription">
+          이 workspace에서 이미 발견된 저장소만 선택할 수 있습니다.
+        </p>
+      </div>
+      <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
+    </div>
+    <label>
+      발견된 저장소
+      <select id="repositoryOpenSelect" data-modal-initial-focus aria-label="열 문제 저장소"></select>
+    </label>
+    <div id="repositoryOpenSummary" class="repository-open-summary" aria-live="polite"></div>
+    <div class="repository-open-actions">
+      <button id="repositoryOpenRefreshButton" type="button">목록 새로고침</button>
+      <button id="repositoryOpenStartButton" class="primary" type="button">선택한 저장소 열기</button>
+    </div>
+    <button id="repositoryOpenCloneButton" class="full hidden" type="button">
+      새 Git 저장소 복제로 이동
     </button>
+  </div>
+</section>
+
+<section
+  id="unsavedChangesModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="unsavedChangesModalTitle"
+  aria-describedby="unsavedChangesDescription unsavedChangesConflict"
+>
+  <div class="modal-content unsaved-changes-modal">
+    <div class="panel-heading">
+      <div>
+        <h2 id="unsavedChangesModalTitle">저장하지 않은 변경사항</h2>
+        <p id="unsavedChangesDescription">다음 작업을 계속하기 전에 변경사항을 처리하세요.</p>
+      </div>
+    </div>
+    <ul id="unsavedChangesSources" class="unsaved-changes-sources"></ul>
+    <p id="unsavedChangesConflict" class="danger-note hidden"></p>
+    <div class="unsaved-changes-actions">
+      <button id="unsavedChangesCancelButton" data-modal-initial-focus type="button">취소</button>
+      <button id="unsavedChangesDiscardButton" class="danger" type="button">버리기</button>
+      <button id="unsavedChangesSaveButton" class="primary" type="button">저장</button>
+    </div>
   </div>
 </section>

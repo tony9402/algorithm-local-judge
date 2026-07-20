@@ -1,5 +1,5 @@
-"""소스 설치 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""소스 설치 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import re
@@ -13,7 +13,7 @@ from judge.core.errors import JudgeError
 from judge.core.paths import problem_source_root, rel, repo_root
 from judge.core.problem_install_policy import SOURCE_INSTALL_TRUST_WARNING
 from judge.core.remote_archive import find_source_package_root, safe_extract_zip
-from judge.utils.fs import write_json
+from judge.utils.fs import transactional_replace_directory, write_json
 
 SAFE_SOURCE_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_-]+")
 DEFAULT_SOURCE_REF = "default"
@@ -95,7 +95,6 @@ def install_problem_source_package(
     )
     ref_slug = safe_source_component(ref or DEFAULT_SOURCE_REF, DEFAULT_SOURCE_REF)
     target = problem_source_root() / repo_slug / ref_slug
-    backup = None
     target.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="alj-source-install-") as tmp:
         staged = Path(tmp) / "package"
@@ -115,14 +114,7 @@ def install_problem_source_package(
                 .replace("+00:00", "Z"),
             },
         )
-        if target.exists():
-            backup = target.with_name(target.name + ".old")
-            if backup.exists():
-                shutil.rmtree(backup)
-            target.rename(backup)
-        shutil.copytree(staged, target)
-        if backup is not None:
-            shutil.rmtree(backup)
+        transactional_replace_directory(staged, target)
     return {
         "installedPath": str(target),
         "label": rel(target),

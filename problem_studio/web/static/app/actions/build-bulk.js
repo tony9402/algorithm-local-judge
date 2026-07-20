@@ -13,7 +13,7 @@ import {
   showLastRun,
 } from "../progress.js";
 import { renderTabFiles } from "../resources-view.js";
-import { persistProblemLastResult } from "../results.js";
+import { currentProblemResult, persistProblemLastResult } from "../results.js";
 import { streamProgressDetail } from "../sse.js";
 import { activePackJobList, state } from "../state.js";
 import { renderProblems } from "../workspace-view.js";
@@ -37,6 +37,7 @@ const bulkCallbacks = {
 };
 
 let bulkCancelRequestedJobId = null;
+let bulkSelectedProblemIds = new Set();
 
 function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -47,31 +48,108 @@ export function configureBulkBuildActions(callbacks = {}) {
 /**
  * 일괄 작업 문제 목록 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
  */
-function renderBulkProblemList() {
+function bulkProblemStatus(problemId) {
+  const result = currentProblemResult(problemId, state.activeRepository || null);
+  if (result?.fullTest?.passed === false) return "failed";
+  if (result?.dirtyAfterFullTest) return "dirty";
+  return "";
+}
+
+function bulkProblemStatusLabel(status) {
+  if (status === "failed") return "실패";
+  if (status === "dirty") return "재검증 필요";
+  return "상태 없음";
+}
+
+function visibleBulkProblems() {
+  const search = optional("bulkProblemSearchInput")?.value.trim().toLowerCase() || "";
+  const folder = optional("bulkProblemFolderFilter")?.value || "";
+  const status = optional("bulkProblemStatusFilter")?.value || "";
+  return (state.problems || []).filter((problem) => {
+    const text = `${problem.problemId} ${problem.title || ""} ${problem.folder || ""}`.toLowerCase();
+    return (!search || text.includes(search))
+      && (!folder || (problem.folder || "") === folder)
+      && (!status || bulkProblemStatus(problem.problemId) === status);
+  });
+}
+
+function renderBulkFolderOptions() {
+  const select = optional("bulkProblemFolderFilter");
+  if (!select) return;
+  const selected = select.value;
+  const folders = Array.from(new Set((state.problems || []).map((problem) => problem.folder || "")))
+    .sort((left, right) => left.localeCompare(right, "ko"));
+  select.innerHTML = escapeHtml("") + `<option value="">모든 폴더</option>${folders.map((folder) =>
+    `<option value="${escapeHtml(folder)}">${escapeHtml(folder || "기본")}</option>`
+  ).join("")}`;
+  if (folders.includes(selected)) select.value = selected;
+}
+
+function syncBulkSelectionDataset() {
+  const list = optional("bulkProblemList");
+  if (list) list.dataset.selectedProblemIds = JSON.stringify(Array.from(bulkSelectedProblemIds));
+}
+
+export function renderBulkProblemList() {
   const list = $("bulkProblemList");
   const problems = state.problems || [];
   if (!problems.length) {
+    syncBulkSelectionDataset();
     list.innerHTML = `<p class="muted">등록된 문제가 없습니다.</p>`;
     updateBulkStartButton();
     return;
   }
-  list.innerHTML = problems
+  renderBulkFolderOptions();
+  const visible = visibleBulkProblems();
+  if (!visible.length) {
+    syncBulkSelectionDataset();
+    list.innerHTML = `<p class="muted">검색·필터와 일치하는 문제가 없습니다.</p>`;
+    updateBulkStartButton();
+    return;
+  }
+  list.innerHTML = escapeHtml("") + visible
     .map(
-      (problem) => `
+      (problem) => {
+        const status = bulkProblemStatus(problem.problemId);
+        return `
         <label class="bulk-problem-option">
-          <input type="checkbox" data-bulk-problem value="${escapeHtml(problem.problemId)}" checked />
+          <input type="checkbox" data-bulk-problem value="${escapeHtml(problem.problemId)}" ${bulkSelectedProblemIds.has(problem.problemId) ? "checked" : ""} />
           <span class="bulk-problem-copy">
             <strong>${escapeHtml(problem.problemId)} ${escapeHtml(problem.title || "")}</strong>
-            <small>버전 ${escapeHtml(problem.version || "-")} · ${escapeHtml(problem.defaultProfile || "-")}</small>
+            <small>${escapeHtml(problem.folder || "기본")} · 버전 ${escapeHtml(problem.version || "-")} · ${escapeHtml(problem.defaultProfile || "-")} · ${escapeHtml(bulkProblemStatusLabel(status))}</small>
           </span>
         </label>
-      `
+      `;
+      }
     )
     .join("");
+  syncBulkSelectionDataset();
   for (const input of document.querySelectorAll("[data-bulk-problem]")) {
-    input.addEventListener("change", updateBulkStartButton);
+    input.addEventListener("change", () => {
+      if (input.checked) bulkSelectedProblemIds.add(input.value);
+      else bulkSelectedProblemIds.delete(input.value);
+      syncBulkSelectionDataset();
+      updateBulkStartButton();
+    });
   }
   updateBulkStartButton();
+}
+
+function bindBulkProblemControls() {
+  const search = optional("bulkProblemSearchInput");
+  if (!search || search.dataset.bulkBound === "true") return;
+  search.dataset.bulkBound = "true";
+  search.addEventListener("input", renderBulkProblemList);
+  optional("bulkProblemFolderFilter")?.addEventListener("change", renderBulkProblemList);
+  optional("bulkProblemStatusFilter")?.addEventListener("change", renderBulkProblemList);
+  optional("bulkSelectAllButton")?.addEventListener("click", () => {
+    bulkSelectedProblemIds = new Set((state.problems || []).map((problem) => problem.problemId));
+    renderBulkProblemList();
+  });
+  optional("bulkDeselectAllButton")?.addEventListener("click", () => {
+    bulkSelectedProblemIds.clear();
+    renderBulkProblemList();
+  });
 }
 /**
  * 작업 공간 build 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
@@ -81,6 +159,11 @@ export function openWorkspaceBuildModal() {
   $("bulkPackIdInput").value = optional("packIdInput")?.value.trim() || "basic";
   $("bulkVerifyProfileInput").value = optional("packVerifyProfileInput")?.value.trim() || "hidden";
   $("bulkMaxWorkersInput").value = "";
+  $("bulkProblemSearchInput").value = "";
+  $("bulkProblemFolderFilter").value = "";
+  $("bulkProblemStatusFilter").value = "";
+  bulkSelectedProblemIds = new Set((state.problems || []).map((problem) => problem.problemId));
+  bindBulkProblemControls();
   renderBulkProblemList();
   bulkCallbacks.openModal("workspaceBuildModal");
 }

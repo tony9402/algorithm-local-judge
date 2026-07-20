@@ -1,5 +1,5 @@
-"""생성 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""생성 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import os
@@ -8,7 +8,6 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from commons.generate import generate_cases
 from alj_core.cases_compile import ensure_cases_compiled
 from alj_core.compiler import compile_problem_tools
 from alj_core.errors import JudgeError
@@ -17,6 +16,7 @@ from alj_core.paths import cache_root, rel, repo_root, validate_safe_id
 from alj_core.problem import tool_paths
 from alj_core.runner import checker_compare, solution_write, validator_check
 from alj_core.utils.fs import write_json
+from commons.generate import generate_cases
 
 
 def cache_dir_for(problem_id: str, key: str, root: Path | None = None) -> Path:

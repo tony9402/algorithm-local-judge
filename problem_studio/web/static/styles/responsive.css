@@ -12,12 +12,18 @@
   }
 }
 
-@media (max-width: 1380px) {
+@media (max-width: 1199px) {
   html,
   body {
     max-width: 100%;
     overflow: auto;
     overflow-x: hidden;
+  }
+
+  .git-drawer {
+    box-shadow:
+      0 0 0 100vmax rgba(15, 23, 42, 0.42),
+      -18px 0 48px rgba(15, 23, 42, 0.2);
   }
 
   .shell {
@@ -112,7 +118,7 @@
   }
 }
 
-@media (max-width: 1380px) {
+@media (max-width: 1199px) {
   .shell {
     grid-template-columns: 1fr;
   }
@@ -241,6 +247,9 @@
     grid-template-columns: 1fr;
     align-items: start;
     padding: 16px;
+    grid-template-rows: auto auto auto auto auto minmax(220px, 1fr);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
   }
 
   body.sidebar-open .sidebar {
@@ -259,7 +268,15 @@
     color: #eff6ff;
   }
 
+  .sidebar button,
+  .sidebar input,
+  .sidebar select,
+  .sidebar summary {
+    min-height: 44px;
+  }
+
   #problemList {
+    min-height: 180px;
     grid-template-columns: 1fr;
   }
 

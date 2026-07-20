@@ -1,5 +1,5 @@
-"""작업 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""작업 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
@@ -10,7 +10,10 @@ from problem_studio.web.routes.common import (
     jobs_from_request,
     to_http_error,
 )
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -25,6 +28,10 @@ def api_jobs(request: Request) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "job history read")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     return {
         "jobs": [
@@ -50,7 +57,9 @@ def api_jobs_clear_completed(request: Request) -> dict:
     except Exception as exc:
         raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
-    return {"cleared": jobs.clear_completed(lambda job: job_matches_active_repository(request, job))}
+    return {
+        "cleared": jobs.clear_completed(lambda job: job_matches_active_repository(request, job))
+    }
 
 
 @router.get("/{job_id}")
@@ -64,6 +73,10 @@ def api_job(request: Request, job_id: str) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "job detail read")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     repository_scope = request.query_params.get("repository_scope")
     job = jobs.get(job_id)

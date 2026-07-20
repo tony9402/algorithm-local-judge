@@ -1,6 +1,8 @@
+import "./app/prism-1.30.0.js";
 import "./app/state.js";
 import "./app/dom.js";
 import "./app/api.js";
+import "./app/connection.js";
 import "./app/theme.js";
 import "./app/editor.js";
 import "./app/status.js";
@@ -14,10 +16,13 @@ import "./app/stream.js";
 import "./app/jobs.js";
 import "./app/generation.js";
 import "./app/run.js";
+import "./app/submissions.js";
 import "./app/modal.js";
 import "./app/refresh.js";
 import "./app/events.js";
 
 window.AljApp.bindEvents();
+window.AljApp.bindConnectionEvents();
 window.AljApp.bindJobs();
+window.AljApp.bindSubmissions();
 void window.AljApp.withErrors(window.AljApp.refresh);

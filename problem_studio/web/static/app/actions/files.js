@@ -14,6 +14,11 @@ import {
 import { resetEditorHistory } from "../editor/history.js";
 import { state } from "../state.js";
 import {
+  clearFileSnapshot,
+  guardUnsavedTransition,
+  rememberFileSnapshot,
+} from "../unsaved-changes.js";
+import {
   rememberSelectedFile,
   rememberView,
   selectionKey,
@@ -53,6 +58,7 @@ export function clearEditor(message = "작업 대상을 선택하세요.") {
   state.selectedFile = null;
   setEditorValue("", { clearHistory: true });
   state.lastSavedContent = "";
+  clearFileSnapshot();
   resetEditorHistory();
   resetVimTransientState();
   setText("fileTitle", "파일 없음");
@@ -83,9 +89,15 @@ export async function refreshProblemFiles(seq = state.viewSeq) {
  * @param {any} skipConfirm 파일을 계산하거나 검증할 때 필요한 skip confirm 입력입니다.
  */
 export async function openFile(path, refreshFiles = true, seq = null, skipConfirm = false) {
-  const currentSeq = seq ?? fileCallbacks.nextViewSeq();
   if (!state.selectedProblem) return;
-  if (path !== state.selectedFile && !skipConfirm && !fileCallbacks.confirmDiscardChanges?.()) return;
+  if (path !== state.selectedFile && !skipConfirm) {
+    return guardUnsavedTransition(
+      "파일 이동",
+      () => openFile(path, refreshFiles, seq, true),
+      { scope: "workspace" }
+    );
+  }
+  const currentSeq = seq ?? fileCallbacks.nextViewSeq();
   rememberSelectedFile();
   setText("fileTitle", path);
   setText("fileStatus", "불러오는 중...");
@@ -96,6 +108,7 @@ export async function openFile(path, refreshFiles = true, seq = null, skipConfir
   state.selectedFile = path;
   setEditorValue(data.content, { clearHistory: true });
   state.lastSavedContent = data.content;
+  rememberFileSnapshot(path, data.content);
   resetEditorHistory();
   resetVimTransientState();
   state.tabSelections[selectionKey()] = path;
@@ -127,6 +140,7 @@ export async function saveFile(options = {}) {
     }
   );
   state.lastSavedContent = content;
+  rememberFileSnapshot(state.selectedFile, content);
   setText("fileStatus", "저장됨");
   updateDirtyState();
   if (savedSolutionFile) {

@@ -2,6 +2,10 @@
 
 `problem-studio`는 문제 제작자용 웹 도구입니다. 문제 저장소를 열고, 문제 파일을 편집하고, 테스트 데이터와 솔루션 기대 결과를 검증한 뒤 `.aljpack` 문제 팩을 만듭니다.
 
+최종 사용자는 저장소 루트의 [개인 설치 및 운영 안내](../INSTALL.md)에서 GitHub clone 후
+세 명령 설치 경로를 먼저 확인하세요. 이 문서는 Problem Studio의 workspace·Git·pack 제작
+상세 사용법을 설명합니다.
+
 명령 이름은 `problem_studio`가 아니라 하이픈을 쓰는 `problem-studio`입니다.
 
 ## 빠른 시작
@@ -65,7 +69,8 @@ uv run problem-studio web --host 127.0.0.1 --port 8775 --no-open
 
 ## 기본 작업 흐름
 
-1. 문제를 새로 만들거나 기존 문제를 선택합니다.
+1. 빈 workspace에서는 `첫 문제 만들기`, `저장소 추가`, `저장소 열기` 중
+   하나를 선택합니다. 문제를 선택하기 전에는 편집과 삭제 기능이 숨겨집니다.
 2. 문제 번호, 제목, 폴더, 버전, 기본 프로필, 실행 제한을 입력합니다.
 3. `generator/cases.yml`, validator, checker, solution 파일을 편집합니다.
 4. `Cases 검사`로 데이터 계획을 확인합니다.
@@ -184,6 +189,11 @@ uv run judge run --problem <problem-id> --profile sample path/to/main.cpp
 - solution upload는 안전한 파일명과 지원 확장자만 허용됩니다.
 - 외부 접근 가능한 host로 열면 파일 저장, build, generate, validate, Git write/fetch/pull/push 같은 위험 작업이 비활성화됩니다.
 - `problem-studio web`에는 외부 host에서 쓰기 작업을 강제로 허용하는 옵션이 없습니다. 쓰기 작업이 필요한 경우 로컬 binding인 `127.0.0.1`, `localhost`, `::1`로 실행하세요.
+- 대화상자는 열릴 때 이름과 설명이 보조 기술에 전달되고, 첫 입력으로
+  초점이 이동하며, Tab 초점 순환과 Escape 닫기·열기 trigger 복귀를 지원합니다.
+- 작업 이력은 `$ALJ_DATA_HOME/jobs/problem-studio.json`에 저장되며, 재시작 중이던
+  작업은 자동 재실행하지 않고 명시적인 중단 실패로 복구됩니다.
+- `/healthz`, `/readyz`, `/metrics`는 로컬 운영 상태를 제공합니다.
 
 ## 문제가 생겼을 때
 

@@ -53,11 +53,57 @@ export function bindAppEvents(actions) {
   optional("problemFilterInput")?.addEventListener("input", (event) => {
     actions.setProblemFilter(event.target.value);
   });
-  $("newProblemButton").addEventListener("click", () => actions.openModal("newProblemModal"));
+  const openNewProblemModal = () => {
+    void actions.withErrors(
+      () => actions.guardUnsavedTransition(
+        "새 문제 만들기",
+        () => actions.openModal("newProblemModal"),
+        { scope: "workspace" }
+      ),
+      "새 문제 만들기를 준비하는 중입니다."
+    );
+  };
+  $("newProblemButton").addEventListener("click", openNewProblemModal);
+  optional("emptyCreateProblemButton")?.addEventListener("click", openNewProblemModal);
   $("workspaceBuildAllButton").addEventListener("click", () => {
     void actions.withErrors(actions.openWorkspaceBuildModal, "전체 문제 팩 빌드를 준비하는 중입니다.");
   });
-  optional("repositoryCloneButton")?.addEventListener("click", actions.openRepositoryModal);
+  optional("repositoryCloneButton")?.addEventListener("click", () => {
+    void actions.withErrors(
+      () => actions.guardUnsavedTransition(
+        "저장소 추가",
+        () => actions.openRepositoryModal("clone")
+      ),
+      "저장소 추가를 준비하는 중입니다."
+    );
+  });
+  optional("repositoryOpenButton")?.addEventListener("click", () => {
+    void actions.withErrors(
+      () => actions.guardUnsavedTransition(
+        "기존 저장소 열기",
+        () => actions.openRepositoryModal("open")
+      ),
+      "기존 저장소 목록을 준비하는 중입니다."
+    );
+  });
+  optional("emptyAddRepositoryButton")?.addEventListener("click", () => {
+    void actions.withErrors(
+      () => actions.guardUnsavedTransition(
+        "저장소 추가",
+        () => actions.openRepositoryModal("clone")
+      ),
+      "저장소 추가를 준비하는 중입니다."
+    );
+  });
+  optional("emptyOpenRepositoryButton")?.addEventListener("click", () => {
+    void actions.withErrors(
+      () => actions.guardUnsavedTransition(
+        "저장소 열기",
+        () => actions.openRepositoryModal("open")
+      ),
+      "저장소 열기를 준비하는 중입니다."
+    );
+  });
   optional("repositoryRefreshButton")?.addEventListener("click", () => {
     void actions.withErrors(actions.refreshRepositories, "저장소 목록을 새로고침하는 중입니다.");
   });
@@ -70,20 +116,28 @@ export function bindAppEvents(actions) {
   optional("repositoryCloneStartButton")?.addEventListener("click", () => {
     void actions.withErrors(actions.cloneRepositoryFromModal, "저장소를 받아오는 중입니다.");
   });
-  optional("repositoryRegisterButton")?.addEventListener("click", () => {
-    void actions.withErrors(actions.registerRepositoryFromModal, "저장소를 여는 중입니다.");
+  optional("repositoryOpenRefreshButton")?.addEventListener("click", () => {
+    void actions.withErrors(actions.refreshRepositoryOpenList, "저장소 목록을 새로고침하는 중입니다.");
   });
+  optional("repositoryOpenSelect")?.addEventListener("change", actions.renderRepositoryOpenOptions);
+  optional("repositoryOpenStartButton")?.addEventListener("click", () => {
+    void actions.withErrors(actions.openSelectedRepositoryFromModal, "저장소를 여는 중입니다.");
+  });
+  optional("repositoryOpenCloneButton")?.addEventListener("click", actions.moveFromRepositoryOpenToClone);
+  for (const id of ["repositoryUrlInput", "repositoryNameInput"]) {
+    optional(id)?.addEventListener("input", actions.updateRepositoryClonePreview);
+  }
   optional("gitFetchButton")?.addEventListener("click", () => {
-    void actions.withErrors(() => actions.runGitAction("fetch"), "Git fetch를 실행하는 중입니다.");
+    void actions.withErrors(() => actions.runGitAction("fetch"), "Git 가져오기를 실행하는 중입니다.");
   });
   optional("gitPullButton")?.addEventListener("click", () => {
-    void actions.withErrors(() => actions.runGitAction("pull"), "Git pull을 실행하는 중입니다.");
+    void actions.withErrors(() => actions.runGitAction("pull"), "Git 당겨오기를 실행하는 중입니다.");
   });
   optional("gitCommitButton")?.addEventListener("click", () => {
     void actions.withErrors(actions.commitGitChanges, "Git commit을 생성하는 중입니다.");
   });
   optional("gitPushButton")?.addEventListener("click", () => {
-    void actions.withErrors(() => actions.runGitAction("push"), "Git push를 실행하는 중입니다.");
+    void actions.withErrors(() => actions.runGitAction("push"), "Git 푸시를 실행하는 중입니다.");
   });
   $("bulkSelectAllButton").addEventListener("click", () => {
     for (const input of document.querySelectorAll("[data-bulk-problem]")) input.checked = true;
@@ -187,19 +241,81 @@ export function bindAppEvents(actions) {
       event.target.value = "";
     }, "솔루션 파일을 업로드하는 중입니다.");
   });
-  for (const button of document.querySelectorAll(".tab-button")) {
-    button.addEventListener("click", () => {
-      void actions.withErrors(() => actions.selectTab(button.dataset.tab), "탭을 불러오는 중입니다.");
+  const tabButtons = Array.from(document.querySelectorAll(".tab-button"));
+  const activateTabButton = (button) => {
+    void actions.withErrors(async () => {
+      await actions.selectTab(button.dataset.tab);
+      document.querySelector(`.tab-button[data-tab="${state.selectedTab}"]`)?.focus();
+    }, "탭을 불러오는 중입니다.");
+  };
+  for (const [index, button] of tabButtons.entries()) {
+    button.addEventListener("click", () => activateTabButton(button));
+    button.addEventListener("keydown", (event) => {
+      let nextIndex = null;
+      if (["ArrowRight", "ArrowDown"].includes(event.key)) {
+        nextIndex = (index + 1) % tabButtons.length;
+      }
+      if (["ArrowLeft", "ArrowUp"].includes(event.key)) {
+        nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+      }
+      if (event.key === "Home") nextIndex = 0;
+      if (event.key === "End") nextIndex = tabButtons.length - 1;
+      if (nextIndex === null) return;
+      event.preventDefault();
+      tabButtons[nextIndex].focus();
+      activateTabButton(tabButtons[nextIndex]);
     });
   }
   for (const button of document.querySelectorAll("[data-modal-close]")) {
-    button.addEventListener("click", actions.closeModals);
+    button.addEventListener("click", () => {
+      const surfaceId = button.closest(".modal")?.id || actions.activeModalId();
+      void actions.withErrors(
+        () => actions.requestCloseSurface(surfaceId),
+        "화면을 닫기 전에 변경사항을 확인하는 중입니다."
+      );
+    });
   }
   document.addEventListener("keydown", (event) => {
+    const activeEditor = activeCodeEditorElement(event);
+    const editorModal = activeEditor?.closest(".modal:not(.hidden)");
+    if (event.key !== "Escape") {
+      editorModal?.removeAttribute("data-vim-escape-armed");
+      return;
+    }
     if (event.key === "Escape") {
-      if (activeCodeEditorElement(event) && state.editorMode === "vim") return;
+      if (actions.cancelUnsavedPrompt()) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (activeEditor && state.editorMode === "vim") {
+        if (!editorModal) return;
+        if (editorModal.dataset.vimEscapeArmed !== "true") {
+          editorModal.dataset.vimEscapeArmed = "true";
+          return;
+        }
+        editorModal.removeAttribute("data-vim-escape-armed");
+      }
       actions.setEditorSettingsOpen(false);
-      actions.closeModals();
+      const surfaceId = actions.activeModalId();
+      if (surfaceId) {
+        event.preventDefault();
+        void actions.withErrors(
+          () => actions.requestCloseSurface(surfaceId),
+          "화면을 닫기 전에 변경사항을 확인하는 중입니다."
+        );
+        return;
+      }
+      if (actions.isGitDrawerOpen()) {
+        event.preventDefault();
+        actions.closeGitDrawer();
+        return;
+      }
+      if (actions.isJobCenterOpen()) {
+        event.preventDefault();
+        actions.closeJobCenter();
+        return;
+      }
       actions.closeSidebar();
     }
   });
@@ -207,7 +323,7 @@ export function bindAppEvents(actions) {
     if (state.editorSettingsOpen) actions.setEditorSettingsOpen(false);
   });
   window.addEventListener("beforeunload", (event) => {
-    if (!actions.hasUnsavedChanges()) return;
+    if (!actions.hasAnyUnsavedChanges()) return;
     event.preventDefault();
     event.returnValue = "";
   });

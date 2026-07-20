@@ -1,9 +1,11 @@
-"""CLI parser 기능을 담당하는 모듈입니다.
-"""
+"""CLI parser 기능을 담당하는 모듈입니다."""
+
 from __future__ import annotations
 
 import argparse
 
+from alj_core.studio_cli_options import add_web_arguments as add_studio_web_arguments
+from judge import __version__
 from judge.core.paths import current_platform_id
 
 
@@ -14,7 +16,11 @@ def add_parser(subparsers: argparse._SubParsersAction, name: str) -> argparse.Ar
 def add_common_run_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--problem", dest="run_problem")
     parser.add_argument("--profile", dest="run_profile")
-    parser.add_argument("--language", dest="run_language", choices=["cpp", "python", "pypy", "java"])
+    parser.add_argument(
+        "--language",
+        dest="run_language",
+        choices=["cpp", "python", "pypy", "java"],
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,6 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: 공통 옵션과 하위 명령이 등록된 argparse 파서입니다.
     """
     parser = argparse.ArgumentParser(prog="judge", allow_abbrev=False)
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--problem")
     parser.add_argument("--profile")
     parser.add_argument("--language", choices=["cpp", "python", "pypy", "java"])
@@ -48,6 +55,31 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser = add_parser(subparsers, "doctor")
     doctor_parser.add_argument("--verbose", action="store_true")
     doctor_parser.add_argument("--json", action="store_true")
+
+    docker_parser = add_parser(subparsers, "docker")
+    docker_sub = docker_parser.add_subparsers(dest="docker_command", required=True)
+    docker_sub.add_parser("setup", allow_abbrev=False)
+    docker_web = docker_sub.add_parser("web", allow_abbrev=False)
+    docker_web.add_argument("--port", type=int, default=8765)
+
+    setup_parser = add_parser(subparsers, "setup")
+    setup_parser.add_argument(
+        "--repository",
+        default="tony9402/algorithm-package",
+        help="trusted problem repository installed when no problems are present",
+    )
+    setup_parser.add_argument("--check-only", action="store_true")
+    setup_parser.add_argument(
+        "--toolchains",
+        choices=["auto", "managed", "system", "none"],
+        default="auto",
+    )
+    setup_parser.add_argument("--yes", action="store_true")
+    setup_parser.add_argument("--no-install-problems", action="store_true")
+    setup_parser.add_argument("--no-web", action="store_true")
+    setup_parser.add_argument("--no-open", action="store_true")
+    setup_parser.add_argument("--port", type=int, default=8765)
+    setup_parser.add_argument("--verbose", action="store_true")
 
     generate_parser = add_parser(subparsers, "generate")
     generate_parser.add_argument("problem")
@@ -91,6 +123,14 @@ def build_parser() -> argparse.ArgumentParser:
     pack_build.add_argument("--verify-profile", default="hidden")
     pack_verify = pack_sub.add_parser("verify", allow_abbrev=False)
     pack_verify.add_argument("archive")
+    pack_sign = pack_sub.add_parser("sign", allow_abbrev=False)
+    pack_sign.add_argument("archive")
+    pack_sign.add_argument("--bundle")
+    pack_sign.add_argument("--key")
+    pack_verify_signature = pack_sub.add_parser("verify-signature", allow_abbrev=False)
+    pack_verify_signature.add_argument("archive")
+    pack_verify_signature.add_argument("--bundle")
+    pack_verify_signature.add_argument("--repository")
     pack_install = pack_sub.add_parser("install", allow_abbrev=False)
     pack_install.add_argument("archive")
     pack_sub.add_parser("list", allow_abbrev=False)
@@ -112,6 +152,8 @@ def build_parser() -> argparse.ArgumentParser:
     problem_install.add_argument("--ref")
     problem_install.add_argument("--checksum")
     problem_install.add_argument("--checksum-url")
+    problem_install.add_argument("--signature-url")
+    problem_install.add_argument("--require-pack", action="store_true", help=argparse.SUPPRESS)
     problem_sub.add_parser("list", allow_abbrev=False)
 
     web_parser = add_parser(subparsers, "web")
@@ -126,5 +168,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="allow run APIs when binding judge web to a non-local host",
     )
+
+    studio_parser = add_parser(subparsers, "studio")
+    add_studio_web_arguments(studio_parser)
 
     return parser

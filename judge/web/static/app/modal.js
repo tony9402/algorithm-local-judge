@@ -7,6 +7,7 @@ const { state } = app;
 
 let activeModalId = null;
 let modalReturnFocus = null;
+let modalReturnScroll = 0;
 const FOCUSABLE = [
   "button:not([disabled])",
   "[href]",
@@ -32,7 +33,10 @@ function setAppInert(isInert) {
 function focusFirstModalControl(modal) {
   const focusable = [...modal.querySelectorAll(FOCUSABLE)]
     .filter((element) => element instanceof HTMLElement && element.offsetParent !== null);
-  const target = focusable[0] || modal;
+  const preferred = modal.querySelector("[data-modal-autofocus]");
+  const target = preferred instanceof HTMLElement && preferred.offsetParent !== null
+    ? preferred
+    : focusable[0] || modal;
   window.setTimeout(() => target.focus(), 0);
 }
 
@@ -44,11 +48,15 @@ function focusFirstModalControl(modal) {
 function openModal(id) {
   const modal = app.optional(id);
   if (!modal) return;
+  if (id !== "jobsPanel") app.closeJobsForOverlay?.();
   modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  modalReturnScroll = window.scrollY;
   activeModalId = id;
   app.optional("modalBackdrop")?.classList.remove("hidden");
   modal.classList.remove("hidden");
   modal.setAttribute("tabindex", "-1");
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
   setAppInert(true);
   if (id === "cacheModal") {
     app.renderCacheModalSummary(state.cache);
@@ -59,15 +67,33 @@ function openModal(id) {
  * modals 모달이나 열린 상태를 닫고 관련 임시 상태를 정리합니다.
  */
 function closeModals() {
+  const closingModalId = activeModalId;
   app.optional("modalBackdrop")?.classList.add("hidden");
   app.optional("packModal")?.classList.add("hidden");
   app.optional("cacheModal")?.classList.add("hidden");
+  app.optional("problemPickerModal")?.classList.add("hidden");
+  app.optional("problemFolderMoveModal")?.classList.add("hidden");
   app.optional("resultModal")?.classList.add("hidden");
+  app.optional("submissionsDrawer")?.classList.add("hidden");
+  if (closingModalId === "jobsPanel") app.optional("jobsPanel")?.classList.add("hidden");
+  app.onSubmissionsClosed?.();
+  if (closingModalId === "problemPickerModal") app.onProblemPickerClosed?.();
+  if (closingModalId === "problemFolderMoveModal") app.onProblemFolderMoveClosed?.();
+  if (closingModalId === "jobsPanel") app.onJobsOverlayClosed?.();
   activeModalId = null;
+  document.documentElement.classList.remove("modal-open");
+  document.body.classList.remove("modal-open");
   setAppInert(false);
+  const returnScroll = modalReturnScroll;
+  modalReturnScroll = 0;
   const target = modalReturnFocus;
   modalReturnFocus = null;
+  window.scrollTo(0, returnScroll);
   if (target && document.contains(target)) target.focus();
+}
+
+function hasActiveModal() {
+  return Boolean(activeModalId);
 }
 
 function handleModalKeydown(event) {
@@ -104,6 +130,7 @@ function handleModalKeydown(event) {
 
 Object.assign(app, {
   closeModals,
+  hasActiveModal,
   handleModalKeydown,
   openModal,
 });

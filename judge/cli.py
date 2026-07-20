@@ -1,5 +1,5 @@
-"""judge CLI의 인자 정규화, 파싱, 명령 디스패치를 묶어 제공하는 진입점입니다.
-"""
+"""judge CLI의 인자 정규화, 파싱, 명령 디스패치를 묶어 제공하는 진입점입니다."""
+
 from __future__ import annotations
 
 import sys

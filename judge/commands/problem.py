@@ -1,5 +1,5 @@
-"""문제 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다.
-"""
+"""문제 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다."""
+
 from __future__ import annotations
 
 import argparse
@@ -30,6 +30,8 @@ def print_installed_problem_source(result: dict) -> None:
         print("Trusted repository: verified")
     if result.get("checksumVerified"):
         print(f"Checksum: verified ({result.get('checksumSource')})")
+    if result.get("signatureVerified"):
+        print(f"Publisher signature: verified ({result.get('signatureSource')})")
     if problem_count := result.get("problemCount"):
         print(f"Problems: {problem_count}")
     if downloaded_path := result.get("downloadedPath"):
@@ -57,6 +59,8 @@ def handle(args: argparse.Namespace) -> int:
             args.ref,
             args.checksum,
             args.checksum_url,
+            signature_url=getattr(args, "signature_url", None),
+            require_pack=getattr(args, "require_pack", False),
         )
         print_installed_problem_source(result)
         return 0

@@ -1,5 +1,5 @@
-"""제출 워밍업 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""제출 워밍업 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -19,6 +19,7 @@ def warm_up_submission(
     profile: str,
     emit: Callable[[str], None],
     command_runner: Callable[..., CommandResult] = run_command_result,
+    memory_limit_bytes: int | None = None,
 ) -> dict[str, Any] | None:
     """warm up 제출 실행에 필요한 명령을 만들고 프로세스 종료 상태와 오류 출력을 해석합니다.
 
@@ -30,6 +31,7 @@ def warm_up_submission(
         profile (str): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
         emit (Callable[[str], None]): warm up 제출을 계산하거나 검증할 때 필요한 emit 입력입니다.
         command_runner (Callable[..., CommandResult]): warm up 제출을 계산하거나 검증할 때 필요한 명령 실행기 입력입니다.
+        memory_limit_bytes (int | None): 사용자 프로세스 트리에 적용할 메모리 상한입니다.
 
     Returns:
         dict[str, Any] | None: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 warm up 제출 데이터입니다.
@@ -49,6 +51,7 @@ def warm_up_submission(
         timeout_ms,
         input_path=in_path,
         output_path=actual_path,
+        memory_limit_bytes=memory_limit_bytes,
     )
     status, message = command_status(command_result)
     emit(f"Warmup case {case_id}: {status}.")

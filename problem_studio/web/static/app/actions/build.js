@@ -59,7 +59,7 @@ export function configureBuildActions(callbacks = {}) {
  * all 검사 장시간 작업을 큐에 등록하고 UI가 추적할 작업 상태를 구성합니다.
  */
 async function runAllChecks() {
-  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  if (!state.selectedProblem) throw new Error("먼저 문제를 선택하세요.");
   clearOutput();
   const steps = [
     { label: "cases.yml 검사", status: "running" },
@@ -225,7 +225,7 @@ async function startPackBuild() {
   const packId = $("packIdInput").value.trim();
   const outputDir = PACK_OUTPUT_DIR;
   const verifyProfile = $("packVerifyProfileInput").value.trim() || "hidden";
-  if (!packId) throw new Error("Pack ID를 입력하세요.");
+  if (!packId) throw new Error("팩 ID를 입력하세요.");
   if (activePackJobForProblem(problemId)) throw new Error("현재 문제의 팩 빌드가 이미 진행 중입니다.");
   if (currentRunAllLock(problemId)) throw new Error("현재 문제의 전체 테스트 진행 중에는 팩 빌드를 시작할 수 없습니다.");
   const job = await api(`/api/problems/${encodeURIComponent(problemId)}/packs/build`, {

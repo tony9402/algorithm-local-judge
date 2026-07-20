@@ -1,5 +1,5 @@
-"""문제팩 build 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""문제팩 build 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import tarfile
@@ -55,13 +55,13 @@ def build_pack(
 ) -> PackBuildResult:
     """문제팩에 필요한 경로, 메타데이터, 파일 목록을 조립합니다.
 
-        Args:
-            problem_path (Path): 문제 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
-            pack_id (str): 설치, 삭제, 조회할 문제팩을 구분하는 ID입니다.
-            platform_id (str | None): platform ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
-            output_dir (Path | None): 출력 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
-            verify_profile (str): 문제팩을 계산하거나 검증할 때 필요한 verify 프로필 입력입니다.
-            warmup_profile (str | None): 문제팩을 계산하거나 검증할 때 필요한 워밍업 프로필 입력입니다.
+    Args:
+        problem_path (Path): 문제 경로를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        pack_id (str): 설치, 삭제, 조회할 문제팩을 구분하는 ID입니다.
+        platform_id (str | None): platform ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+        output_dir (Path | None): 출력 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        verify_profile (str): 문제팩을 계산하거나 검증할 때 필요한 verify 프로필 입력입니다.
+        warmup_profile (str | None): 문제팩을 계산하거나 검증할 때 필요한 워밍업 프로필 입력입니다.
     """
     problem_path = problem_path.resolve()
     if not (problem_path / "problem.json").exists():
@@ -91,15 +91,15 @@ def build_pack_for_problem_ids(
 ) -> PackBuildResult:
     """문제팩 문제 ids 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
-        Args:
-            problem_ids (list[str]): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 문제 ids 입력입니다.
-            pack_id (str): 설치, 삭제, 조회할 문제팩을 구분하는 ID입니다.
-            platform_id (str | None): platform ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
-            output_dir (Path | None): 출력 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
-            root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
-            verify_profile (str): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 verify 프로필 입력입니다.
-            solution_checks (list[dict[str, object]] | None): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 솔루션 검사 입력입니다.
-            warmup_profile (str | None): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 워밍업 프로필 입력입니다.
+    Args:
+        problem_ids (list[str]): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 문제 ids 입력입니다.
+        pack_id (str): 설치, 삭제, 조회할 문제팩을 구분하는 ID입니다.
+        platform_id (str | None): platform ID를 조회하거나 저장 위치를 결정할 때 사용하는 식별자입니다.
+        output_dir (Path | None): 출력 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+        verify_profile (str): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 verify 프로필 입력입니다.
+        solution_checks (list[dict[str, object]] | None): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 솔루션 검사 입력입니다.
+        warmup_profile (str | None): 문제팩 문제 ids을 계산하거나 검증할 때 필요한 워밍업 프로필 입력입니다.
     """
     validate_safe_id("pack id", pack_id)
     if not problem_ids:

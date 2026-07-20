@@ -2,7 +2,7 @@
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 10060;
   display: grid;
   place-items: center;
   background: rgba(15, 23, 42, 0.44);
@@ -30,11 +30,78 @@
   overflow: auto;
 }
 
+.bulk-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(130px, 0.8fr) minmax(140px, 0.8fr);
+  gap: 8px;
+}
+
+.unsaved-changes-modal {
+  width: min(540px, calc(100vw - 32px));
+}
+
+.unsaved-changes-sources {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 22px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.unsaved-changes-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .workspace-build-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.bulk-selection-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.repository-advanced-options,
+.repository-open-summary,
+.repository-destination-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 10px;
+}
+
+.repository-advanced-options summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.repository-advanced-options[open] summary {
+  margin-bottom: 10px;
+}
+
+.repository-destination-preview,
+.repository-open-summary {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.repository-open-summary strong,
+.repository-open-summary span {
+  display: block;
+}
+
+.repository-open-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
 }
 
 .workspace-build-toolbar strong {
@@ -49,6 +116,13 @@
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 800;
+}
+
+.bulk-selection-sticky {
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  box-shadow: 0 5px 10px rgba(15, 23, 42, 0.08);
 }
 
 .bulk-problem-list {
@@ -83,6 +157,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .bulk-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-build-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .bulk-problem-copy small {
@@ -186,6 +271,139 @@
   grid-column: 1 / -1;
   height: 100%;
   min-height: 0;
+}
+
+.git-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 10035;
+  display: flex;
+  /* Use the layout viewport instead of 100vw so mobile scrollbars do not push
+     the drawer beyond the left edge. */
+  width: min(520px, 100%);
+  max-width: 100%;
+  height: 100vh;
+  flex-direction: column;
+  gap: 14px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  padding: 16px;
+  box-shadow: -18px 0 48px rgba(15, 23, 42, 0.2);
+}
+
+@media (max-width: 760px) {
+  .git-drawer {
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+  }
+}
+
+.git-drawer-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.git-drawer-heading > div {
+  min-width: 0;
+}
+
+.git-drawer-heading strong {
+  font-size: 17px;
+}
+
+.git-drawer-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+#gitDrawerCloseButton {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+}
+
+.git-drawer-content {
+  display: grid;
+  min-height: 0;
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.git-drawer #gitStatus {
+  min-height: 0;
+  overflow: visible;
+}
+
+.git-drawer .git-card {
+  border-color: var(--line);
+  background: var(--panel-soft);
+  padding: 12px;
+}
+
+.git-drawer .git-card.empty,
+.git-drawer .git-card.empty p,
+.git-drawer .git-meta-grid dt,
+.git-drawer .git-head {
+  color: var(--muted);
+}
+
+.git-drawer .git-card-title,
+.git-drawer .git-branch,
+.git-drawer .git-meta-grid dd {
+  color: var(--text);
+}
+
+.git-drawer .git-badges span {
+  color: var(--accent-dark);
+}
+
+.git-control-reason {
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--text);
+  padding: 10px 11px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.git-commit-field {
+  display: grid;
+  gap: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.git-commit-field input {
+  min-height: 44px;
+}
+
+.git-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.git-actions button {
+  min-width: 0;
+  min-height: 44px;
+  padding-inline: 10px;
+  font-weight: 800;
 }
 
 .source-modal-codemirror[data-editor-mode="vim"][data-vim-mode="normal"] .CodeMirror-cursor {

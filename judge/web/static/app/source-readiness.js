@@ -10,7 +10,7 @@ function languageFromName(name) {
   if (lowered.endsWith(".cpp") || lowered.endsWith(".cc") || lowered.endsWith(".cxx")) return "C++";
   if (lowered.endsWith(".py")) return "Python";
   if (lowered.endsWith(".java")) return "Java";
-  return "Unknown";
+  return "알 수 없는 언어";
 }
 
 function languageIdFromName(name) {
@@ -22,7 +22,7 @@ function languageIdFromName(name) {
 }
 
 function languageNameFromId(languageId) {
-  return { cpp: "C++", python: "Python", pypy: "PyPy", java: "Java" }[languageId] || "Unknown";
+  return { cpp: "C++", python: "Python", pypy: "PyPy", java: "Java" }[languageId] || "알 수 없는 언어";
 }
 
 function extensionForLanguage(languageId) {
@@ -107,7 +107,7 @@ function updateLanguageBadge() {
   const hint = app.optional("languageHint");
   if (detected && hint && !(detected === "python" && hint.value === "pypy")) hint.value = detected;
   const languageId = explicitLanguageForName(detected, hint?.value || "");
-  const language = languageId ? languageNameFromId(languageId) : "No source";
+  const language = languageId ? languageNameFromId(languageId) : "코드 없음";
   const name = normalizedSourceName();
   app.setText("languageBadge", language);
   app.setText("editorFileLabel", name || "main.py");

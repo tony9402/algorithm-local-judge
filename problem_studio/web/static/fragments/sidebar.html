@@ -19,7 +19,7 @@
 <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 <div id="alertStack" class="alert-stack" aria-live="polite"></div>
 <div class="shell">
-  <aside id="studioSidebar" class="sidebar">
+  <aside id="studioSidebar" class="sidebar" role="navigation" aria-label="문제 탐색">
     <header class="sidebar-header">
       <div>
         <h1>Problem Studio</h1>
@@ -38,17 +38,48 @@
     </section>
 
     <section class="repository-panel">
-      <div class="section-title">저장소</div>
+      <div class="repository-heading">
+        <div class="section-title">저장소</div>
+        <button
+          id="repositoryRefreshButton"
+          class="repository-refresh-button"
+          type="button"
+          aria-label="저장소 목록 새로고침"
+          title="저장소 목록 새로고침"
+        >
+          <span aria-hidden="true">↻</span>
+        </button>
+      </div>
       <select id="repositorySelect" aria-label="문제 저장소 선택"></select>
-      <div id="repositoryStatus" class="repository-status muted">Loading...</div>
+      <div id="repositoryStatus" class="repository-status muted">불러오는 중...</div>
       <div class="repository-actions">
         <button id="repositoryCloneButton" type="button">저장소 추가</button>
-        <button id="repositoryRefreshButton" type="button">새로고침</button>
+        <button id="repositoryOpenButton" type="button">저장소 열기</button>
       </div>
     </section>
 
     <section>
-      <div class="section-title">문제</div>
+      <div class="section-title">워크스페이스</div>
+      <div id="workspaceStatus" class="status-text muted">불러오는 중...</div>
+    </section>
+
+    <section class="git-panel">
+      <button
+        id="gitDrawerButton"
+        class="git-summary-trigger"
+        type="button"
+        aria-controls="gitDrawer"
+        aria-expanded="false"
+      >
+        <span class="git-summary-label">Git</span>
+        <strong id="gitSummaryBranch">확인 중</strong>
+        <span id="gitSummaryChanges" class="git-summary-changes">상태 불러오는 중</span>
+        <span class="git-summary-arrow" aria-hidden="true">›</span>
+      </button>
+    </section>
+
+    <section class="problem-navigation" aria-labelledby="problemNavigationTitle">
+      <div id="problemNavigationTitle" class="section-title">문제</div>
       <input
         id="problemFilterInput"
         class="problem-filter"
@@ -57,23 +88,6 @@
         autocomplete="off"
         aria-label="문제 ID, 제목, 폴더 검색"
       />
-      <div id="problemList" class="list muted">Loading...</div>
-    </section>
-
-    <section>
-      <div class="section-title">워크스페이스</div>
-      <div id="workspaceStatus" class="status-text muted">Loading...</div>
-    </section>
-
-    <section class="git-panel">
-      <div class="section-title">Git</div>
-      <div id="gitStatus" class="status-text muted">Loading...</div>
-      <input id="gitCommitMessage" type="text" placeholder="커밋 메시지" aria-label="Git 커밋 메시지" />
-      <div class="git-actions">
-        <button id="gitFetchButton" type="button">가져오기</button>
-        <button id="gitPullButton" type="button">당겨오기</button>
-        <button id="gitCommitButton" type="button">커밋</button>
-        <button id="gitPushButton" type="button">푸시</button>
-      </div>
+      <div id="problemList" class="list muted" tabindex="0" aria-label="문제 목록">불러오는 중...</div>
     </section>
   </aside>

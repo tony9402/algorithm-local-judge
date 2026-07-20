@@ -69,14 +69,24 @@ import {
   commitGitChanges,
   configureGitActions,
   runGitAction,
-} from "./app/actions/git.js?v=20260522-01";
+} from "./app/actions/git.js?v=20260712-01";
+import {
+  bindGitDrawer,
+  closeGitDrawer,
+  configureGitView,
+  isGitDrawerOpen,
+} from "./app/git-view.js?v=20260712-01";
 import {
   cloneRepositoryFromModal,
   configureRepositoryActions,
+  moveFromRepositoryOpenToClone,
+  openSelectedRepositoryFromModal,
   openRepositoryModal,
+  refreshRepositoryOpenList,
   refreshRepositories,
-  registerRepositoryFromModal,
+  renderRepositoryOpenOptions,
   selectRepository,
+  updateRepositoryClonePreview,
 } from "./app/actions/repositories.js";
 import {
   configureBuildView,
@@ -85,12 +95,16 @@ import {
 } from "./app/build-view.js";
 import { bindAppEvents } from "./app/events.js";
 import { configureLoading, withErrors, withInlineErrors } from "./app/loading.js";
-import { closeModals, openModal } from "./app/modal.js";
+import { activeModalId, closeModalSurface, closeModals, openModal } from "./app/modal.js";
 import {
   focusEditor,
+  currentSolutionModalDraft,
+  getEditorValue,
   initializeCodeMirror,
   initializeSourceModalEditors,
   modalEditorKeyForElement,
+  restoreSolutionModalDraft,
+  setEditorValue,
 } from "./app/editor/codemirror.js";
 import {
   bindEditorEvents,
@@ -102,10 +116,31 @@ import {
   setEditorMode,
   setEditorSettingsOpen,
   submitEditorCommandLine,
+  updateDirtyState,
 } from "./app/editor/core.js";
 import { showAlert, showResult } from "./app/feedback.js";
-import { bindJobCenter } from "./app/jobs-view.js";
-import { configureMetadataView, populateMetadataForm, updateMetadataPreview } from "./app/metadata-view.js";
+import {
+  bindJobCenter,
+  closeJobCenter,
+  configureJobsView,
+  isJobCenterOpen,
+} from "./app/jobs-view.js";
+import {
+  configureMetadataView,
+  currentMetadataFormDraft,
+  populateMetadataForm,
+  restoreMetadataFormDraft,
+  updateMetadataPreview,
+} from "./app/metadata-view.js";
+import {
+  bindUnsavedChangesModal,
+  cancelUnsavedPrompt,
+  clearSolutionModalSnapshot,
+  configureUnsavedChanges,
+  guardUnsavedTransition,
+  hasAnyUnsavedChanges,
+  requestCloseSurface,
+} from "./app/unsaved-changes.js";
 import {
   completeProgress,
   hideLastRunPanel,
@@ -114,9 +149,11 @@ import {
 } from "./app/progress.js";
 import {
   configureResourcesView,
+  filesForTab,
   isReferenceSolutionPath,
   renderSolutionValidationSummary,
   renderTabFiles,
+  selectSolutionPath,
 } from "./app/resources-view.js";
 import { SAVE_BEFORE_ACTIONS, TAB_CONFIGS, state } from "./app/state.js";
 import { persistProblemLastResult } from "./app/results.js";
@@ -188,8 +225,67 @@ configureMetadataView({
   updateMobileHeader,
 });
 configureWorkspaceView({
+  closeGitDrawer,
+  closeJobCenter,
   selectProblem,
   withErrors,
+});
+
+function failureSourcePath(detail, problemId) {
+  const raw = String(detail.source || detail.path || detail.sourcePath || "").replaceAll("\\", "/");
+  const prefix = problemId ? `problems/${problemId}/` : "";
+  if (prefix && raw.startsWith(prefix)) return raw.slice(prefix.length);
+  const problemMarker = raw.indexOf("/problems/");
+  if (problemMarker >= 0 && problemId) {
+    const nestedPrefix = `/problems/${problemId}/`;
+    const nestedIndex = raw.indexOf(nestedPrefix, problemMarker);
+    if (nestedIndex >= 0) return raw.slice(nestedIndex + nestedPrefix.length);
+  }
+  return raw;
+}
+
+function tabForFailurePath(path) {
+  if (path.startsWith("solutions/")) return "solutions";
+  for (const tabId of Object.keys(TAB_CONFIGS)) {
+    if (filesForTab(tabId).some((file) => file.path === path)) return tabId;
+  }
+  return state.selectedTab;
+}
+
+async function openFailureTarget(detail, action, job) {
+  const problemId = detail.problemId || job.problemId || job.target?.problemId || null;
+  if (problemId && problemId !== state.selectedProblem) await selectProblem(problemId);
+  if (problemId && state.selectedProblem !== problemId) return;
+  const path = failureSourcePath(detail, problemId || state.selectedProblem);
+  if (!path) throw new Error("열 수 있는 실패 대상 파일이 없습니다.");
+  const tabId = tabForFailurePath(path);
+  await selectTab(tabId);
+  if (state.selectedTab !== tabId) return;
+  closeJobCenter({ restoreFocus: false });
+  if (path.startsWith("solutions/")) {
+    selectSolutionPath(path);
+    if (action === "artifact") openSolutionCasesModal(path);
+    else if (action === "file") await openSolutionEditModal(path);
+    else document.querySelector(`[data-solution-path="${CSS.escape(path)}"]`)?.scrollIntoView({ block: "nearest" });
+  } else {
+    await openFile(path, false);
+  }
+  if (action === "solution") {
+    document.querySelector(`[data-solution-path="${CSS.escape(path)}"] .solution-row-main`)?.focus();
+  }
+}
+
+configureJobsView({
+  closeGitDrawer,
+  closeSidebar,
+  openFailureTarget: (detail, action, job) => withErrors(
+    () => openFailureTarget(detail, action, job),
+    "실패한 작업 대상을 여는 중입니다."
+  ),
+});
+configureGitView({
+  closeJobCenter,
+  closeSidebar,
 });
 configureBuildView({
   formatTime,
@@ -202,10 +298,6 @@ configureBuildActions({
 configureLoading({
   completeProgress,
   renderProgressPanel,
-  updateDeleteProblemButton,
-  updateGlobalActionState,
-  updateSolutionPreview,
-  updateSolutionRenamePreview,
 });
 configureSolutionDirty({
   markFullTestDirty,
@@ -216,6 +308,7 @@ configureSolutionDirty({
 });
 configureProblemActions({
   closeModals,
+  closeJobCenter,
   isCurrentView,
   nextViewSeq,
   openModal,
@@ -250,15 +343,47 @@ configureSolutionActions({
   withInlineErrors,
 });
 configureGitActions({
-  refresh,
+  refresh: () => refresh({ skipGuard: true }),
   renderProblems,
   renderWorkspace,
 });
 configureRepositoryActions({
   closeModals,
-  confirmDiscardChanges,
-  refresh,
+  openModal,
+  refresh: () => refresh({ skipGuard: true }),
   syncPackJobFromStorage,
+});
+
+configureUnsavedChanges({
+  currentFileContent: getEditorValue,
+  currentMetadataDraft: currentMetadataFormDraft,
+  currentSolutionModalDraft,
+  discardFile: (savedContent) => {
+    setEditorValue(savedContent, { clearHistory: true });
+    updateDirtyState();
+  },
+  discardMetadata: (savedCanonicalDraft) => {
+    const draft = JSON.parse(savedCanonicalDraft || "{}");
+    restoreMetadataFormDraft(draft);
+  },
+  discardSolutionModal: (savedCanonicalDraft) => {
+    const draft = JSON.parse(savedCanonicalDraft || "{}");
+    restoreSolutionModalDraft(draft);
+    if (draft.mode === "create") updateSolutionPreview();
+    else updateSolutionRenamePreview();
+  },
+  forceCloseSurface: (surfaceId) => {
+    const closed = closeModalSurface(surfaceId);
+    if (["solutionCreateModal", "solutionEditModal"].includes(surfaceId)) {
+      clearSolutionModalSnapshot();
+    }
+    return closed;
+  },
+  saveFile,
+  saveMetadata,
+  saveSolutionModal: () => state.unsaved.solutionModal.mode === "create"
+    ? createSolution()
+    : renameSolution(),
 });
 
 const ACTIONS = {
@@ -309,6 +434,8 @@ async function runTabAction(actionId) {
 
 initializeCodeMirror();
 initializeSourceModalEditors();
+bindUnsavedChangesModal();
+bindGitDrawer();
 bindJobCenter();
 bindAppEvents({
   bindEditorEvents,
@@ -317,6 +444,8 @@ bindAppEvents({
   cancelActiveBulkJob,
   cancelActivePackJob,
   closeEditorCommandLine,
+  closeGitDrawer,
+  closeJobCenter,
   closeModals,
   closeSidebar,
   commitGitChanges,
@@ -326,17 +455,27 @@ bindAppEvents({
   deleteSelectedProblem,
   dismissStalePackJob,
   focusEditor,
+  activeModalId,
+  cancelUnsavedPrompt,
+  guardUnsavedTransition,
+  hasAnyUnsavedChanges,
   hasUnsavedChanges,
   hideLastRunPanel,
+  isGitDrawerOpen,
+  isJobCenterOpen,
   modalEditorKeyForElement,
   openModal,
   openRepositoryModal,
+  openSelectedRepositoryFromModal,
   refreshRepositories,
-  registerRepositoryFromModal,
+  refreshRepositoryOpenList,
+  renderRepositoryOpenOptions,
+  moveFromRepositoryOpenToClone,
   openWorkspaceBuildModal,
   renameSolution,
   renderTabFiles,
   renderTaskPanel,
+  requestCloseSurface,
   restoreProblemLastResult,
   runAllChecksOnce,
   runSolutionStress,
@@ -356,6 +495,7 @@ bindAppEvents({
   updateDeleteProblemButton,
   updateGlobalActionState,
   updateMetadataPreview,
+  updateRepositoryClonePreview,
   updateSolutionStressScope,
   updateSolutionPreview,
   updateSolutionRenamePreview,

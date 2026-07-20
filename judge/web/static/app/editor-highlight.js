@@ -1,8 +1,19 @@
 /**
- * 편집기 highlight 화면의 상태 갱신과 사용자 동작 처리를 담당하는 브라우저 모듈입니다.
+ * 편집기와 제출 코드 뷰어가 공유하는 안전한 구문 강조 어댑터입니다.
  */
 
 const app = window.AljApp;
+const HIGHLIGHT_MAX_BYTES = 200 * 1024;
+const HIGHLIGHT_MAX_LINES = 10000;
+const HIGHLIGHT_CACHE_LIMIT = 24;
+const HIGHLIGHT_LANGUAGE_LABELS = {
+  cpp: "C++",
+  java: "Java",
+  plain: "일반 텍스트",
+  python: "Python",
+};
+const highlightCache = new Map();
+let highlightFrame = null;
 
 function updateEditorLineNumbers() {
   const input = app.optional("sourceTextInput");
@@ -20,49 +31,118 @@ function escapeHtml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
-function highlightToken(token, language) {
-  const isComment = token.startsWith("//") || token.startsWith("/*") || token.startsWith("#");
-  if (isComment) return `<span class="hl-comment">${token}</span>`;
-  if (token.startsWith('"') || token.startsWith("'")) {
-    return `<span class="hl-string">${token}</span>`;
+function normalizeHighlightLanguage(language) {
+  const key = String(language || "").trim().toLowerCase();
+  if (key === "cpp" || key === "c++") return "cpp";
+  if (key === "python" || key === "pypy") return "python";
+  if (key === "java") return "java";
+  return "plain";
+}
+
+function highlightLanguageLabel(language) {
+  const key = String(language || "").trim().toLowerCase();
+  if (key === "cpp" || key === "c++") return HIGHLIGHT_LANGUAGE_LABELS.cpp;
+  if (key === "python") return HIGHLIGHT_LANGUAGE_LABELS.python;
+  if (key === "pypy") return "PyPy";
+  if (key === "java") return HIGHLIGHT_LANGUAGE_LABELS.java;
+  return HIGHLIGHT_LANGUAGE_LABELS.plain;
+}
+
+function highlightSkipReason(source) {
+  if (source.length > HIGHLIGHT_MAX_BYTES) return "bytes";
+  let lines = 1;
+  for (let index = 0; index < source.length; index += 1) {
+    if (source.charCodeAt(index) === 10) {
+      lines += 1;
+      if (lines > HIGHLIGHT_MAX_LINES) return "lines";
+    }
   }
-  if (/^\d/.test(token)) return `<span class="hl-number">${token}</span>`;
-  return `<span class="hl-keyword">${token}</span>`;
+  if (new TextEncoder().encode(source).byteLength > HIGHLIGHT_MAX_BYTES) return "bytes";
+  return null;
+}
+
+function cacheHighlight(key, value) {
+  if (highlightCache.has(key)) highlightCache.delete(key);
+  highlightCache.set(key, value);
+  while (highlightCache.size > HIGHLIGHT_CACHE_LIMIT) {
+    highlightCache.delete(highlightCache.keys().next().value);
+  }
+  return value;
+}
+
+function highlightSourceCode(source, language) {
+  const text = typeof source === "string" ? source : String(source ?? "");
+  const normalizedLanguage = normalizeHighlightLanguage(language);
+  const languageLabel = highlightLanguageLabel(language);
+  const skipReason = highlightSkipReason(text);
+  if (skipReason) {
+    return {
+      html: escapeHtml(text),
+      language: "plain",
+      languageLabel,
+      skippedReason: skipReason,
+    };
+  }
+  const cacheKey = `${normalizedLanguage}\u0000${languageLabel}\u0000${text}`;
+  const cached = highlightCache.get(cacheKey);
+  if (cached) {
+    highlightCache.delete(cacheKey);
+    highlightCache.set(cacheKey, cached);
+    return cached;
+  }
+
+  // Prism normalizes non-breaking spaces; plain text preserves the submitted source byte-for-byte.
+  if (normalizedLanguage === "plain" || text.includes("\u00a0")) {
+    return cacheHighlight(cacheKey, {
+      html: escapeHtml(text),
+      language: "plain",
+      languageLabel,
+      skippedReason: null,
+    });
+  }
+
+  try {
+    const prism = window.Prism;
+    const grammar = prism?.languages?.[normalizedLanguage];
+    if (!grammar) throw new Error("Prism grammar is unavailable");
+    return cacheHighlight(cacheKey, {
+      html: prism.highlight(text, grammar, normalizedLanguage),
+      language: normalizedLanguage,
+      languageLabel,
+      skippedReason: null,
+    });
+  } catch (_error) {
+    return cacheHighlight(cacheKey, {
+      html: escapeHtml(text),
+      language: "plain",
+      languageLabel,
+      skippedReason: null,
+    });
+  }
 }
 
 function highlightCode(source, language) {
-  const escaped = escapeHtml(source || " ");
-  const commonNumber = "\\b\\d+(?:\\.\\d+)?\\b";
-  const cppKeywords =
-    "alignas|alignof|auto|bool|break|case|catch|char|class|const|constexpr|continue|decltype|default|delete|do|double|else|enum|explicit|extern|false|float|for|friend|if|inline|int|long|namespace|new|nullptr|operator|private|protected|public|return|short|signed|sizeof|static|struct|switch|template|this|throw|true|try|typedef|typename|using|void|while|vector|string|pair|map|set|queue|stack|priority_queue";
-  const javaKeywords =
-    "abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|false|final|finally|float|for|if|implements|import|instanceof|int|interface|long|new|null|package|private|protected|public|return|short|static|super|switch|this|throw|throws|true|try|void|while|String|System";
-  const pyKeywords =
-    "False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|print|range|len|int|str|list|dict|set|tuple";
-  const languageKey = (language || "").toLowerCase();
-  const isPythonLike = languageKey.includes("python") || languageKey.includes("pypy");
-  const keywordPattern = isPythonLike
-    ? pyKeywords
-    : languageKey.includes("java")
-      ? javaKeywords
-      : cppKeywords;
-  const tokenPattern = isPythonLike
-    ? new RegExp(
-        `(#.*|"""[\\s\\S]*?"""|'''[\\s\\S]*?'''|"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'|\\b(?:${keywordPattern})\\b|${commonNumber})`,
-        "g"
-      )
-    : new RegExp(
-        `(//.*|/\\*[\\s\\S]*?\\*/|"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'|\\b(?:${keywordPattern})\\b|${commonNumber})`,
-        "g"
-      );
-  return escaped.replace(tokenPattern, (token) => highlightToken(token, languageKey));
+  return highlightSourceCode(source, language).html;
 }
 
-function updateCodeHighlight() {
+function renderCodeHighlight() {
+  highlightFrame = null;
   const input = app.optional("sourceTextInput");
   const highlight = app.optional("sourceHighlight");
   if (!input || !highlight) return;
-  highlight.innerHTML = highlightCode(input.value, app.$("editorLanguageLabel").textContent);
+  const result = highlightSourceCode(input.value, app.$("editorLanguageLabel").textContent);
+  highlight.className = `code-highlight language-${result.language}`;
+  highlight.title = result.skippedReason ? "큰 소스이므로 구문 강조를 생략했습니다" : "";
+  highlight.innerHTML = /* highlightSourceCode( returns escaped/tokenized markup */ result.html;
+}
+
+function updateCodeHighlight() {
+  if (highlightFrame !== null) window.cancelAnimationFrame(highlightFrame);
+  if (typeof window.requestAnimationFrame !== "function") {
+    renderCodeHighlight();
+    return;
+  }
+  highlightFrame = window.requestAnimationFrame(renderCodeHighlight);
 }
 
 function updateEditorView() {
@@ -94,7 +174,10 @@ function insertEditorText(text) {
 
 Object.assign(app, {
   highlightCode,
+  highlightLanguageLabel,
+  highlightSourceCode,
   insertEditorText,
+  normalizeHighlightLanguage,
   syncEditorScroll,
   updateCodeHighlight,
   updateEditorLineNumbers,

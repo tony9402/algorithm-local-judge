@@ -6,8 +6,9 @@ import { $, setText } from "../dom.js";
 import { state } from "../state.js";
 import { getEditorValue } from "./codemirror.js";
 import { updateEditorStatus } from "./visuals.js";
+import { dirtySources } from "../unsaved-changes.js";
 export function hasUnsavedChanges() {
-  return Boolean(state.selectedFile) && getEditorValue() !== state.lastSavedContent;
+  return dirtySources("file").length > 0;
 }
 /**
  * dirty state 상태를 새 입력에 맞춰 갱신하고 필요한 후속 표시를 조정합니다.
@@ -21,5 +22,5 @@ export function updateDirtyState() {
 }
 export function confirmDiscardChanges() {
   if (!hasUnsavedChanges()) return true;
-  return window.confirm("저장하지 않은 변경이 있습니다. 이동하면 변경 내용이 사라집니다. 계속할까요?");
+  return false;
 }

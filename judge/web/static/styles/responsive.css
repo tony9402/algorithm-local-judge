@@ -1,16 +1,83 @@
 @media (max-width: 900px) {
+  #themeToggleButton,
+  #problemJumpButton,
+  #topAddProblemButton,
+  #cacheManageButton,
+  #submissionsButton,
+  #jobsButton,
+  #sampleRunButton,
+  #fullRunButton,
+  #jobsCloseButton,
+  #defaultPackInstallButton,
+  #uploadPackButton,
+  #downloadPackButton,
+  #packRetryButton,
+  #packJobsButton,
+  .jobs-panel button,
+  .folder-delete,
+  .problem-folder-move-action,
+  .problem-picker-list .list-item {
+    min-height: 44px;
+  }
+
+  .problem-folder-move-action {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
     align-items: flex-start;
+    flex-wrap: wrap;
     padding: 16px;
   }
 
+  .topbar > div:first-child,
+  .top-actions {
+    flex: 1 1 100%;
+  }
+
+  .top-actions {
+    justify-content: stretch;
+  }
+
   .layout {
-    grid-template-columns: 1fr;
+    /* Keep the single-column layout shrinkable on narrow viewports.  A bare
+       `1fr` track uses its min-content width, which lets the sidebar grow
+       past a 320px viewport when a problem row has intrinsic content. */
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar {
+    width: 100%;
+    min-width: 0;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .sidebar-problems,
+  #problemList,
+  .workspace {
+    min-width: 0;
+  }
+
+  .workspace {
+    min-height: auto;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
+  }
+
+  /* Tablet layouts keep the problem navigator bounded so the page does not
+     become one very long list.  The phone breakpoint below intentionally
+     returns to normal document flow for easier touch scrolling. */
+  #problemList {
+    max-height: min(55dvh, 520px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 
   body.has-problems .workspace {
@@ -45,6 +112,11 @@
     grid-template-columns: 1fr;
   }
 
+  .pack-install-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
   .source-history-actions {
     justify-content: flex-end;
   }
@@ -59,6 +131,31 @@
 }
 
 @media (max-width: 560px) {
+  #problemList {
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
+  }
+
+  .top-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .top-actions button {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .problem-picker-modal {
+    padding: 14px;
+  }
+
   .actions {
     display: grid;
     grid-template-columns: 1fr;
@@ -100,5 +197,7 @@
 
   .source-history-heading small {
     text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }

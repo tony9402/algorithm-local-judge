@@ -3,6 +3,31 @@
   gap: 12px;
 }
 
+.sample-diagnostics {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sample-diagnostics summary {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.sample-diagnostics code {
+  display: block;
+  max-height: 96px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-muted);
+  padding: 8px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .sample-case {
   border: 1px solid var(--line);
   border-radius: 6px;

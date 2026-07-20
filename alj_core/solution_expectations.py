@@ -1,5 +1,5 @@
-"""솔루션 기대 상태 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""솔루션 기대 상태 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -63,7 +63,9 @@ def discover_solution_expectations(problem_dir: Path) -> list[SolutionExpectatio
         if source.suffix.lower() not in SUPPORTED_USER_SUFFIXES:
             continue
         token, status = expected_status_from_solution_name(source)
-        expectations.append(SolutionExpectation(source, token, status, language_from_solution_name(source)))
+        expectations.append(
+            SolutionExpectation(source, token, status, language_from_solution_name(source))
+        )
     if not expectations:
         raise JudgeError(f"no expected solution files found under {solutions_dir}")
     return expectations

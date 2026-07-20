@@ -1,5 +1,5 @@
-"""케이스 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""케이스 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -21,7 +21,10 @@ from problem_studio.web.routes.common import (
     workspace_from_request,
 )
 from problem_studio.web.schemas import CasesCompileRequest, DataValidateRequest, GenerateRequest
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/problems/{problem_id}", tags=["cases"])
 
@@ -251,7 +254,7 @@ def api_samples(request: Request, problem_id: str, force: bool = False) -> dict:
     """
 
     def operation() -> dict:
-        ensure_local_write_allowed(request, "sample generation")
+        ensure_local_web_action_allowed(request, "sample read")
         return sample_cases(workspace_from_request(request), problem_id, force)
 
     return route_result(operation)

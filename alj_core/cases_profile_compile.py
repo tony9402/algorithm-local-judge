@@ -1,5 +1,5 @@
-"""케이스 프로필 컴파일 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""케이스 프로필 컴파일 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path

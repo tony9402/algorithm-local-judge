@@ -2,15 +2,23 @@
 
 `judge`는 문제 팩을 설치하고, C++/Python/Java 풀이 코드를 로컬에서 채점하는 도구입니다. CLI와 웹 UI를 모두 제공합니다.
 
+최종 사용자는 저장소 루트의 [개인 설치 및 운영 안내](../INSTALL.md)에서 GitHub clone 후
+세 명령 설치 경로를 먼저 확인하세요. 이 문서는 CLI 상세 사용법과 개발 환경을 설명합니다.
+
 ## 빠른 시작
 
+최종 사용자는 저장소 루트에서 다음 설치 절차를 먼저 실행합니다.
+
 ```bash
-uv sync
-uv run judge problem install tony9402/algorithm-package
-uv run judge web
+git clone --depth 1 https://github.com/tony9402/algorithm-local-judge.git
+cd algorithm-local-judge
+./install.sh
 ```
 
-브라우저가 자동으로 열리지 않으면 `http://127.0.0.1:8765`로 접속하세요. 이미 설치된 실행 파일을 쓰는 경우에는 `uv run`을 빼고 `judge web`처럼 실행하면 됩니다.
+설치가 끝나면 `./.venv/bin/judge setup`으로 언어 도구와 Docker 상태를 진단할 수
+있습니다. 설치·변경 없이 진단만 하려면 `./.venv/bin/judge setup --check-only --verbose`를
+사용합니다. 개발자가 이미 `uv` 환경을 준비한 경우에만 `uv sync`와 `uv run judge`
+경로를 사용합니다.
 
 `uv`가 없다면 [uv 공식 설치 문서](https://docs.astral.sh/uv/)를 참고해 먼저 설치하세요.
 
@@ -26,7 +34,8 @@ uv run judge doctor --verbose
 uv run judge doctor --json
 ```
 
-`doctor`는 Python, C++ 컴파일러, Java 컴파일러/런타임, Git, 캐시 위치, 설치된 팩, 공식 문제 저장소 설정을 확인합니다.
+`doctor`는 Python, C++ 컴파일러, Java 컴파일러/런타임, Git, Docker CLI/daemon,
+캐시 위치, 설치된 팩, 공식 문제 저장소 설정을 확인합니다.
 
 ## 웹 UI
 
@@ -41,8 +50,8 @@ uv run judge web --debug
 
 1. `문제 팩 설치`로 공식 문제 저장소나 `.aljpack` 파일을 설치합니다.
 2. 문제와 실행 프로필을 선택합니다.
-3. 파일을 업로드하거나 코드를 붙여넣습니다.
-4. `Run Tests`를 누릅니다.
+3. 파일을 업로드하거나 `Source Code`에 코드를 붙여넣습니다.
+4. `예제 채점` 또는 `전체 채점`을 누릅니다.
 5. 오답이면 `Input`, `Expected`, `Actual`, `Diff`를 확인합니다.
 
 웹에서 할 수 있는 일:
@@ -53,7 +62,8 @@ uv run judge web --debug
 - sample case preview
 - `cases.yml` 검사와 데이터 생성
 - 소스 파일 업로드, 드래그앤드롭, 코드 붙여넣기
-- 최근 제출 소스 검색, 재사용, 삭제
+- 제출마다 독립적으로 보존되는 채점 기록 검색, 상세 결과 확인, 코드 재사용·삭제
+- 현재 문제의 최근 제출 3개와 전체 제출 기록 필터·페이지 탐색
 - 실시간 실행 로그와 진행 상태 확인
 - 오답 artifact 확인, 복사, 다운로드
 - 캐시 정리
@@ -114,7 +124,10 @@ uv run judge cases compile --file path/to/cases.yml --json
 
 ## 문제 팩 설치와 관리
 
-공식 저장소 기본값은 `tony9402/algorithm-package`입니다. latest release에 현재 플랫폼용 `.aljpack` asset이 있으면 checksum sidecar를 검증한 뒤 pack으로 설치하고, asset이 없으면 repository archive의 `problems/` source package를 설치합니다.
+공식 저장소 기본값은 `tony9402/algorithm-package`입니다. latest release의
+`.aljpack`을 설치할 때는 SHA-256 체크섬과 Sigstore 게시자 identity를 모두
+검증합니다. 서명이 없거나 일치하지 않으면 설치를 중단합니다. release pack이
+없는 개발 저장소는 사용자가 신뢰한 source archive로 설치될 수 있습니다.
 
 ```bash
 uv run judge problem install
@@ -132,6 +145,10 @@ uv run judge pack install path/to/problem-pack.aljpack
 uv run judge pack list
 uv run judge pack remove <pack-id>
 ```
+
+로컬 파일은 사용자가 직접 선택한 비공식 입력이므로 설치 결과에 서명 미검증
+경고가 표시됩니다. 공식 release pack은 반드시 `.sha256`과 `.sigstore.json`
+sidecar를 함께 게시해야 합니다.
 
 고급 기능으로, 문제 제작자는 source 폴더에서 직접 pack을 만들 수도 있습니다. 일반 풀이자는 보통 Problem Studio에서 pack을 만들거나 이미 배포된 pack을 설치하면 됩니다.
 
@@ -169,6 +186,8 @@ uv run judge cache clear --all --yes
 
 `--dry-run`은 실제 삭제 없이 지울 대상을 보여줍니다. 전체 삭제는 실수를 줄이기 위해 확인을 요구하며, 자동화에서는 `--yes`를 사용합니다.
 
+캐시 정리는 run의 상세 산출물을 제거하지만 웹에서 제출한 코드와 결과 요약은 지우지 않습니다. 이 기록은 상단 `제출 기록`에서 별도로 관리하며, 실행 중인 제출은 완료 또는 취소되기 전까지 삭제할 수 없습니다. 이전 버전의 최근 소스 기록은 원본 파일을 옮기거나 지우지 않고 호환 기록으로 표시됩니다.
+
 ## 자주 쓰는 명령
 
 ```bash
@@ -188,11 +207,24 @@ uv run judge web
 
 `judge web`은 기본적으로 내 컴퓨터에서만 접속하는 `127.0.0.1`에 열립니다. 외부 접근 가능한 host에 열면 run/generate/sample API는 기본 차단됩니다.
 
+host의 `--allow-remote-run`은 OS 격리를 제공하지 않으므로 권장하지 않습니다.
+비신뢰 풀이를 실행할 때는 Docker Engine 28 이상과 Cosign을 준비한 뒤 서명된
+공식 이미지를 사용하는 launcher를 실행합니다.
+
 ```bash
-uv run judge web --host 0.0.0.0 --allow-remote-run
+uv run judge docker setup
+uv run judge docker web
 ```
 
-위 옵션은 같은 네트워크의 다른 사용자가 내 컴퓨터에서 코드를 실행하게 만들 수 있으므로 꼭 필요한 경우에만 사용하세요.
+이 경로는 host 경로와 Docker socket을 mount하지 않고, 인터넷과 host gateway가 차단된
+internal network, read-only rootfs, non-root UID, capability/resource 제한을 강제합니다.
+단, 현재 제출 프로세스와 web control plane은 하나의 container/UID를 공유하므로
+다중 사용자 시험 서버용 보안 경계는 아닙니다.
+
+web 상태는 `/healthz`, `/readyz`, `/metrics`에서 확인할 수 있고 응답의
+`X-Request-ID`로 구조화 요청 로그를 연결할 수 있습니다. 작업 이력은
+`$ALJ_DATA_HOME/jobs/judge.json`에 원자적으로 저장되며, 재시작 중이던 작업은
+`중단됨`으로 명시적으로 복구됩니다.
 
 웹 입력 크기와 원격 다운로드에는 기본 제한이 있습니다.
 

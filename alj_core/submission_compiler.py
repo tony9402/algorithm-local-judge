@@ -1,10 +1,8 @@
-"""제출 컴파일러 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""제출 컴파일러 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import json
-import os
-import sys
 import threading
 from pathlib import Path
 
@@ -20,7 +18,7 @@ from alj_core.compiler_common import (
     resolve_tool,
 )
 from alj_core.config import COMPILE_FLAGS, PROTOCOL_VERSION
-from alj_core.errors import JudgeError
+from alj_core.errors import JudgeError, SubmissionCompileError
 from alj_core.languages import language_extensions, normalize_language_id
 from alj_core.paths import cache_root, rel, repo_root
 from alj_core.utils.fs import read_json, write_json
@@ -115,14 +113,7 @@ def compile_cpp_submission(source: Path, run_dir: Path, timeout_ms: int, root: P
 def prepare_python_submission(source: Path, runtime: str = "python") -> list[str]:
     if runtime == "pypy":
         return [resolve_tool("ALJ_PYPY", ["pypy3", "pypy"]), str(source)]
-    python = os.environ.get("ALJ_PYTHON")
-    executable_name = Path(sys.executable).name.lower()
-    compiled_runtime = getattr(sys, "frozen", False) or "__compiled__" in globals()
-    if python is None and not compiled_runtime and "python" in executable_name:
-        python = sys.executable
-    if python is None:
-        python = resolve_tool("ALJ_PYTHON", ["python3", "python"])
-    return [python, str(source)]
+    return [resolve_tool("ALJ_PYTHON", ["python3", "python"]), str(source)]
 
 
 def compile_java_submission(source: Path, run_dir: Path, timeout_ms: int, root: Path) -> list[str]:
@@ -164,7 +155,9 @@ def compile_java_submission(source: Path, run_dir: Path, timeout_ms: int, root: 
             )
             if code != 0:
                 stderr = log_path.read_bytes() if log_path.exists() else b""
-                raise JudgeError(compile_error_message("java compile failed", source, log_path, stderr))
+                raise JudgeError(
+                    compile_error_message("java compile failed", source, log_path, stderr)
+                )
             _write_submission_manifest(cache_dir, "java", source)
     return [java, "-cp", str(classes_dir), main_class]
 
@@ -178,11 +171,11 @@ def prepare_user_submission(
 ) -> PreparedSubmission:
     """prepare user 제출 파일을 안전한 경로에서 읽거나 쓰고 실패 상황을 호출자에게 전달합니다.
 
-        Args:
-            source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
-            run_dir (Path): 실행 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
-            timeout_ms (int): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
-            root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+    Args:
+        source (Path): 원격 저장소 주소, 로컬 소스 경로, 또는 사용자가 제출한 소스 입력입니다.
+        run_dir (Path): 실행 dir를 읽거나 쓸 때 기준으로 삼는 파일시스템 경로입니다.
+        timeout_ms (int): 외부 프로세스가 끝나야 하는 제한 시간입니다. 단위는 밀리초입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
     """
     root = root or repo_root()
     suffix = source.suffix.lower()
@@ -208,15 +201,24 @@ def prepare_user_submission(
         ):
             runtime = explicit_language or "python"
             return PreparedSubmission(prepare_python_submission(source, runtime), runtime)
-        return PreparedSubmission(compile_java_submission(source, run_dir, timeout_ms, root), "java")
+        return PreparedSubmission(
+            compile_java_submission(source, run_dir, timeout_ms, root), "java"
+        )
     except JudgeError as exc:
         log_path = run_dir / "compile.log"
         if not log_path.exists():
             log_path.write_text(str(exc) + "\n", encoding="utf-8")
-        write_json(
-            run_dir / "result.json", {"status": "compile_error", "compileLog": str(log_path)}
-        )
+        result = {
+            "runId": run_dir.name,
+            "status": "compile_error",
+            "compileLog": str(log_path),
+        }
+        write_json(run_dir / "result.json", result)
         detail = f"compile error\nlog: {rel(log_path, root)}"
         if str(exc):
             detail += f"\n\n{exc}"
-        raise JudgeError(detail) from exc
+        raise SubmissionCompileError(
+            detail,
+            run_id=run_dir.name,
+            result=result,
+        ) from exc

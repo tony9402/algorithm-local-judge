@@ -1,11 +1,14 @@
-"""서비스 카탈로그 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""서비스 카탈로그 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from commons.generate import load_config
-from judge.core.pack import installed_packs
+from judge.core.errors import JudgeError
+from judge.core.pack import installed_packs, remove_pack
+from judge.core.paths import ensure_inside, problem_pack_root, validate_safe_id
 from judge.core.problem import discover_problem_ids, load_problem, tool_paths
 from judge.core.problem_folders import list_problem_folders, problem_folder_payload
 from judge.core.remote import official_pack_repository
@@ -55,6 +58,36 @@ def list_packs() -> list[dict[str, Any]]:
         list[dict[str, Any]]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 데이터입니다.
     """
     return installed_packs()
+
+
+def remove_problem_pack(pack_id: str, confirmation: str) -> dict[str, Any]:
+    """정확한 팩 ID 확인 후 설치된 팩과 그 팩이 제공한 문제만 제거합니다."""
+    validate_safe_id("pack id", pack_id)
+    if confirmation != pack_id:
+        raise JudgeError("문제 팩 ID를 정확히 입력해야 제거할 수 있습니다.")
+    pack_root = problem_pack_root().resolve()
+    target = ensure_inside(pack_root / pack_id, pack_root)
+    pack = next(
+        (
+            item
+            for item in installed_packs()
+            if item.get("packId") == pack_id
+            and isinstance(item.get("path"), str)
+            and ensure_inside(Path(item["path"]), pack_root) == target
+        ),
+        None,
+    )
+    if pack is None:
+        raise JudgeError(f"problem pack not installed: {pack_id}")
+    problems = pack.get("problems", [])
+    removed_problems = [str(item) for item in problems] if isinstance(problems, list) else []
+    remove_pack(pack_id)
+    return {
+        "removed": True,
+        "packId": pack_id,
+        "removedProblems": removed_problems,
+        "removedProblemCount": len(removed_problems),
+    }
 
 
 def current_web_config() -> dict[str, Any]:

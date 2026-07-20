@@ -1,5 +1,5 @@
-"""솔루션 검증 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""솔루션 검증 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from collections.abc import Callable

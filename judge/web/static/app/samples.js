@@ -28,6 +28,7 @@ function renderSamples(data) {
   container.removeAttribute("aria-busy");
   if (!data) {
     app.setText("sampleMeta", "선택된 문제가 없습니다.");
+    app.setText("sampleDiagnosticLabel", "진단 정보 없음");
     container.textContent = "불러온 예제 케이스가 없습니다.";
     container.classList.add("muted");
     return;
@@ -35,8 +36,9 @@ function renderSamples(data) {
   const source = data.cached ? "캐시" : "생성됨";
   app.setText(
     "sampleMeta",
-    `${data.caseCount}개 ${data.profile || app.sampleProfile()} 케이스 · ${source} · ${data.label}`
+    `${data.caseCount}개 ${app.profileLabel(data.profile || app.sampleProfile())} 테스트케이스 · ${source}`
   );
+  app.setText("sampleDiagnosticLabel", data.label || "진단 정보 없음");
   if (!data.cases?.length) {
     container.textContent = "선언된 예제 케이스가 없습니다.";
     container.classList.add("muted");
@@ -55,8 +57,8 @@ function renderSamples(data) {
     const grid = document.createElement("div");
     grid.className = "sample-artifacts";
     for (const [label, value] of [
-      ["Input", sample.input],
-      ["Expected", sample.expected],
+      ["입력", sample.input],
+      ["예상 출력", sample.expected],
     ]) {
       const block = document.createElement("div");
       block.className = "sample-artifact";
@@ -81,7 +83,8 @@ function renderSamples(data) {
 function renderSampleLoading(problemId) {
   const container = app.optional("sampleCases");
   if (!container) return;
-  app.setText("sampleMeta", `${problemId} sample 데이터를 준비하는 중...`);
+  app.setText("sampleMeta", `${problemId} 예제 데이터를 준비하는 중...`);
+  app.setText("sampleDiagnosticLabel", "예제 데이터를 준비하는 중");
   container.classList.remove("muted");
   container.setAttribute("aria-busy", "true");
   container.innerHTML = "";
@@ -95,9 +98,9 @@ function renderSampleLoading(problemId) {
 
   const text = document.createElement("div");
   const title = document.createElement("strong");
-  title.textContent = "Sample 데이터를 불러오는 중";
+  title.textContent = "예제 데이터를 불러오는 중";
   const detail = document.createElement("span");
-  detail.textContent = "처음에는 데이터를 생성하고, 이후에는 캐시된 sample을 사용합니다.";
+  detail.textContent = "처음에는 데이터를 생성하고, 이후에는 캐시된 예제를 사용합니다.";
   text.appendChild(title);
   text.appendChild(detail);
 

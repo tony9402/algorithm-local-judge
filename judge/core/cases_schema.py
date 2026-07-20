@@ -1,9 +1,9 @@
+"""Compatibility alias for the canonical :mod:`alj_core.cases_schema` module."""
+
 from __future__ import annotations
 
-from judge.core.cases_block_schema import validate_case_block
-from judge.core.cases_concrete_schema import validate_concrete_case
+import sys
 
-__all__ = [
-    "validate_case_block",
-    "validate_concrete_case",
-]
+from alj_core import cases_schema as _canonical
+
+sys.modules[__name__] = _canonical

@@ -1,12 +1,23 @@
-<section id="solutionCreateModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="solutionCreateModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="solutionCreateModalTitle"
+  aria-describedby="solutionCreateModalDescription"
+>
   <div class="modal-content modal-content-wide solution-editor-modal">
     <div class="panel-heading">
-      <h2>새 솔루션 만들기</h2>
+      <div>
+        <h2 id="solutionCreateModalTitle">새 솔루션 만들기</h2>
+        <p id="solutionCreateModalDescription">기대 판정과 언어를 지정해 예측 솔루션을 추가합니다.</p>
+      </div>
       <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
     </div>
     <label class="solution-editor-name">
       솔루션 이름
-      <input id="solutionCreateName" placeholder="wrong_solution" />
+      <input id="solutionCreateName" data-modal-initial-focus placeholder="wrong_solution" />
       <span id="solutionCreateNameError" class="field-error"></span>
     </label>
     <div class="form-grid solution-editor-options">
@@ -50,18 +61,26 @@
   </div>
 </section>
 
-<section id="solutionEditModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="solutionEditModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="solutionEditModalTitle"
+  aria-describedby="solutionEditPath"
+>
   <div class="modal-content modal-content-wide solution-editor-modal">
     <div class="panel-heading">
       <div>
-        <h2>솔루션 편집</h2>
+        <h2 id="solutionEditModalTitle">솔루션 편집</h2>
         <p id="solutionEditPath">solutions/example.wa.cpp</p>
       </div>
       <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
     </div>
     <label class="solution-editor-name">
       솔루션 이름
-      <input id="solutionName" placeholder="wrong_solution" />
+      <input id="solutionName" data-modal-initial-focus placeholder="wrong_solution" />
       <span id="solutionNameError" class="field-error"></span>
     </label>
     <div class="form-grid solution-editor-options">
@@ -100,11 +119,19 @@
   </div>
 </section>
 
-<section id="solutionCasesModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="solutionCasesModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="solutionCasesModalTitle"
+  aria-describedby="solutionCasesTitle solutionCasesSubtitle"
+>
   <div class="modal-content modal-content-wide solution-cases-modal">
     <div class="panel-heading">
       <div>
-        <h2>채점 결과</h2>
+        <h2 id="solutionCasesModalTitle">채점 결과</h2>
         <p id="solutionCasesTitle">solutions/example.wa.cpp</p>
         <p id="solutionCasesSubtitle">테스트 케이스별 결과</p>
       </div>
@@ -114,18 +141,27 @@
   </div>
 </section>
 
-<section id="solutionStressModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="solutionStressModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="solutionStressModalTitle"
+  aria-describedby="solutionStressModalDescription"
+>
   <div class="modal-content solution-stress-modal">
     <div class="panel-heading">
       <div>
-        <h2>Stress 테스트</h2>
+        <h2 id="solutionStressModalTitle">스트레스 테스트</h2>
+        <p id="solutionStressModalDescription">생성 입력으로 여러 솔루션의 결과를 반복 비교합니다.</p>
       </div>
       <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>
     </div>
     <div class="form-grid">
       <label>
-        Profile
-        <input id="solutionStressProfile" value="hidden" />
+        프로필 (Profile)
+        <input id="solutionStressProfile" data-modal-initial-focus value="hidden" />
       </label>
       <label>
         대상 프리셋
@@ -143,7 +179,7 @@
       </div>
       <div id="solutionStressSelection" class="stress-solution-selection"></div>
     </div>
-    <div class="stress-duration-options" role="group" aria-label="Stress 테스트 시간">
+    <div class="stress-duration-options" role="group" aria-label="스트레스 테스트 시간">
       <label><input type="radio" name="solutionStressDuration" value="30" /> 30초</label>
       <label><input type="radio" name="solutionStressDuration" value="60" checked /> 1분</label>
       <label><input type="radio" name="solutionStressDuration" value="300" /> 5분</label>
@@ -156,15 +192,23 @@
       최대 케이스
       <input id="solutionStressMaxCases" type="number" min="1" placeholder="시간 제한만 사용" />
     </label>
-    <button id="solutionStressStartButton" class="primary" type="button">Stress 시작</button>
+    <button id="solutionStressStartButton" class="primary" type="button">스트레스 테스트 시작</button>
   </div>
 </section>
 
-<section id="solutionStressReviewModal" class="modal hidden" role="dialog" aria-modal="true">
+<section
+  id="solutionStressReviewModal"
+  class="modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="solutionStressReviewModalTitle"
+  aria-describedby="solutionStressReviewTitle"
+>
   <div class="modal-content modal-content-wide solution-stress-review-modal">
     <div class="panel-heading">
       <div>
-        <h2>Stress mismatch</h2>
+        <h2 id="solutionStressReviewModalTitle">스트레스 불일치</h2>
         <p id="solutionStressReviewTitle">case</p>
       </div>
       <button class="icon" data-modal-close aria-label="모달 닫기" type="button">×</button>

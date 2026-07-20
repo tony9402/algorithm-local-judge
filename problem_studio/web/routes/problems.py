@@ -1,5 +1,5 @@
-"""문제 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""문제 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -24,7 +24,10 @@ from problem_studio.web.schemas import (
     ProblemDeleteRequest,
     ProblemRenameRequest,
 )
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/problems", tags=["problems"])
 
@@ -39,7 +42,12 @@ def api_problems(request: Request) -> list[dict]:
     Returns:
         list[dict]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 데이터입니다.
     """
-    return route_result(lambda: list_problem_metadata(workspace_from_request(request)))
+    return route_result(
+        lambda: (
+            ensure_local_web_action_allowed(request, "problem listing read")
+            or list_problem_metadata(workspace_from_request(request))
+        )
+    )
 
 
 @router.post("")
@@ -85,6 +93,7 @@ def api_problem_detail(request: Request, problem_id: str) -> dict:
     """
 
     def operation() -> dict:
+        ensure_local_web_action_allowed(request, "problem detail read")
         workspace = workspace_from_request(request)
         problem_dir, metadata_path, metadata = load_problem(problem_id, workspace)
         return {

@@ -1,10 +1,12 @@
 /* Judge web style manifest. Keep selector definitions in static/styles/*.css. */
 @import url("./styles/base.css?v=20260520-01");
-@import url("./styles/layout.css?v=20260520-01");
+@import url("./styles/layout.css?v=20260712-03");
+@import url("./styles/connection.css?v=20260712-01");
 @import url("./styles/forms.css?v=20260520-01");
 @import url("./styles/editor.css?v=20260520-01");
-@import url("./styles/source-history.css?v=20260520-01");
-@import url("./styles/results.css?v=20260520-01");
-@import url("./styles/jobs.css?v=20260520-01");
-@import url("./styles/modals.css?v=20260520-01");
-@import url("./styles/responsive.css?v=20260520-01");
+@import url("./styles/source-history.css?v=20260712-02");
+@import url("./styles/results.css?v=20260712-02");
+@import url("./styles/jobs.css?v=20260712-02");
+@import url("./styles/submissions.css?v=20260711-01");
+@import url("./styles/modals.css?v=20260712-03");
+@import url("./styles/responsive.css?v=20260712-03");

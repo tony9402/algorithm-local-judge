@@ -1,5 +1,5 @@
-"""서버 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""서버 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 import os
@@ -9,6 +9,8 @@ import webbrowser
 
 import uvicorn
 
+from commons.job_persistence import default_job_history_path
+from judge.core.docker_runtime import SANDBOX_MODE_ENV, ensure_sandbox_preflight
 from judge.web.app import create_app
 from judge.web.security_policy import is_local_binding
 
@@ -44,6 +46,18 @@ def run_server(
         debug (bool): 서버 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
         allow_remote_run (bool): 서버 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
     """
+    sandbox_mode, docker = ensure_sandbox_preflight()
+    if docker["sandboxReady"]:
+        requirement = "required" if sandbox_mode == "docker" else "optional"
+        version = f", server {docker['serverVersion']}" if docker.get("serverVersion") else ""
+        print(f"Docker runtime preflight: READY ({requirement}, {docker['path']}{version}).")
+    else:
+        print(f"Docker runtime preflight: WARN {docker['error']}")
+        print(f"Docker setup: {docker['installHint']}")
+        print(
+            "Docker is optional in trusted local mode; set "
+            f"{SANDBOX_MODE_ENV}=docker to require this preflight."
+        )
     url = f"http://{host}:{port}"
     local_binding = is_local_binding(host)
     if not local_binding:
@@ -61,6 +75,7 @@ def run_server(
             local_binding=local_binding,
             remote_warning=not local_binding,
             allow_remote_run=allow_remote_run,
+            job_history_path=default_job_history_path("judge"),
         ),
         host=host,
         port=port,

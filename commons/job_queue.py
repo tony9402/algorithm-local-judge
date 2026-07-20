@@ -1,17 +1,26 @@
 """웹 API에서 사용하는 백그라운드 작업의 상태, 취소 토큰, 실행 큐, 보존 정책을 관리하는 공통 모듈입니다."""
+
 from __future__ import annotations
 
 import threading
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from dataclasses import fields as dataclass_fields
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
+
+from commons.job_persistence import AtomicJsonFile
 
 DEFAULT_JOB_TTL_SECONDS = 60 * 60
 DEFAULT_MAX_RETAINED_JOBS = 40
 DEFAULT_MAX_RUNNING_JOBS = 4
 DEFAULT_RECENT_LOG_LIMIT = 25
+JOB_HISTORY_SCHEMA_VERSION = 1
+INTERRUPTED_JOB_MESSAGE = (
+    "애플리케이션이 재시작되어 작업이 중단되었습니다. 안전을 위해 자동 재개하지 않았습니다."
+)
 
 TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 ACTIVE_STATUSES = {"queued", "running", "cancelling"}
@@ -216,6 +225,45 @@ class BackgroundJob:
             return "passed"
         return status
 
+    def to_storage_dict(self) -> dict[str, Any]:
+        """재시작 복원을 위해 내부 필드 이름을 유지한 JSON 직렬화 가능 사전을 만듭니다."""
+        return {item.name: getattr(self, item.name) for item in dataclass_fields(self)}
+
+    @classmethod
+    def from_storage_dict(cls, payload: dict[str, Any]) -> BackgroundJob:
+        """저장된 내부 상태 사전에서 작업 객체를 복원합니다."""
+        if not isinstance(payload, dict):
+            raise ValueError("stored job must be an object")
+        field_names = {item.name for item in dataclass_fields(cls)}
+        values = {name: value for name, value in payload.items() if name in field_names}
+        for required in ("job_id", "kind", "title", "problem_id"):
+            if not isinstance(values.get(required), str) or not values[required]:
+                raise ValueError(f"stored job has invalid {required}")
+        status = values.get("status", "queued")
+        if status not in ACTIVE_STATUSES | TERMINAL_STATUSES:
+            raise ValueError(f"stored job has invalid status: {status}")
+        for name in ("progress", "result_actions", "target"):
+            if name in values and not isinstance(values[name], dict):
+                raise ValueError(f"stored job has invalid {name}")
+        for name in ("failure_details", "logs"):
+            if name in values and not isinstance(values[name], list):
+                raise ValueError(f"stored job has invalid {name}")
+        if values.get("result") is not None and not isinstance(values["result"], dict):
+            raise ValueError("stored job has invalid result")
+        for name in (
+            "cancelled_at",
+            "queued_at",
+            "started_at",
+            "finished_at",
+            "created_at",
+            "updated_at",
+        ):
+            if name not in values or values[name] is None:
+                continue
+            parsed = datetime.fromisoformat(str(values[name]).replace("Z", "+00:00"))
+            values[name] = parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+        return cls(**values)
+
 
 @dataclass(frozen=True)
 class _QueuedOperation:
@@ -223,6 +271,7 @@ class _QueuedOperation:
 
     operation: Callable[..., dict[str, Any]]
     cancel_supported: bool
+    terminal_callback: Callable[[BackgroundJob], None] | None = None
 
 
 class BackgroundJobStore:
@@ -236,6 +285,7 @@ class BackgroundJobStore:
         max_running_jobs: int = DEFAULT_MAX_RUNNING_JOBS,
         lane_limits: dict[str, int] | None = None,
         recent_log_limit: int = DEFAULT_RECENT_LOG_LIMIT,
+        persistence_path: Path | str | None = None,
     ) -> None:
         """작업 저장소의 보존 기간, 동시 실행 한도, 레인별 제한, 최근 로그 개수를 설정합니다.
 
@@ -245,6 +295,7 @@ class BackgroundJobStore:
             max_running_jobs (int): 동시에 실행할 수 있는 전체 작업 수입니다.
             lane_limits (dict[str, int] | None): 레인 이름별 동시 실행 제한입니다.
             recent_log_limit (int): 작업마다 보존할 최근 로그 항목 수입니다.
+            persistence_path (Path | str | None): 재시작 복원용 atomic JSON 파일 경로입니다.
         """
         self._lock = threading.Lock()
         self._jobs: dict[str, BackgroundJob] = {}
@@ -255,6 +306,83 @@ class BackgroundJobStore:
         self.max_running_jobs = max_running_jobs
         self.lane_limits = lane_limits or {}
         self.recent_log_limit = recent_log_limit
+        self._history = AtomicJsonFile(persistence_path) if persistence_path is not None else None
+        self._load_history()
+
+    @property
+    def persistence_path(self) -> Path | None:
+        """설정된 영속 작업 이력 파일 경로를 반환합니다."""
+        return self._history.path if self._history is not None else None
+
+    @property
+    def persistence_error(self) -> str | None:
+        """최근 작업 이력 읽기 또는 쓰기 오류를 반환합니다."""
+        return self._history.last_error if self._history is not None else None
+
+    def _load_history(self) -> None:
+        if self._history is None:
+            return
+        payload = self._history.read()
+        if payload is None:
+            return
+        try:
+            if not isinstance(payload, dict):
+                raise ValueError("job history root must be an object")
+            if payload.get("schemaVersion") != JOB_HISTORY_SCHEMA_VERSION:
+                raise ValueError("unsupported job history schema")
+            stored_jobs = payload.get("jobs")
+            if not isinstance(stored_jobs, list):
+                raise ValueError("job history jobs must be an array")
+            jobs = [BackgroundJob.from_storage_dict(item) for item in stored_jobs]
+            if len({job.job_id for job in jobs}) != len(jobs):
+                raise ValueError("job history contains duplicate job ids")
+        except (TypeError, ValueError) as exc:
+            self._history.quarantine(f"invalid job history: {exc}")
+            return
+
+        changed = False
+        now = datetime.now(UTC)
+        with self._lock:
+            self._jobs = {job.job_id: job for job in jobs}
+            for job in self._jobs.values():
+                if job.status not in ACTIVE_STATUSES:
+                    continue
+                changed = True
+                previous_status = job.status
+                job.status = "failed"
+                job.error = INTERRUPTED_JOB_MESSAGE
+                job.outcome = "failed"
+                job.error_kind = "interrupted"
+                job.failure_stage = "interrupted"
+                job.failure_stage_label = "재시작으로 중단"
+                job.failure_details = [
+                    {
+                        "type": "interrupted",
+                        "label": "재시작으로 중단",
+                        "target": self._target_label(job),
+                        "message": INTERRUPTED_JOB_MESSAGE,
+                        "previousStatus": previous_status,
+                    }
+                ]
+                job.finished_at = now
+                job.updated_at = now
+                self._append_log_locked(job, INTERRUPTED_JOB_MESSAGE)
+            changed = self._prune_locked() or changed
+            if changed:
+                self._persist_locked()
+
+    def _persist_locked(self) -> None:
+        """현재 락 안의 작업 스냅샷을 영속 파일에 기록합니다."""
+        if self._history is None:
+            return
+        jobs = sorted(self._jobs.values(), key=lambda job: (job.created_at, job.job_id))
+        self._history.write(
+            {
+                "schemaVersion": JOB_HISTORY_SCHEMA_VERSION,
+                "savedAt": datetime.now(UTC),
+                "jobs": [job.to_storage_dict() for job in jobs],
+            }
+        )
 
     def start(
         self,
@@ -272,6 +400,7 @@ class BackgroundJobStore:
         input_snapshot_summary: str | None = None,
         cancel_mode: str = "cooperative",
         cancel_blocked_reason: str | None = None,
+        terminal_callback: Callable[[BackgroundJob], None] | None = None,
     ) -> BackgroundJob:
         """새 백그라운드 작업을 큐에 등록하고 실행 가능한 작업이 있으면 즉시 스레드로 시작합니다.
 
@@ -307,7 +436,7 @@ class BackgroundJobStore:
             cancel_mode=cancel_mode,
             cancel_blocked_reason=cancel_blocked_reason,
         )
-        return self._register_job(job, operation, cancel_supported)
+        return self._register_job(job, operation, cancel_supported, terminal_callback)
 
     def start_with_progress(
         self,
@@ -325,6 +454,7 @@ class BackgroundJobStore:
         input_snapshot_summary: str | None = None,
         cancel_mode: str = "cooperative",
         cancel_blocked_reason: str | None = None,
+        terminal_callback: Callable[[BackgroundJob], None] | None = None,
     ) -> BackgroundJob:
         """job id가 확정된 뒤 progress callback을 구성해 취소 가능한 작업을 시작합니다."""
         job = self._new_job(
@@ -364,7 +494,7 @@ class BackgroundJobStore:
 
             return operation(token, progress_callback)
 
-        return self._register_job(job, run, cancel_supported)
+        return self._register_job(job, run, cancel_supported, terminal_callback)
 
     def _new_job(
         self,
@@ -403,11 +533,15 @@ class BackgroundJobStore:
         job: BackgroundJob,
         operation: Callable[..., dict[str, Any]],
         cancel_supported: bool,
+        terminal_callback: Callable[[BackgroundJob], None] | None = None,
     ) -> BackgroundJob:
         with self._lock:
             self._jobs[job.job_id] = job
-            self._operations[job.job_id] = _QueuedOperation(operation, cancel_supported)
+            self._operations[job.job_id] = _QueuedOperation(
+                operation, cancel_supported, terminal_callback
+            )
             self._prune_locked()
+            self._persist_locked()
         self._spawn_ready_jobs()
         return job
 
@@ -447,7 +581,8 @@ class BackgroundJobStore:
             BackgroundJob | None: 작업이 남아 있으면 작업 객체이고, 없으면 `None`입니다.
         """
         with self._lock:
-            self._prune_locked()
+            if self._prune_locked():
+                self._persist_locked()
             return self._jobs.get(job_id)
 
     def list(self, problem_id: str | None = None) -> list[BackgroundJob]:
@@ -460,7 +595,8 @@ class BackgroundJobStore:
             list[BackgroundJob]: 정렬된 작업 객체 목록입니다.
         """
         with self._lock:
-            self._prune_locked()
+            if self._prune_locked():
+                self._persist_locked()
             jobs = [
                 job
                 for job in self._jobs.values()
@@ -484,6 +620,7 @@ class BackgroundJobStore:
             self._tokens.pop(job_id, None)
             self._operations.pop(job_id, None)
             self._jobs.pop(job_id, None)
+            self._persist_locked()
             return True
 
     def clear_completed(self, predicate: Callable[[BackgroundJob], bool] | None = None) -> int:
@@ -505,6 +642,8 @@ class BackgroundJobStore:
                 self._tokens.pop(job_id, None)
                 self._operations.pop(job_id, None)
                 self._jobs.pop(job_id, None)
+            if removable:
+                self._persist_locked()
             return len(removable)
 
     def cancel(self, job_id: str) -> bool:
@@ -517,12 +656,18 @@ class BackgroundJobStore:
             bool: 취소 요청이 받아들여졌으면 `True`, 대상이 없거나 취소할 수 없으면 `False`입니다.
         """
         start_after: list[tuple[BackgroundJob, CancelToken | None, _QueuedOperation]] = []
+        terminal_callback = None
+        terminal_job = None
         with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
                 return False
             now = datetime.now(UTC)
             if job.status == "queued":
+                queued_operation = self._operations.get(job_id)
+                terminal_callback = (
+                    queued_operation.terminal_callback if queued_operation is not None else None
+                )
                 job.status = "cancelled"
                 job.cancel_requested = True
                 job.cancelled_at = now
@@ -530,6 +675,7 @@ class BackgroundJobStore:
                 job.updated_at = now
                 self._operations.pop(job_id, None)
                 self._tokens.pop(job_id, None)
+                terminal_job = job
                 start_after = self._ready_jobs_locked()
             elif job.status == "running" and job.cancel_supported:
                 token = self._tokens.get(job_id)
@@ -543,6 +689,12 @@ class BackgroundJobStore:
                 token.cancel()
             else:
                 return False
+            self._persist_locked()
+        if terminal_callback is not None and terminal_job is not None:
+            try:
+                terminal_callback(terminal_job)
+            except Exception:  # noqa: BLE001 - terminal observers cannot break the queue.
+                pass
         self._spawn_jobs(start_after)
         return True
 
@@ -585,6 +737,7 @@ class BackgroundJobStore:
                 self._append_log_locked(job, message)
             job.progress = progress
             job.updated_at = datetime.now(UTC)
+            self._persist_locked()
 
     def job_dict(self, job: BackgroundJob) -> dict[str, Any]:
         """저장소의 TTL 정책을 적용해 작업 객체를 API 응답 사전으로 변환합니다.
@@ -750,6 +903,8 @@ class BackgroundJobStore:
             result (dict[str, Any] | None): 성공 시 작업 함수가 반환한 결과 데이터입니다.
             error (str | None): 실패 시 화면과 로그에 표시할 오류 메시지입니다.
         """
+        terminal_callback = None
+        terminal_job = None
         with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
@@ -778,9 +933,18 @@ class BackgroundJobStore:
             elif status == "succeeded":
                 job.outcome = "passed"
             self._tokens.pop(job_id, None)
-            self._operations.pop(job_id, None)
+            queued_operation = self._operations.pop(job_id, None)
+            if queued_operation is not None:
+                terminal_callback = queued_operation.terminal_callback
+                terminal_job = job
             self._prune_locked()
             starts = self._ready_jobs_locked()
+            self._persist_locked()
+        if terminal_callback is not None and terminal_job is not None:
+            try:
+                terminal_callback(terminal_job)
+            except Exception:  # noqa: BLE001 - terminal observers cannot break the queue.
+                pass
         self._spawn_jobs(starts)
 
     def _ready_jobs_locked(
@@ -850,6 +1014,8 @@ class BackgroundJobStore:
         """저장소 락 안에서 시작 가능한 작업을 고른 뒤 락 밖에서 백그라운드 스레드를 생성합니다."""
         with self._lock:
             starts = self._ready_jobs_locked()
+            if starts:
+                self._persist_locked()
         self._spawn_jobs(starts)
 
     def _spawn_jobs(
@@ -911,12 +1077,13 @@ class BackgroundJobStore:
         if len(job.logs) > self.recent_log_limit:
             del job.logs[: len(job.logs) - self.recent_log_limit]
 
-    def _prune_locked(self) -> None:
+    def _prune_locked(self) -> bool:
         """저장된 작업 수가 보존 한도를 넘으면 가장 오래된 완료 작업부터 제거합니다. 호출자는 저장소 락을 보유해야 합니다."""
         if self.max_jobs <= 0:
-            return
+            return False
         if len(self._jobs) <= self.max_jobs:
-            return
+            return False
+        changed = False
         completed = sorted(
             (job for job in self._jobs.values() if job.status in TERMINAL_STATUSES),
             key=lambda job: job.updated_at,
@@ -926,6 +1093,8 @@ class BackgroundJobStore:
             self._jobs.pop(oldest.job_id, None)
             self._tokens.pop(oldest.job_id, None)
             self._operations.pop(oldest.job_id, None)
+            changed = True
+        return changed
 
     @staticmethod
     def _sort_key(job: BackgroundJob) -> tuple[int, datetime]:
@@ -952,6 +1121,8 @@ __all__ = [
     "DEFAULT_JOB_TTL_SECONDS",
     "DEFAULT_MAX_RETAINED_JOBS",
     "DEFAULT_MAX_RUNNING_JOBS",
+    "INTERRUPTED_JOB_MESSAGE",
+    "JOB_HISTORY_SCHEMA_VERSION",
     "JobCancelledError",
     "TERMINAL_STATUSES",
 ]

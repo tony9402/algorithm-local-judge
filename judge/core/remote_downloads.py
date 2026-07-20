@@ -1,5 +1,5 @@
-"""원격 downloads 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""원격 downloads 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path

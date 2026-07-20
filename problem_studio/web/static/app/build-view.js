@@ -6,6 +6,7 @@ import { escapeHtml, optional, setText } from "./dom.js";
 import { currentProblemResult, hasFreshFullTest } from "./results.js";
 import { PACK_OUTPUT_DIR, STATUS_LABELS, activePackJobForProblem, state } from "./state.js";
 import { updateEditorPanelMode } from "./tabs-view.js";
+import { renderControlPolicies } from "./control-policy.js";
 
 const buildCallbacks = {
   formatTime: () => "",
@@ -246,4 +247,5 @@ export function updateBuildPanel() {
   }
   updateEditorPanelMode();
   updateBuildDashboard();
+  renderControlPolicies(["build.pack"]);
 }

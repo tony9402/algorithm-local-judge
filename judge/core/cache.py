@@ -1,5 +1,5 @@
-"""캐시 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""캐시 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import json
@@ -15,8 +15,7 @@ from judge.utils.text import format_size
 
 @dataclass
 class CacheClearPlan:
-    """캐시 clear plan 상태와 관련 동작을 하나의 객체로 표현합니다.
-    """
+    """캐시 clear plan 상태와 관련 동작을 하나의 객체로 표현합니다."""
 
     root: Path
     targets: list[Path]
@@ -143,12 +142,12 @@ def build_cache_clear_plan(
 ) -> CacheClearPlan:
     """캐시 clear plan에 필요한 경로, 메타데이터, 파일 목록을 조립합니다.
 
-        Args:
-            problem (str | None): 캐시 clear plan을 계산하거나 검증할 때 필요한 문제 입력입니다.
-            profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
-            runs (bool): 캐시 clear plan 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
-            all_entries (bool): 캐시 clear plan 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
-            root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+    Args:
+        problem (str | None): 캐시 clear plan을 계산하거나 검증할 때 필요한 문제 입력입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        runs (bool): 캐시 clear plan 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        all_entries (bool): 캐시 clear plan 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
     """
     targets = clear_targets(problem, profile, runs, all_entries, root)
     return CacheClearPlan(

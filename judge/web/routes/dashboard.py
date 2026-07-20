@@ -1,5 +1,5 @@
-"""대시보드 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""대시보드 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Request

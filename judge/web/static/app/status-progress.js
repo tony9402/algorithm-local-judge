@@ -39,13 +39,13 @@ function hideGenerationProgress() {
 function updateProgressFromLog(message) {
   const generatedCase = message.match(/Validating generated case .+ \((\d+)\/(\d+)\)\./);
   if (message.includes("Compiling cases.yml")) {
-    app.setStatusCard("cases", "검사 중", `${app.judgeProfile()} cases.yml`);
+    app.setStatusCard("cases", "검사 중", `${app.profileLabel(app.judgeProfile())} cases.yml`);
   } else if (message.includes("Preparing generator tools")) {
-    app.setStatusCard("data", "준비 중", app.judgeProfile());
+    app.setStatusCard("data", "준비 중", app.profileLabel(app.judgeProfile()));
   } else if (message.includes("Generating input cases")) {
     const total = state.generationProgress.total;
     setGenerationProgress(0, total, "데이터 생성");
-    app.setStatusCard("data", "생성 중", total ? `0 / ${app.profileCaseText(total)}` : app.judgeProfile());
+    app.setStatusCard("data", "생성 중", total ? `0 / ${app.profileCaseText(total)}` : app.profileLabel(app.judgeProfile()));
   } else if (generatedCase) {
     const current = Number(generatedCase[1]);
     const total = Number(generatedCase[2]);
@@ -54,18 +54,18 @@ function updateProgressFromLog(message) {
   } else if (message.includes("Generated data")) {
     const { total } = state.generationProgress;
     if (total) setGenerationProgress(total, total, "데이터 생성");
-    app.setStatusCard("data", "생성 완료", app.judgeProfile());
+    app.setStatusCard("data", "생성 완료", app.profileLabel(app.judgeProfile()));
   } else if (message.includes("Using cached data")) {
     hideGenerationProgress();
-    app.setStatusCard("data", "준비됨", app.judgeProfile());
+    app.setStatusCard("data", "준비됨", app.profileLabel(app.judgeProfile()));
   } else if (message.includes("Preparing submission file")) {
     app.setStatusCard("judge", "준비 중", app.activeSourceName());
   } else if (message.includes("Compiling or preparing user submission")) {
     app.setStatusCard("judge", "컴파일 중", app.activeSourceName());
   } else if (message.includes("Running case")) {
-    app.setStatusCard("judge", "실행 중", message.replace("Running case ", ""));
+    app.setStatusCard("judge", "실행 중", `테스트케이스 ${message.replace("Running case ", "")}`);
   } else if (message.includes("Accepted after")) {
-    app.setStatusCard("judge", "맞았습니다", message);
+    app.setStatusCard("judge", "맞았습니다", "모든 테스트케이스를 통과했습니다.");
   }
 }
 

@@ -1,5 +1,5 @@
-"""스트레스 테스트 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""스트레스 테스트 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import difflib
@@ -13,10 +13,10 @@ from typing import Any
 
 import yaml
 
-from commons.generate import expand_cases, load_config, sha256_text
+from alj_core import security_limits
 from alj_core.cases_compile import compile_problem_cases, format_compile_result
 from alj_core.compiler import compile_problem_tools, prepare_user_submission
-from alj_core.errors import JudgeError
+from alj_core.errors import JudgeError, LimitExceededError
 from alj_core.paths import cache_root, ensure_inside, rel, validate_safe_id
 from alj_core.problem import tool_paths
 from alj_core.runner import checker_compare, solution_write, validator_check
@@ -28,6 +28,7 @@ from alj_core.solution_expectations import (
 from alj_core.submission_cases import run_submission_cases
 from alj_core.utils.fs import read_json, write_json
 from alj_core.utils.process import run_command_result
+from commons.generate import expand_cases, load_config, sha256_text
 
 MAX_STRESS_DURATION_SECONDS = 300
 DEFAULT_STRESS_DURATION_SECONDS = 60
@@ -113,12 +114,7 @@ def _generator_cases(config_path: Path, profile: str) -> list[dict[str, Any]]:
 def _solution_key(path: Path, problem_dir: Path) -> str:
     relative = rel(path, problem_dir).replace("\\", "/")
     digest = sha256_text(relative)[:10]
-    stem = (
-        relative.replace("/", "__")
-        .replace(".", "_")
-        .replace(" ", "_")
-        .replace("-", "_")
-    )
+    stem = relative.replace("/", "__").replace(".", "_").replace(" ", "_").replace("-", "_")
     return f"{stem[:54]}-{digest}"
 
 
@@ -139,8 +135,18 @@ def _generator_command(generator: Path, case: Mapping[str, Any]) -> list[str]:
     args = case.get("args", {}) or {}
     if not isinstance(args, Mapping):
         raise JudgeError(f"generator args must be a mapping: {case.get('name')}")
+    if len(args) > security_limits.MAX_STRESS_GENERATOR_ARGS:
+        raise LimitExceededError(
+            f"generator has too many arguments: {len(args)} > "
+            f"{security_limits.MAX_STRESS_GENERATOR_ARGS}"
+        )
     for key, value in args.items():
-        command.append(f"--{key}={value}")
+        argument = f"--{key}={value}"
+        if len(argument.encode("utf-8")) > security_limits.MAX_STRESS_ARGUMENT_BYTES:
+            raise LimitExceededError(
+                f"generator argument exceeds {security_limits.MAX_STRESS_ARGUMENT_BYTES} bytes"
+            )
+        command.append(argument)
     return command
 
 
@@ -149,13 +155,19 @@ def _run_generator(
     case: Mapping[str, Any],
     timeout_ms: int,
 ) -> str:
-    result = run_command_result(_generator_command(generator, case), timeout_ms)
+    result = run_command_result(
+        _generator_command(generator, case),
+        timeout_ms,
+        stdout_limit_bytes=security_limits.MAX_STRESS_GENERATED_INPUT_BYTES,
+    )
+    if result.stdout_truncated:
+        raise LimitExceededError(
+            "stress generator output exceeds "
+            f"{security_limits.MAX_STRESS_GENERATED_INPUT_BYTES} bytes"
+        )
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace").strip()
-        detail = (
-            f"generator failed for case {case.get('name')} "
-            f"(exit code {result.returncode})"
-        )
+        detail = f"generator failed for case {case.get('name')} (exit code {result.returncode})"
         if stderr:
             detail = f"{detail}: {stderr}"
         raise JudgeError(detail)
@@ -316,6 +328,20 @@ def stress_test_solutions(
     validate_safe_id("problem id", problem_id)
     validate_safe_id("profile", profile)
     duration_seconds = _clamped_duration_seconds(duration_seconds)
+    if max_cases is not None:
+        try:
+            max_cases = int(max_cases)
+        except (TypeError, ValueError) as exc:
+            raise JudgeError("stress max_cases must be an integer") from exc
+        if max_cases < 1 or max_cases > security_limits.MAX_STRESS_CASES:
+            raise LimitExceededError(
+                f"stress max_cases must be between 1 and {security_limits.MAX_STRESS_CASES}"
+            )
+    if solutions is not None and len(solutions) > security_limits.MAX_STRESS_SOLUTIONS:
+        raise LimitExceededError(
+            f"stress selects too many solutions: {len(solutions)} > "
+            f"{security_limits.MAX_STRESS_SOLUTIONS}"
+        )
     run_id = _safe_run_id(run_id)
     run_dir = _stress_dir(workspace, run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -350,7 +376,9 @@ def stress_test_solutions(
     template_cases = _generator_cases(paths["generatorConfig"], profile)
 
     _emit(progress, "Stress 테스트용 도구를 컴파일합니다.", label="stress")
-    outputs = compile_problem_tools(problem_id, workspace, progress=lambda message: _emit(progress, message, label="stress"))
+    outputs = compile_problem_tools(
+        problem_id, workspace, progress=lambda message: _emit(progress, message, label="stress")
+    )
     _check_cancel(cancel_token)
 
     all_expectations = discover_solution_expectations(problem_dir)
@@ -458,7 +486,9 @@ def stress_test_solutions(
             _remaining_ms(deadline, limits.get("solutionTimeoutMs", 2000)),
         )
         if checker_code != 0:
-            raise JudgeError(f"checker self-check failed for stress case {case_id}: {checker_message}")
+            raise JudgeError(
+                f"checker self-check failed for stress case {case_id}: {checker_message}"
+            )
 
         case_mismatched = False
         manifest = _case_manifest(problem_id, profile, case_id, case_name)
@@ -582,7 +612,9 @@ def stress_test_solutions(
     write_json(run_dir / "result.json", result_payload)
     _emit(
         progress,
-        "Stress 테스트 완료." if not mismatches else "Stress 테스트가 mismatch에서 중단되었습니다.",
+        "Stress 테스트 완료."
+        if not mismatches
+        else "Stress 테스트가 mismatch에서 중단되었습니다.",
         label="stress",
         **_progress_payload(
             start=start,
@@ -625,7 +657,8 @@ def _preview_text(path: Path, limit: int = STRESS_PREVIEW_LIMIT) -> dict[str, An
         return {"text": text, "truncated": False, "omittedChars": 0}
     omitted = len(text) - limit
     return {
-        "text": text[:limit].rstrip() + f"\n\n... truncated after {limit} chars, omitted {omitted} chars ...",
+        "text": text[:limit].rstrip()
+        + f"\n\n... truncated after {limit} chars, omitted {omitted} chars ...",
         "truncated": True,
         "omittedChars": omitted,
     }
@@ -686,7 +719,9 @@ def _case_block(case_name: str, mode: str, metadata: Mapping[str, Any], input_te
             "        type: fixed",
             "        content: |",
         ]
-        lines.extend(f"          {line}" if line else "          " for line in content.splitlines())
+        lines.extend(
+            f"          {line}" if line else "          " for line in content.splitlines()
+        )
         return "\n".join(lines) + "\n"
     if mode == "generator":
         lines = [

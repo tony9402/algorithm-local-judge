@@ -1,5 +1,5 @@
-"""솔루션 models 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""솔루션 models 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,8 +11,7 @@ from alj_core.paths import rel
 
 @dataclass(frozen=True)
 class SolutionExpectation:
-    """솔루션 기대 상태 상태와 관련 동작을 하나의 객체로 표현합니다.
-    """
+    """솔루션 기대 상태 상태와 관련 동작을 하나의 객체로 표현합니다."""
 
     path: Path
     token: str
@@ -22,8 +21,7 @@ class SolutionExpectation:
 
 @dataclass(frozen=True)
 class SolutionCheckResult:
-    """솔루션 검사 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
-    """
+    """솔루션 검사 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다."""
 
     source: Path
     expected_status: str
@@ -55,8 +53,7 @@ class SolutionCheckResult:
 
 @dataclass(frozen=True)
 class SolutionVerificationResult:
-    """솔루션 verification 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
-    """
+    """솔루션 verification 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다."""
 
     problem_id: str
     profile: str

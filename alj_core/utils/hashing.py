@@ -1,5 +1,5 @@
-"""hashing 기능을 담당하는 모듈입니다.
-"""
+"""hashing 기능을 담당하는 모듈입니다."""
+
 from __future__ import annotations
 
 import hashlib

@@ -1,5 +1,5 @@
-"""일괄 작업 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""일괄 작업 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,15 +11,18 @@ from commons.job_queue import ACTIVE_STATUSES
 from problem_studio.core.bulk import build_all_problem_packs
 from problem_studio.web.routes.common import (
     enqueue_background_job,
-    jobs_from_request,
     job_matches_active_repository,
+    jobs_from_request,
     scoped_lane,
     stream_operation,
     to_http_error,
     workspace_from_request,
 )
 from problem_studio.web.schemas import BulkPackBuildRequest
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
 PACK_OUTPUT_DIR = Path("dist/packs")
@@ -138,6 +141,10 @@ def api_workspace_pack_build_jobs(request: Request) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 공간 문제팩 build 작업 데이터입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "workspace job history read")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     return {
         "jobs": [
@@ -160,6 +167,10 @@ def api_workspace_pack_build_job(request: Request, job_id: str) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 공간 문제팩 build 작업 데이터입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "workspace job detail read")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
     if (

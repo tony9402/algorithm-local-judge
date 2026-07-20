@@ -1,5 +1,5 @@
-"""저장소 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""저장소 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -23,7 +23,10 @@ from problem_studio.web.schemas import (
     RepositoryRegisterRequest,
     RepositorySelectRequest,
 )
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/repositories", tags=["repositories"])
 
@@ -37,6 +40,15 @@ def ensure_repository_write_enabled(request: Request) -> None:
     ensure_local_write_allowed(request, "repository Git action")
     if not getattr(request.app.state, "git_write_enabled", True):
         raise JudgeError("Git network/write actions are disabled for this server binding")
+
+
+def ensure_repository_selection_allowed(request: Request) -> None:
+    """활성 저장소 변경은 로컬 웹 요청에서만 허용합니다.
+
+    저장소 선택/등록은 Git 네트워크 작업이 아니므로 ``git_write_enabled``가
+    꺼진 로컬 서버에서도 동작해야 하지만, non-local 상태 변경은 차단합니다.
+    """
+    ensure_local_write_allowed(request, "repository selection")
 
 
 def repository_response(request: Request) -> dict:
@@ -90,7 +102,12 @@ def api_repositories(request: Request) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 저장소 데이터입니다.
     """
-    return route_result(lambda: repository_response(request))
+    return route_result(
+        lambda: (
+            ensure_local_web_action_allowed(request, "repository listing read")
+            or repository_response(request)
+        )
+    )
 
 
 @router.post("/select")
@@ -106,6 +123,7 @@ def api_repository_select(request: Request, body: RepositorySelectRequest) -> di
     """
 
     def operation() -> dict:
+        ensure_repository_selection_allowed(request)
         set_active_repository(request, body.repo_name)
         return selected_payload(request)
 
@@ -153,6 +171,7 @@ def api_repository_register(request: Request, body: RepositoryRegisterRequest) -
     """
 
     def operation() -> dict:
+        ensure_repository_selection_allowed(request)
         set_active_repository(request, body.repo_name)
         payload = selected_payload(request)
         payload["repository"] = repository_summary(

@@ -1,5 +1,5 @@
-"""작업 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""작업 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -29,6 +29,10 @@ def api_jobs(
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "job history read")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     items = jobs.list()
     if kind:
@@ -87,6 +91,10 @@ def api_job(request: Request, job_id: str) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 작업 데이터입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "job detail read")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
     if job is None:
@@ -115,7 +123,14 @@ def api_job_cancel(request: Request, job_id: str) -> dict:
         raise HTTPException(status_code=404, detail="job not found")
     if not jobs.cancel(job_id):
         raise HTTPException(status_code=409, detail="job cannot be cancelled")
-    return jobs.job_dict(jobs.get(job_id) or job)
+    updated = jobs.get(job_id) or job
+    submission_id = updated.target.get("submissionId") if updated.target else None
+    if updated.status == "cancelled" and isinstance(submission_id, str):
+        try:
+            request.app.state.submissions.cancel(submission_id)
+        except Exception:
+            pass
+    return jobs.job_dict(updated)
 
 
 @router.delete("/{job_id}")

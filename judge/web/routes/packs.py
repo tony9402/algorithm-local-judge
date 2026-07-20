@@ -1,5 +1,5 @@
-"""문제팩 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""문제팩 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, Request, UploadFile
 
 from judge.web import services
 from judge.web.routes.common import enqueue_background_job, jobs_from_request, to_http_error
-from judge.web.schemas import PackDownloadRequest, PackInstallRequest
+from judge.web.schemas import PackDownloadRequest, PackInstallRequest, PackRemoveRequest
 from judge.web.security_policy import ensure_local_web_action_allowed
 
 router = APIRouter(prefix="/api/packs", tags=["packs"])
@@ -23,6 +23,20 @@ def api_packs() -> list[dict]:
     """
     try:
         return services.list_packs()
+    except Exception as exc:
+        raise to_http_error(exc) from exc
+
+
+@router.delete("/{pack_id}")
+def api_pack_remove(
+    http_request: Request,
+    pack_id: str,
+    request: PackRemoveRequest,
+) -> dict:
+    """설치 화면의 별도 확인을 거쳐 특정 문제 팩을 제거합니다."""
+    try:
+        ensure_local_web_action_allowed(http_request, "pack remove")
+        return services.remove_problem_pack(pack_id, request.confirm_pack_id)
     except Exception as exc:
         raise to_http_error(exc) from exc
 

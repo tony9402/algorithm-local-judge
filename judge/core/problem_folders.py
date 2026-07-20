@@ -1,5 +1,5 @@
-"""문제 폴더 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""문제 폴더 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import json
@@ -15,6 +15,7 @@ from judge.core.problem_metadata import load_problem
 MAX_FOLDER_LENGTH = 80
 FOLDER_REGISTRY_NAME = "judge-folders.json"
 FOLDER_DELETE_WARNING = "폴더 내 문제들이 모두 삭제됩니다."
+FOLDER_MOVE_MODE = "move_to_uncategorized"
 
 
 def normalize_problem_folder(folder: str | None) -> str:
@@ -97,7 +98,9 @@ def list_problem_folders() -> list[dict[str, Any]]:
     folders = set(read_problem_folder_registry())
     folders.add("")
     for _problem_id, _problem_dir, metadata in problem_folder_items():
-        folder = normalize_problem_folder(metadata.get("folder") if isinstance(metadata, dict) else "")
+        folder = normalize_problem_folder(
+            metadata.get("folder") if isinstance(metadata, dict) else ""
+        )
         folders.add(folder)
         counts[folder] = counts.get(folder, 0) + 1
     return [
@@ -106,7 +109,7 @@ def list_problem_folders() -> list[dict[str, Any]]:
             "label": folder or "Uncategorized",
             "problemCount": counts.get(folder, 0),
         }
-        for folder in sorted(folders, key=lambda value: ((value or "Uncategorized").lower()))
+        for folder in sorted(folders, key=lambda value: (value or "Uncategorized").lower())
     ]
 
 
@@ -125,7 +128,9 @@ def problems_in_folder(folder: str | None) -> list[dict[str, Any]]:
     normalized = normalize_problem_folder(folder)
     result = []
     for problem_id, problem_dir, metadata in problem_folder_items():
-        problem_folder = normalize_problem_folder(metadata.get("folder") if isinstance(metadata, dict) else "")
+        problem_folder = normalize_problem_folder(
+            metadata.get("folder") if isinstance(metadata, dict) else ""
+        )
         if problem_folder == normalized:
             result.append(
                 {
@@ -143,19 +148,96 @@ def ensure_problem_dir_deletable(problem_dir: Path) -> Path:
         raise SecurityPolicyError(f"refusing to delete non-problem directory: {rel(resolved)}")
     roots = [root.resolve() for root in problem_roots()]
     if not any(root == resolved.parent or root in resolved.parents for root in roots):
-        raise SecurityPolicyError(f"refusing to delete problem outside known roots: {rel(resolved)}")
+        raise SecurityPolicyError(
+            f"refusing to delete problem outside known roots: {rel(resolved)}"
+        )
     return resolved
+
+
+def _write_problem_folder_metadata(metadata_path: Path, metadata: dict[str, Any]) -> None:
+    metadata_path.write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _restore_file_snapshot(path: Path, existed: bool, content: bytes) -> None:
+    if existed:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    else:
+        path.unlink(missing_ok=True)
+
+
+def _move_folder_problems_to_uncategorized(
+    folder: str,
+    targets: list[dict[str, Any]],
+) -> dict[str, Any]:
+    snapshots: list[tuple[Path, bytes, dict[str, Any], str]] = []
+    for item in targets:
+        problem_id = item["problemId"]
+        problem_dir, metadata_path, metadata = load_problem(problem_id)
+        if not problem_folder_editable(problem_dir):
+            raise SecurityPolicyError(
+                f"problem folder cannot be changed for {problem_id} because metadata is not editable"
+            )
+        if normalize_problem_folder(metadata.get("folder")) != folder:
+            raise JudgeError(f"problem folder changed while deleting folder: {problem_id}")
+        snapshots.append((metadata_path, metadata_path.read_bytes(), metadata, problem_id))
+
+    registry_path = problem_folder_registry_path()
+    registry_existed = registry_path.exists()
+    registry_content = registry_path.read_bytes() if registry_existed else b""
+    moved_problem_ids: list[str] = []
+    try:
+        for metadata_path, _content, metadata, problem_id in snapshots:
+            updated_metadata = dict(metadata)
+            updated_metadata["folder"] = ""
+            _write_problem_folder_metadata(metadata_path, updated_metadata)
+            moved_problem_ids.append(problem_id)
+        folders = [item for item in read_problem_folder_registry() if item != folder]
+        write_problem_folder_registry(folders)
+    except Exception as exc:
+        restore_errors = []
+        for metadata_path, content, _metadata, _problem_id in snapshots:
+            try:
+                _restore_file_snapshot(metadata_path, True, content)
+            except OSError as restore_exc:
+                restore_errors.append(f"{metadata_path}: {restore_exc}")
+        try:
+            _restore_file_snapshot(registry_path, registry_existed, registry_content)
+        except OSError as restore_exc:
+            restore_errors.append(f"{registry_path}: {restore_exc}")
+        if restore_errors:
+            details = "; ".join(restore_errors)
+            raise JudgeError(f"failed to restore problem folder metadata: {details}") from exc
+        raise
+
+    return {
+        "deleted": True,
+        "requiresConfirmation": False,
+        "folder": folder,
+        "movedProblems": moved_problem_ids,
+        "deletedProblems": [],
+        "warning": "",
+        "folders": list_problem_folders(),
+    }
 
 
 def delete_problem_folder(
     folder: str | None,
     *,
+    mode: str | None = None,
     confirm_delete_problems: bool = False,
 ) -> dict[str, Any]:
     normalized = normalize_problem_folder(folder)
     if not normalized:
         raise JudgeError("default folder cannot be deleted")
     targets = problems_in_folder(normalized)
+    if mode == FOLDER_MOVE_MODE:
+        return _move_folder_problems_to_uncategorized(normalized, targets)
+    if mode is not None:
+        raise JudgeError(f"unsupported problem folder delete mode: {mode}")
     if targets and not confirm_delete_problems:
         return {
             "deleted": False,
@@ -163,6 +245,8 @@ def delete_problem_folder(
             "folder": normalized,
             "warning": FOLDER_DELETE_WARNING,
             "problems": targets,
+            "movedProblems": [],
+            "deletedProblems": [],
         }
     for item in targets:
         shutil.rmtree(ensure_problem_dir_deletable(Path(item["path"])))
@@ -172,6 +256,7 @@ def delete_problem_folder(
         "deleted": True,
         "requiresConfirmation": False,
         "folder": normalized,
+        "movedProblems": [],
         "deletedProblems": [item["problemId"] for item in targets],
         "warning": FOLDER_DELETE_WARNING if targets else "",
         "folders": list_problem_folders(),
@@ -206,10 +291,7 @@ def update_problem_folder(problem_id: str, folder: str | None) -> dict[str, Any]
     if normalized_folder and normalized_folder not in known_folders:
         raise JudgeError("problem folder must be created before moving problems")
     metadata["folder"] = normalized_folder
-    metadata_path.write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    _write_problem_folder_metadata(metadata_path, metadata)
     return {
         "problemId": problem_id,
         "path": rel(metadata_path),

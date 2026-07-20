@@ -1,5 +1,5 @@
-"""문제 탐색 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""문제 탐색 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,10 +7,34 @@ from typing import Any
 
 from alj_core.errors import JudgeError
 from alj_core.paths import (
+    problem_pack_root,
+    problem_source_root,
     rel,
     repo_root,
     validate_safe_id,
 )
+
+
+def installed_problem_roots() -> list[Path]:
+    packs_root = problem_pack_root()
+    if not packs_root.exists():
+        return []
+    return [
+        pack_dir / "problems"
+        for pack_dir in sorted(path for path in packs_root.iterdir() if path.is_dir())
+        if (pack_dir / "problems").exists()
+    ]
+
+
+def installed_source_problem_roots() -> list[Path]:
+    sources_root = problem_source_root()
+    if not sources_root.exists():
+        return []
+    return [
+        problems_dir
+        for problems_dir in sorted(sources_root.glob("*/*/problems"))
+        if problems_dir.is_dir()
+    ]
 
 
 def workspace_problem_roots(root: Path) -> list[Path]:
@@ -29,7 +53,11 @@ def workspace_problem_roots(root: Path) -> list[Path]:
 def problem_roots(root: Path | None = None) -> list[Path]:
     if root is not None:
         return workspace_problem_roots(root)
-    return workspace_problem_roots(repo_root())
+    roots = []
+    roots.extend(workspace_problem_roots(repo_root()))
+    roots.extend(installed_problem_roots())
+    roots.extend(installed_source_problem_roots())
+    return roots
 
 
 def problem_workspace_root(problem_dir: Path, root: Path | None = None) -> Path:

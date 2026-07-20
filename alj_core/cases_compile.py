@@ -1,5 +1,5 @@
-"""케이스 컴파일 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""케이스 컴파일 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -40,9 +40,9 @@ from alj_core.problem import tool_paths
 def compile_cases_file(path: Path, profile: str | None = None) -> CaseCompileResult:
     """케이스 파일 소스와 설정을 실행 가능한 산출물과 진단 정보로 변환합니다.
 
-        Args:
-            path (Path): 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
-            profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+    Args:
+        path (Path): 읽기, 쓰기, 검증, 표시 대상이 되는 파일 또는 디렉터리 경로입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
     """
     path = path.resolve()
     data, diagnostics, lines = load_yaml(path)
@@ -78,10 +78,10 @@ def compile_problem_cases(
 ) -> CaseCompileResult:
     """문제 케이스 소스와 설정을 실행 가능한 산출물과 진단 정보로 변환합니다.
 
-        Args:
-            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
-            profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
-            root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+    Args:
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
     """
     _, _, _, paths = tool_paths(problem_id, root)
     return compile_cases_file(paths["generatorConfig"], profile)
@@ -94,10 +94,10 @@ def ensure_cases_compiled(
 ) -> CaseCompileResult:
     """케이스 compiled 조건을 확인하고 위반 시 호출자가 중단할 수 있는 예외를 발생시킵니다.
 
-        Args:
-            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
-            profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
-            root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
+    Args:
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        profile (str | None): cases.yml에서 선택할 실행 또는 생성 프로필 이름입니다.
+        root (Path | None): 상대 경로 계산과 안전성 검증의 기준이 되는 루트 경로입니다.
     """
     result = compile_problem_cases(problem_id, profile, root)
     if not result.valid:

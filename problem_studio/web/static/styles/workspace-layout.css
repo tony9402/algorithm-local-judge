@@ -1,4 +1,76 @@
 /* Workspace and panel layout */
+.problem-authoring-workspace {
+  display: contents;
+}
+
+.workspace-empty-state {
+  align-self: stretch;
+  min-height: min(560px, 64vh);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: clamp(32px, 7vw, 88px);
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.12), transparent 48%),
+    var(--panel);
+}
+
+.workspace-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 18px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.13);
+}
+
+.workspace-empty-copy {
+  display: grid;
+  gap: 8px;
+  max-width: 620px;
+}
+
+.workspace-empty-kicker {
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-empty-copy h2 {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1.18;
+}
+
+.workspace-empty-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.workspace-empty-actions {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.workspace-empty-actions button {
+  min-height: 44px;
+  padding-inline: 18px;
+}
+
 .studio-layout {
   display: grid;
   grid-template-columns: minmax(260px, 330px) minmax(0, 1fr);

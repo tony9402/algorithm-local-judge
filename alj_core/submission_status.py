@@ -1,5 +1,5 @@
-"""제출 상태 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""제출 상태 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from alj_core.utils.process import CommandResult
@@ -23,6 +23,10 @@ def user_memory_limit_bytes(limits: dict[str, object]) -> int | None:
 def command_status(command_result: CommandResult) -> tuple[str, str]:
     if command_result.returncode == 124:
         return "time_limit", "time limit exceeded"
+    if command_result.system_error:
+        return "system_error", command_result.stderr.decode("utf-8", errors="replace")
+    if command_result.memory_limit_exceeded:
+        return "memory_limit", "memory limit exceeded"
     if command_result.returncode != 0:
         return "runtime_error", command_result.stderr.decode("utf-8", errors="replace")
     return "ok", ""

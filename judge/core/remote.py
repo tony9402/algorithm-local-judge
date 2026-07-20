@@ -24,6 +24,7 @@ from judge.core.remote_github import (
     official_pack_repository,
     select_checksum_asset,
     select_pack_asset,
+    select_signature_asset,
 )
 from judge.core.remote_install import (
     download_problem_pack_from_github,
@@ -79,6 +80,7 @@ __all__ = [
     "safe_zip_member_path",
     "select_checksum_asset",
     "select_pack_asset",
+    "select_signature_asset",
     "source_problem_count",
     "add_user_trusted_repository",
     "default_trusted_owner_patterns",

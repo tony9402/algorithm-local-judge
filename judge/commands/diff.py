@@ -1,5 +1,5 @@
-"""차이 비교 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다.
-"""
+"""차이 비교 CLI 명령의 인자 처리와 콘솔 출력을 담당합니다."""
+
 from __future__ import annotations
 
 import argparse

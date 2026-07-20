@@ -6,11 +6,31 @@
 }
 
 .source-history-heading {
+  min-height: 44px;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.source-history-heading::-webkit-details-marker {
+  display: none;
+}
+
+.source-history-heading::after {
+  color: var(--muted);
+  content: "▸";
+}
+
+.source-history[open] .source-history-heading::after {
+  content: "▾";
+}
+
+.source-history-content {
+  margin-top: 10px;
 }
 
 .source-history-heading span {

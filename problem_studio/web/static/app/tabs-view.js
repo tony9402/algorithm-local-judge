@@ -3,6 +3,7 @@
  */
 
 import { $, optional, setText } from "./dom.js";
+import { bindControlPolicy } from "./control-policy.js";
 import { renderFeedbackPanels } from "./feedback.js";
 import { TAB_CONFIGS, state } from "./state.js";
 import { VALIDATION_QUEUE_ACTIONS } from "./actions/validation-queue.js";
@@ -32,8 +33,13 @@ function renderTabButtons() {
     const active = button.dataset.tab === state.selectedTab;
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", active ? "true" : "false");
+    button.tabIndex = active ? 0 : -1;
     if (active) button.scrollIntoView({ block: "nearest", inline: "center" });
   }
+  optional("authoringTabPanel")?.setAttribute(
+    "aria-labelledby",
+    `authoringTab-${state.selectedTab}`
+  );
 }
 /**
  * tab actions 데이터를 현재 DOM 구조에 맞춰 다시 그립니다.
@@ -48,8 +54,10 @@ function renderTabActions() {
     if (action.id === "runAllChecks") button.id = "runAllButton";
     if (action.id === "buildPack") button.id = "packButton";
     if (action.id === "buildAllPacks") button.id = "buildAllPacksButton";
+    button.dataset.actionId = action.id;
     if (action.primary) button.className = "primary";
     if (action.danger) button.className = "danger";
+    bindControlPolicy(button, "tab.action");
     button.addEventListener("click", () => {
       if (action.id === "uploadSolutions") {
         try {

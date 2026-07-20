@@ -1,5 +1,5 @@
-"""텍스트 기능을 담당하는 모듈입니다.
-"""
+"""텍스트 기능을 담당하는 모듈입니다."""
+
 from __future__ import annotations
 
 from pathlib import Path

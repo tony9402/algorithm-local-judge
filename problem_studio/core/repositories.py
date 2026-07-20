@@ -1,5 +1,5 @@
-"""저장소 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""저장소 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import re
@@ -148,9 +148,7 @@ def clone_problem_repository(
             existing_remote = remote_url(target)
             if same_repository_source(existing_remote, source):
                 return repository_summary(workspace_root, name)
-            raise JudgeError(
-                f"repository target already exists with a different remote: {target}"
-            )
+            raise JudgeError(f"repository target already exists with a different remote: {target}")
         if (target / "problem.json").exists():
             raise JudgeError(f"clone target is an existing problem directory: {target}")
         raise JudgeError(f"clone target is not empty: {target}")

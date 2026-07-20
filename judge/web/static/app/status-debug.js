@@ -8,8 +8,8 @@ const { state } = app;
 function resetRunStatus(message = "준비됨.") {
   app.setBadge("대기", "neutral");
   app.setText("resultMeta", "아직 채점하지 않았습니다.");
-  app.setStatusCard("cases", "대기", `${app.judgeProfile()} cases.yml 계획`);
-  app.setStatusCard("data", "대기", `${app.judgeProfile()} 채점 데이터`);
+  app.setStatusCard("cases", "대기", `${app.profileLabel(app.judgeProfile())} cases.yml 계획`);
+  app.setStatusCard("data", "대기", `${app.profileLabel(app.judgeProfile())} 채점 데이터`);
   app.setStatusCard("judge", "대기");
   app.setStatusCard("run", "-", "채점 기록 없음");
   app.hideGenerationProgress();

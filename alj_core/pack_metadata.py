@@ -1,5 +1,5 @@
-"""문제팩 메타데이터 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""문제팩 메타데이터 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import copy
@@ -14,8 +14,7 @@ from alj_core.utils.hashing import sha256_file
 
 @dataclass(frozen=True)
 class PackBuildResult:
-    """문제팩 build 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다.
-    """
+    """문제팩 build 결과에 필요한 필드를 한데 묶어 전달하는 데이터 모델입니다."""
 
     archive_path: Path
     pack_id: str

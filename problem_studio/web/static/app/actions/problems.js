@@ -3,11 +3,11 @@
  */
 
 import { api } from "../api.js";
+import { bindControlPolicy } from "../control-policy.js";
 import { clearPackJob } from "./build.js";
 import { clearEditor, openFile } from "./files.js";
 import { $, optional, resetWorkspaceScroll, setText } from "../dom.js";
 import {
-  confirmDiscardChanges,
   resetVimTransientState,
   setEditorValue,
   updateEditorVisuals,
@@ -52,12 +52,17 @@ import {
 } from "../view-persistence.js";
 import {
   problemLabel,
+  renderProblemSelectionState,
   renderProblems,
   renderWorkspace,
 } from "../workspace-view.js";
 import { normalizedSolutionPath } from "../solution-status.js";
 import { updateBuildPanel } from "../build-view.js";
 import { refreshGitStatus } from "./git.js";
+import {
+  clearMetadataSnapshot,
+  guardUnsavedTransition,
+} from "../unsaved-changes.js";
 
 const problemCallbacks = {
   closeModals: () => {},
@@ -138,7 +143,12 @@ export function markFullTestDirty(reason = "변경사항이 저장되어 전체 
 /**
  * 데이터 데이터를 서버나 캐시에서 다시 읽어 화면 상태를 최신으로 맞춥니다.
  */
-export async function refresh() {
+export async function refresh(options = {}) {
+  if (options.skipGuard) return refreshWithoutGuard();
+  return guardUnsavedTransition("전체 새로고침", refreshWithoutGuard, { scope: "workspace" });
+}
+
+async function refreshWithoutGuard() {
   const seq = problemCallbacks.nextViewSeq();
   const workspace = await api("/api/workspace");
   if (!problemCallbacks.isCurrentView(seq)) return;
@@ -171,17 +181,29 @@ export async function refresh() {
     hideLastRunPanel();
     renderTaskPanel();
     clearEditor();
+    clearMetadataSnapshot();
   }
 }
 export async function selectProblem(problemId, seq = problemCallbacks.nextViewSeq()) {
   const switchedProblem = state.selectedProblem !== problemId;
-  if (switchedProblem && !confirmDiscardChanges()) return;
+  if (switchedProblem) {
+    return guardUnsavedTransition(
+      "문제 이동",
+      () => selectProblemWithoutGuard(problemId, seq, true),
+      { scope: "workspace" }
+    );
+  }
+  return selectProblemWithoutGuard(problemId, seq, false);
+}
+
+async function selectProblemWithoutGuard(problemId, seq, switchedProblem) {
   rememberSelectedFile();
   state.selectedProblem = problemId;
   const detail = await api(`/api/problems/${encodeURIComponent(problemId)}`);
   if (!problemCallbacks.isCurrentView(seq)) return;
   state.detail = detail;
   state.files = detail.files || [];
+  renderProblemSelectionState();
   if (switchedProblem) {
     state.selectedFile = null;
     setEditorValue("", { clearHistory: true });
@@ -192,12 +214,22 @@ export async function selectProblem(problemId, seq = problemCallbacks.nextViewSe
   }
   restoreProblemLastResult(problemId);
   applyProblemMetadataToUi(detail.metadata);
-  populateMetadataForm(detail.metadata);
+  populateMetadataForm(detail.metadata, { force: true });
   rememberView();
   await selectTab(state.selectedTab, seq);
 }
 export async function selectTab(tabId, seq = problemCallbacks.nextViewSeq()) {
-  if (tabId !== state.selectedTab && !confirmDiscardChanges()) return;
+  if (tabId !== state.selectedTab) {
+    return guardUnsavedTransition(
+      "탭 이동",
+      () => selectTabWithoutGuard(tabId, seq),
+      { scope: "workspace" }
+    );
+  }
+  return selectTabWithoutGuard(tabId, seq);
+}
+
+async function selectTabWithoutGuard(tabId, seq) {
   rememberSelectedFile();
   state.selectedTab = tabId;
   rememberView();
@@ -252,6 +284,7 @@ export async function saveMetadata() {
     body: JSON.stringify({ metadata }),
   });
   applyProblemMetadataToUi(result, { markDirty: true });
+  populateMetadataForm(result, { force: true });
   showResult(
     nextProblemId !== previousProblemId
       ? `${previousProblemId} 문제 번호를 ${nextProblemId}로 변경했습니다.`
@@ -299,17 +332,25 @@ export function updateDeleteProblemButton() {
   const input = optional("deleteProblemConfirmInput");
   const button = optional("deleteProblemButton");
   if (!button) return;
-  button.disabled = (
-    !state.selectedProblem
-    || input?.value !== DELETE_CONFIRM_PHRASE
-    || document.body.getAttribute("aria-busy") === "true"
-  );
+  bindControlPolicy(button, "problem.delete", {
+    context: () => ({
+      deleteConfirmationMatches: input?.value === DELETE_CONFIRM_PHRASE,
+    }),
+  });
 }
 /**
  * delete 문제 모달 모달이나 브라우저 동작을 열기 위한 상태를 준비합니다.
  */
-export function openDeleteProblemModal() {
+export async function openDeleteProblemModal() {
   if (!state.selectedProblem) throw new Error("삭제할 문제를 먼저 선택하세요.");
+  return guardUnsavedTransition(
+    "문제 삭제",
+    openDeleteProblemModalWithoutGuard,
+    { scope: "workspace" }
+  );
+}
+
+function openDeleteProblemModalWithoutGuard() {
   const problem = state.problems.find((item) => item.problemId === state.selectedProblem);
   const label = problem ? problemLabel(problem) : state.selectedProblem;
   setText("deleteProblemDescription", `${label} 문제를 삭제합니다.`);

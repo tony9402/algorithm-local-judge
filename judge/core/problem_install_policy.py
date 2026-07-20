@@ -5,7 +5,8 @@ PACK_INSTALL_POLICY = (
     "no suitable pack asset is available."
 )
 PACK_INSTALL_TRUST_WARNING = (
-    "Only install problem packs from repositories or files you trust; problem tools run locally."
+    "This local file was not verified against an official publisher signature. "
+    "Only install problem packs you explicitly trust; problem tools run locally."
 )
 SOURCE_INSTALL_TRUST_WARNING = (
     "Only install source packages from repositories you trust; problem tools run locally."

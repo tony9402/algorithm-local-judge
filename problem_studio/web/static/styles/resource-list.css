@@ -33,6 +33,26 @@
   overflow: auto;
 }
 
+.resource-empty-state {
+  display: grid;
+  gap: 4px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 14px;
+}
+
+.resource-empty-state strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.resource-empty-state span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .studio-layout.solutions-mode .task-panel {
   max-height: 100%;
   overflow-y: auto;

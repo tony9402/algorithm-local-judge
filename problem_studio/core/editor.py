@@ -1,14 +1,18 @@
-"""편집기 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""편집기 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
+import os
+import shutil
+import uuid
 from pathlib import Path
 from typing import Any
 
 from alj_core.compiler import SUPPORTED_USER_SUFFIXES
-from alj_core.errors import JudgeError
+from alj_core.errors import JudgeError, LimitExceededError
 from alj_core.paths import ensure_inside, rel
 from alj_core.problem_constants import REQUIRED_TOOL_FIELDS
+from alj_core.security_limits import MAX_SOURCE_TEXT_BYTES, MAX_SOURCE_UPLOAD_BYTES
 from alj_core.utils.fs import read_json, write_json
 from problem_studio.core.workspace import problem_dir
 
@@ -24,7 +28,7 @@ SOLUTION_LANGUAGE_MARKERS = {
     "pypy": ".pypy",
 }
 SOLUTION_TEMPLATES = {
-    "cpp": ("#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    return 0;\n}\n"),
+    "cpp": ("#include <iostream>\n\nint main() {\n    return 0;\n}\n"),
     "python": (
         'import sys\n\n\ndef main():\n    pass\n\n\nif __name__ == "__main__":\n    main()\n'
     ),
@@ -113,10 +117,56 @@ def write_problem_file(
     Returns:
         dict[str, str]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제 파일 데이터입니다.
     """
+    if not isinstance(content, str):
+        raise JudgeError("file content must be text")
+    encoded = content.encode("utf-8")
+    if len(encoded) > MAX_SOURCE_TEXT_BYTES:
+        raise LimitExceededError(f"file content exceeds {MAX_SOURCE_TEXT_BYTES} bytes")
     path = safe_problem_file(workspace, problem_id, raw_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_bytes(encoded)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return {"path": raw_path, "label": rel(path, workspace)}
+
+
+def _solution_upload_path(workspace: Path, problem_id: str, filename: str) -> Path:
+    name = Path(filename).name
+    if not name or any(char not in SAFE_UPLOAD_NAME_CHARS for char in name):
+        raise JudgeError(f"invalid solution filename: {filename}")
+    if Path(name).suffix.lower() not in SUPPORTED_USER_SUFFIXES:
+        supported = ", ".join(sorted(SUPPORTED_USER_SUFFIXES))
+        raise JudgeError(
+            f"unsupported solution extension: {Path(name).suffix} (supported: {supported})"
+        )
+    return safe_problem_file(workspace, problem_id, f"solutions/{name}")
+
+
+def save_solution_upload_file(
+    workspace: Path,
+    problem_id: str,
+    filename: str,
+    source: Path,
+) -> dict[str, Any]:
+    """임시 업로드 파일을 bounded/atomic하게 솔루션 디렉터리로 이동합니다."""
+    path = _solution_upload_path(workspace, problem_id, filename)
+    source = source.resolve()
+    if not source.is_file():
+        raise JudgeError("solution upload temporary file is missing")
+    size = source.stat().st_size
+    if size > MAX_SOURCE_UPLOAD_BYTES:
+        raise LimitExceededError(f"solution upload exceeds {MAX_SOURCE_UPLOAD_BYTES} bytes")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        shutil.copyfile(source, temporary)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {"path": f"solutions/{path.name}", "size": size}
 
 
 def save_solution_upload(
@@ -136,18 +186,17 @@ def save_solution_upload(
     Returns:
         dict[str, Any]: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 업로드 데이터입니다.
     """
-    name = Path(filename).name
-    if not name or any(char not in SAFE_UPLOAD_NAME_CHARS for char in name):
-        raise JudgeError(f"invalid solution filename: {filename}")
-    if Path(name).suffix.lower() not in SUPPORTED_USER_SUFFIXES:
-        supported = ", ".join(sorted(SUPPORTED_USER_SUFFIXES))
-        raise JudgeError(
-            f"unsupported solution extension: {Path(name).suffix} (supported: {supported})"
-        )
-    path = safe_problem_file(workspace, problem_id, f"solutions/{name}")
+    if len(content) > MAX_SOURCE_UPLOAD_BYTES:
+        raise LimitExceededError(f"solution upload exceeds {MAX_SOURCE_UPLOAD_BYTES} bytes")
+    path = _solution_upload_path(workspace, problem_id, filename)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
-    return {"path": f"solutions/{name}", "size": path.stat().st_size}
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_bytes(content)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {"path": f"solutions/{path.name}", "size": len(content)}
 
 
 def safe_solution_base_name(value: str) -> str:
@@ -258,7 +307,13 @@ def _fallback_reference_solution(base: Path, deleted_raw_path: str) -> str | Non
     return None
 
 
-def delete_solution_file(workspace: Path, problem_id: str, raw_path: str) -> dict[str, Any]:
+def delete_solution_file(
+    workspace: Path,
+    problem_id: str,
+    raw_path: str,
+    *,
+    replacement: str | None = None,
+) -> dict[str, Any]:
     """솔루션 파일을 삭제하고 참조 정답 메타데이터를 안전하게 유지합니다."""
     if not raw_path.startswith("solutions/"):
         raise JudgeError(f"not a solution file: {raw_path}")
@@ -272,11 +327,19 @@ def delete_solution_file(workspace: Path, problem_id: str, raw_path: str) -> dic
     tools = metadata.setdefault("tools", {})
     reference_deleted = tools.get("solution") == raw_path
     if reference_deleted:
-        fallback = _fallback_reference_solution(problem_dir(workspace, problem_id), raw_path)
+        fallback = replacement or _fallback_reference_solution(
+            problem_dir(workspace, problem_id), raw_path
+        )
         if not fallback:
-            raise JudgeError(
-                "cannot delete reference solution without another accepted solution"
-            )
+            raise JudgeError("cannot delete reference solution without another accepted solution")
+        if not fallback.startswith("solutions/") or fallback == raw_path:
+            raise JudgeError("replacement reference must be another accepted solution")
+        fallback_path = safe_problem_file(workspace, problem_id, fallback)
+        if not fallback_path.exists() or not fallback_path.is_file():
+            raise JudgeError(f"replacement reference solution not found: {fallback}")
+        parts = fallback_path.name.split(".")
+        if len(parts) < 3 or parts[-2].lower() != "ac":
+            raise JudgeError("replacement reference must be an accepted solution")
         tools["solution"] = fallback
 
     path.unlink()
@@ -287,6 +350,7 @@ def delete_solution_file(workspace: Path, problem_id: str, raw_path: str) -> dic
         "deleted": {"path": raw_path},
         "metadata": metadata,
         "referenceChanged": reference_deleted,
+        "replacement": tools.get("solution") if reference_deleted else None,
     }
 
 

@@ -1,9 +1,12 @@
-"""문제팩 아카이브 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""문제팩 아카이브 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
+import os
+import re
+import shutil
 import tarfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from alj_core import security_limits
 from alj_core.errors import JudgeError
@@ -41,10 +44,20 @@ def safe_tar_members(archive_path: Path) -> list[tarfile.TarInfo]:
             f"(limit {security_limits.MAX_ARCHIVE_MEMBERS})"
         )
     total_size = 0
+    seen_paths: dict[str, tarfile.TarInfo] = {}
+    validated_members: list[tarfile.TarInfo] = []
     for member in members:
-        member_path = Path(member.name)
-        if member_path.is_absolute() or ".." in member_path.parts:
+        normalized_name = member.name.replace("\\", "/")
+        member_path = PurePosixPath(normalized_name)
+        if (
+            not normalized_name
+            or normalized_name.startswith("/")
+            or re.match(r"^[A-Za-z]:($|/)", normalized_name)
+            or member_path.is_absolute()
+            or ".." in member_path.parts
+        ):
             raise JudgeError(f"unsafe path in pack archive: {member.name}")
+        normalized = member_path.as_posix()
         if member.issym() or member.islnk():
             raise JudgeError(f"unsafe link in pack archive: {member.name}")
         if not (member.isfile() or member.isdir()):
@@ -61,7 +74,42 @@ def safe_tar_members(archive_path: Path) -> list[tarfile.TarInfo]:
                     "pack archive extracted size exceeds limit: "
                     f"{total_size} > {security_limits.MAX_ARCHIVE_TOTAL_BYTES}"
                 )
-    return members
+        previous = seen_paths.get(normalized)
+        if previous is not None:
+            if member.isdir() and previous.isdir():
+                continue
+            if (
+                member.isfile()
+                and previous.isfile()
+                and member.size == previous.size
+                and _same_tar_file(archive_path, previous, member)
+            ):
+                continue
+            raise JudgeError(f"duplicate path in pack archive: {member.name}")
+        seen_paths[normalized] = member
+        validated_members.append(member)
+    return validated_members
+
+
+def _same_tar_file(
+    archive_path: Path,
+    first: tarfile.TarInfo,
+    second: tarfile.TarInfo,
+) -> bool:
+    """Return whether duplicate regular-file entries contain identical bytes."""
+    with tarfile.open(archive_path, "r:*") as archive:
+        first_stream = archive.extractfile(first)
+        second_stream = archive.extractfile(second)
+        if first_stream is None or second_stream is None:
+            return False
+        with first_stream, second_stream:
+            while True:
+                first_chunk = first_stream.read(1024 * 1024)
+                second_chunk = second_stream.read(1024 * 1024)
+                if first_chunk != second_chunk:
+                    return False
+                if not first_chunk:
+                    return True
 
 
 def safe_extract_tar(archive_path: Path, target_dir: Path) -> None:
@@ -74,10 +122,22 @@ def safe_extract_tar(archive_path: Path, target_dir: Path) -> None:
     members = safe_tar_members(archive_path)
     target_dir.mkdir(parents=True, exist_ok=True)
     with tarfile.open(archive_path, "r:*") as archive:
-        try:
-            archive.extractall(target_dir, members=members, filter="data")
-        except TypeError:
-            archive.extractall(target_dir, members=members)
+        for member in members:
+            relative = PurePosixPath(member.name.replace("\\", "/"))
+            destination = target_dir.joinpath(*relative.parts)
+            if member.isdir():
+                destination.mkdir(parents=True, exist_ok=True)
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            source = archive.extractfile(member)
+            if source is None:
+                raise JudgeError(f"could not read pack archive member: {member.name}")
+            with source, destination.open("wb") as output:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+            try:
+                os.chmod(destination, member.mode & 0o7777)
+            except OSError:
+                pass
 
 
 def single_pack_dir(extracted_dir: Path) -> Path:

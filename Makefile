@@ -57,27 +57,28 @@ web:
 	$(JUDGE) web
 
 test:
-	$(PYTHON) -m unittest -v
+	$(PYTHON) scripts/run_with_problems_guard.py -- $(PYTHON) -m unittest -v
 
 e2e:
-	$(PYTHON) -m unittest discover tests/e2e -p 'e2e_*.py' -v
+	$(PYTHON) scripts/run_with_problems_guard.py -- $(PYTHON) -m unittest discover tests/e2e -p 'e2e_*.py' -v
 
 e2e-judge: e2e-judge-cli e2e-judge-pack e2e-judge-web
 
 e2e-judge-cli:
-	$(PYTHON) -m unittest tests.e2e.e2e_judge_cli -v
+	$(PYTHON) scripts/run_with_problems_guard.py -- $(PYTHON) -m unittest tests.e2e.e2e_judge_cli -v
 
 e2e-judge-pack:
-	$(PYTHON) -m unittest tests.e2e.e2e_judge_pack_install -v
+	$(PYTHON) scripts/run_with_problems_guard.py -- $(PYTHON) -m unittest tests.e2e.e2e_judge_pack_install -v
 
 e2e-judge-web:
-	$(PYTHON) -m unittest tests.e2e.e2e_judge_web -v
+	$(PYTHON) scripts/run_with_problems_guard.py -- $(PYTHON) -m unittest tests.e2e.e2e_judge_web -v
 
 e2e-problem-studio:
-	$(PYTHON) -m unittest tests.e2e.e2e_problem_studio -v
+	$(PYTHON) scripts/run_with_problems_guard.py -- $(PYTHON) -m unittest tests.e2e.e2e_problem_studio -v
 
 e2e-docker:
-	ALJ_RUN_DOCKER_TESTS=1 $(PYTHON) -m unittest tests.e2e.e2e_docker_remote_package -v
+	ALJ_RUN_DOCKER_TESTS=1 $(PYTHON) scripts/run_with_problems_guard.py -- \
+		$(PYTHON) -m unittest tests.e2e.e2e_docker_remote_package -v
 
 e2e-install:
 	$(PYTHON) -m playwright install chromium
@@ -91,10 +92,10 @@ format-check:
 smoke: lint format-check test testlib-check
 
 package-smoke-problem-studio:
-	$(PYTHON) scripts/smoke_problem_studio_package.py
+	$(PYTHON) scripts/run_with_problems_guard.py -- $(PYTHON) scripts/smoke_problem_studio_package.py
 
 packaged-web-smoke:
-	$(PYTHON) scripts/smoke_judge_web_package.py
+	$(PYTHON) scripts/run_with_problems_guard.py -- $(PYTHON) scripts/smoke_judge_web_package.py
 
 release-ready: lint format-check test e2e-judge e2e-problem-studio package-smoke-problem-studio packaged-web-smoke
 

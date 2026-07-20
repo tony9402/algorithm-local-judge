@@ -1,0 +1,22 @@
+"""Judge와 Problem Studio 진입점이 공유하는 웹 CLI 옵션입니다."""
+
+from __future__ import annotations
+
+import argparse
+
+
+def add_web_arguments(parser: argparse.ArgumentParser) -> None:
+    """Problem Studio 웹 서버 옵션을 argparse parser에 추가합니다."""
+    parser.add_argument("--workspace", default=".")
+    parser.add_argument("--clone")
+    parser.add_argument("--branch")
+    parser.add_argument("--repo")
+    parser.add_argument("--repo-name")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8775)
+    web_open = parser.add_mutually_exclusive_group()
+    web_open.add_argument("--open", dest="open", action="store_true", default=True)
+    web_open.add_argument("--no-open", dest="open", action="store_false")
+
+
+__all__ = ["add_web_arguments"]

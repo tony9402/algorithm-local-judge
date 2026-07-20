@@ -1,5 +1,5 @@
-"""원격 GitHub 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""원격 GitHub 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 import json
@@ -175,6 +175,23 @@ def select_checksum_asset(
         if asset.get("name") == "checksums.txt":
             return asset
     raise JudgeError(f"GitHub release has no checksum asset for {asset_name}")
+
+
+def select_signature_asset(
+    assets: list[dict[str, Any]], pack_asset: dict[str, Any]
+) -> dict[str, Any]:
+    asset_name = pack_asset.get("name")
+    if not isinstance(asset_name, str) or not asset_name.endswith(".aljpack"):
+        raise JudgeError("problem pack asset has no valid name")
+    expected_names = {
+        f"{asset_name}.sigstore.json",
+        f"{asset_name.removesuffix('.aljpack')}.sigstore.json",
+    }
+    for asset in assets:
+        name = asset.get("name")
+        if isinstance(name, str) and name in expected_names:
+            return asset
+    raise JudgeError(f"GitHub release has no Sigstore bundle for {asset_name}")
 
 
 def download_asset(

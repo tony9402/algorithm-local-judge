@@ -8,6 +8,8 @@ from alj_core.problem_constants import (
 from alj_core.problem_discovery import (
     discover_problem_ids,
     find_problem_dir,
+    installed_problem_roots,
+    installed_source_problem_roots,
     problem_roots,
     problem_sort_key,
     problem_workspace_root,
@@ -28,6 +30,8 @@ __all__ = [
     "discover_problem_ids",
     "find_problem_dir",
     "forbidden_metadata_keys",
+    "installed_problem_roots",
+    "installed_source_problem_roots",
     "is_precompiled_problem",
     "load_problem",
     "problem_roots",

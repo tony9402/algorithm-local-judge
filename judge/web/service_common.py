@@ -1,5 +1,5 @@
-"""서비스 common 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""서비스 common 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 import json
@@ -25,6 +25,7 @@ SOURCE_HISTORY_LIMIT = 50
 WEB_DEBUG_ENV = "ALJ_WEB_DEBUG"
 SSE_DONE = object()
 
+
 def normalize_submission_filename(
     filename: str | None,
     language: str | None = None,
@@ -45,9 +46,7 @@ def normalize_submission_filename(
     if suffix and suffix not in language_extensions(selected_language):
         supported = ", ".join(
             sorted(
-                extension
-                for spec in LANGUAGE_OPTIONS.values()
-                for extension in spec["extensions"]
+                extension for spec in LANGUAGE_OPTIONS.values() for extension in spec["extensions"]
             )
         )
         raise JudgeError(f"unsupported source extension: {suffix} (supported: {supported})")

@@ -1,20 +1,27 @@
-"""솔루션 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""솔루션 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
+from alj_core import security_limits
 from alj_core.artifacts import wrong_artifacts, wrong_diff_text
+from alj_core.compiler import SUPPORTED_USER_SUFFIXES
+from alj_core.errors import JudgeError, LimitExceededError
 from problem_studio.core.diagnostics import verification_failure_payload
 from problem_studio.core.editor import (
+    SAFE_UPLOAD_NAME_CHARS,
     create_solution_file,
     delete_solution_file,
     list_problem_files,
     rename_solution_file,
-    save_solution_upload,
+    safe_problem_file,
+    save_solution_upload_file,
 )
 from problem_studio.core.packflow import list_solutions, verify_solutions
 from problem_studio.core.stress import (
@@ -40,7 +47,10 @@ from problem_studio.web.schemas import (
     SolutionVerifyRequest,
     StressAppendRequest,
 )
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/problems/{problem_id}/solutions", tags=["solutions"])
 ARTIFACT_PREVIEW_LIMIT = 12000
@@ -77,7 +87,10 @@ def api_solutions(request: Request, problem_id: str) -> dict:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 데이터입니다.
     """
     return route_result(
-        lambda: {"solutions": list_solutions(workspace_from_request(request), problem_id)}
+        lambda: (
+            ensure_local_web_action_allowed(request, "solution listing read")
+            or {"solutions": list_solutions(workspace_from_request(request), problem_id)}
+        )
     )
 
 
@@ -99,24 +112,78 @@ async def api_solutions_upload(
     """
     try:
         ensure_local_write_allowed(request, "solution upload")
+        if len(files) > security_limits.MAX_STUDIO_UPLOAD_FILES:
+            raise LimitExceededError(
+                "solution upload contains too many files: "
+                f"{len(files)} > {security_limits.MAX_STUDIO_UPLOAD_FILES}"
+            )
         workspace = workspace_from_request(request)
         uploaded = []
-        for file in files:
-            uploaded.append(
-                save_solution_upload(
-                    workspace,
-                    problem_id,
-                    file.filename or "",
-                    await file.read(),
+        committed_paths: list[Path] = []
+        existing_paths: set[Path] = set()
+        with tempfile.TemporaryDirectory(prefix="alj-studio-upload-") as temporary:
+            staged: list[tuple[UploadFile, Path]] = []
+            for index, file in enumerate(files):
+                filename = file.filename or ""
+                name = Path(filename).name
+                if (
+                    not name
+                    or name != filename
+                    or any(char not in SAFE_UPLOAD_NAME_CHARS for char in name)
+                ):
+                    raise JudgeError(f"invalid solution filename: {filename}")
+                if Path(name).suffix.lower() not in SUPPORTED_USER_SUFFIXES:
+                    supported = ", ".join(sorted(SUPPORTED_USER_SUFFIXES))
+                    raise JudgeError(
+                        f"unsupported solution extension: {Path(name).suffix} "
+                        f"(supported: {supported})"
+                    )
+                temp_path = Path(temporary) / f"{index:04d}.upload"
+                size = 0
+                with temp_path.open("wb") as output:
+                    while chunk := await file.read(1024 * 1024):
+                        size += len(chunk)
+                        if size > security_limits.MAX_SOURCE_UPLOAD_BYTES:
+                            raise LimitExceededError(
+                                f"solution upload exceeds "
+                                f"{security_limits.MAX_SOURCE_UPLOAD_BYTES} bytes"
+                            )
+                        output.write(chunk)
+                staged.append((file, temp_path))
+
+            # All uploads are fully staged before any workspace file is replaced.
+            for file, temp_path in staged:
+                filename = file.filename or ""
+                target = safe_problem_file(
+                    workspace, problem_id, f"solutions/{Path(filename).name}"
                 )
-            )
+                if target.exists():
+                    existing_paths.add(target)
+                result = save_solution_upload_file(workspace, problem_id, filename, temp_path)
+                uploaded.append(result)
+                committed_paths.append(target)
+        await _close_uploads(files)
         return {
             "uploaded": uploaded,
             "files": list_problem_files(workspace, problem_id),
             "solutions": list_solutions(workspace, problem_id),
         }
     except Exception as exc:
+        # Temporary upload files are removed by TemporaryDirectory.  Never remove an
+        # existing solution on rollback; only newly created targets are safe to clean.
+        for target in locals().get("committed_paths", []):
+            if target not in locals().get("existing_paths", set()):
+                target.unlink(missing_ok=True)
+        await _close_uploads(files)
         raise to_http_error(exc) from exc
+
+
+async def _close_uploads(files: list[UploadFile]) -> None:
+    for file in files:
+        try:
+            await file.close()
+        except Exception:
+            pass
 
 
 @router.post("/create")
@@ -201,7 +268,12 @@ def api_solutions_delete(request: Request, problem_id: str, body: SolutionDelete
     def operation() -> dict:
         ensure_local_write_allowed(request, "solution delete")
         workspace = workspace_from_request(request)
-        deleted = delete_solution_file(workspace, problem_id, body.path)
+        deleted = delete_solution_file(
+            workspace,
+            problem_id,
+            body.path,
+            replacement=body.replacement,
+        )
         return {
             **deleted,
             "files": list_problem_files(workspace, problem_id),
@@ -334,9 +406,7 @@ def api_solutions_verify_job(
 
 
 @router.post("/test/jobs")
-def api_solution_test_job(
-    request: Request, problem_id: str, body: SolutionTestRequest
-) -> dict:
+def api_solution_test_job(request: Request, problem_id: str, body: SolutionTestRequest) -> dict:
     """솔루션 개별 테스트 작업 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
 
     Args:
@@ -491,6 +561,7 @@ def api_solution_wrong_case(
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 오답 케이스 데이터입니다.
     """
     try:
+        ensure_local_web_action_allowed(request, "solution wrong case read")
         workspace = workspace_from_request(request)
         raw_data = wrong_artifacts(run_id, case_id, workspace)
         raw_data["diff"] = wrong_diff_text(run_id, case_id, workspace)
@@ -532,6 +603,7 @@ def api_solution_stress_mismatch(
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 솔루션 스트레스 테스트 mismatch 데이터입니다.
     """
     try:
+        ensure_local_web_action_allowed(request, "solution stress mismatch read")
         workspace = workspace_from_request(request)
         result = stress_mismatch_preview(
             workspace,

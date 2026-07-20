@@ -1,5 +1,5 @@
-"""애플리케이션 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""애플리케이션 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 import sys
@@ -8,13 +8,16 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
+from commons.job_persistence import default_job_history_path
+from commons.web_observability import default_readiness, register_web_observability
+from commons.web_security import install_request_security_middleware
 from problem_studio.core.repositories import initialize_problem_repository_workspace
 from problem_studio.web.jobs import BackgroundJobStore
 from problem_studio.web.routes import API_ROUTERS
 
 WEB_ROOT = Path(__file__).resolve().parent
 PACKAGE_STATIC_ROOT = WEB_ROOT / "static"
-STANDALONE_STATIC_ROOT = Path(sys.argv[0]).resolve().parent / "problem-studio" / "static"
+STANDALONE_STATIC_ROOT = Path(sys.argv[0]).resolve().parent / "studio-web" / "static"
 STATIC_ROOT = PACKAGE_STATIC_ROOT if PACKAGE_STATIC_ROOT.exists() else STANDALONE_STATIC_ROOT
 INDEX_PATH = STATIC_ROOT / "index.html"
 INCLUDE_PREFIX = "<!-- include:"
@@ -24,6 +27,14 @@ INCLUDE_SUFFIX = "-->"
 def register_api_routes(app: FastAPI) -> None:
     for router in API_ROUTERS:
         app.include_router(router)
+
+
+def studio_readiness(app: FastAPI) -> tuple[bool, dict[str, str]]:
+    _ready, checks = default_readiness(app)
+    checks["static"] = "ok" if INDEX_PATH.is_file() else "missing"
+    workspace = getattr(app.state, "workspace", None)
+    checks["workspace"] = "ok" if workspace is not None and workspace.is_dir() else "missing"
+    return all(value == "ok" for value in checks.values()), checks
 
 
 def expand_static_includes(source: str, static_root: Path) -> str:
@@ -77,6 +88,7 @@ def create_app(
     workspace_warning: bool = False,
     local_binding: bool = True,
     workspace_write_enabled: bool | None = None,
+    job_history_path: Path | str | None = None,
 ) -> FastAPI:
     """애플리케이션에 필요한 초기 파일과 메타데이터를 생성합니다.
 
@@ -87,11 +99,13 @@ def create_app(
         workspace_warning (bool): 애플리케이션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
         local_binding (bool): 애플리케이션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
         workspace_write_enabled (bool | None): 애플리케이션을 계산하거나 검증할 때 필요한 작업 공간 쓰기 enabled 입력입니다.
+        job_history_path (Path | str | None): 재시작 복원용 작업 이력 파일 경로입니다.
 
     Returns:
         FastAPI: 라우터와 정적 파일 설정이 등록된 FastAPI 애플리케이션입니다.
     """
     app = FastAPI(title="Problem Studio", docs_url=None, redoc_url=None)
+    install_request_security_middleware(app)
     workspace_root, repository_name, active_workspace = initialize_problem_repository_workspace(
         workspace,
         active_repository,
@@ -105,7 +119,11 @@ def create_app(
     app.state.workspace_write_enabled = (
         git_write_enabled if workspace_write_enabled is None else workspace_write_enabled
     )
-    app.state.jobs = BackgroundJobStore(max_running_jobs=4)
+    app.state.jobs = BackgroundJobStore(
+        max_running_jobs=4,
+        persistence_path=job_history_path,
+    )
+    register_web_observability(app, "problem_studio", studio_readiness)
     register_api_routes(app)
 
     @app.get("/")
@@ -129,4 +147,4 @@ def create_app(
     return app
 
 
-app = create_app()
+app = create_app(job_history_path=default_job_history_path("problem-studio"))

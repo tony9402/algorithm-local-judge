@@ -14,6 +14,7 @@
   --accent-dark: #1d4ed8;
   --accent-soft: #e8f1ff;
   --accent-ink: #123a73;
+  --primary-text: #ffffff;
   --topbar: #0b1f3a;
   --topbar-2: #123d73;
   --topbar-text: #f8fbff;
@@ -54,6 +55,7 @@
   --accent-dark: #14b8a6;
   --accent-soft: #123532;
   --accent-ink: #bcfbef;
+  --primary-text: #082f2b;
   --topbar: #111827;
   --topbar-2: #2b2537;
   --topbar-text: #f8fbff;
@@ -81,6 +83,17 @@
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+html.modal-open,
+body.modal-open {
+  overflow: hidden;
 }
 
 body {
@@ -117,6 +130,18 @@ summary {
   white-space: nowrap;
 }
 
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 button:hover {
   border-color: var(--line-strong);
   background: var(--control-hover);
@@ -135,7 +160,7 @@ button:disabled {
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--primary-text);
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
 }
 
@@ -201,4 +226,3 @@ textarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.45;
 }
-

@@ -1,10 +1,12 @@
-"""원격 아카이브 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""원격 아카이브 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
+import os
+import shutil
 import stat
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from posixpath import normpath
 
 from judge.core import security_limits
@@ -22,10 +24,15 @@ def safe_zip_member_path(name: str) -> Path:
     normalized = normpath(name.replace("\\", "/"))
     if normalized in {"", "."}:
         raise JudgeError("unsafe empty path in source archive")
-    path = Path(normalized)
-    if path.is_absolute() or ".." in path.parts:
+    path = PurePosixPath(normalized)
+    if (
+        path.is_absolute()
+        or normalized.startswith("/")
+        or (len(normalized) >= 2 and normalized[1] == ":")
+        or ".." in path.parts
+    ):
         raise JudgeError(f"unsafe path in source archive: {name}")
-    return path
+    return Path(*path.parts)
 
 
 def zip_member_mode(member: zipfile.ZipInfo) -> int:
@@ -70,7 +77,25 @@ def safe_extract_zip(archive_path: Path, target_dir: Path) -> None:
                     f"{total_size} > {security_limits.MAX_ARCHIVE_TOTAL_BYTES}"
                 )
         target_dir.mkdir(parents=True, exist_ok=True)
-        archive.extractall(target_dir)
+        seen_paths: set[Path] = set()
+        for member in members:
+            relative = safe_zip_member_path(member.filename)
+            if relative in seen_paths:
+                raise JudgeError(f"duplicate path in source archive: {member.filename}")
+            seen_paths.add(relative)
+            destination = target_dir.joinpath(*relative.parts)
+            if member.is_dir():
+                destination.mkdir(parents=True, exist_ok=True)
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(member, "r") as source, destination.open("wb") as output:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+            mode = zip_member_mode(member) & 0o7777
+            if mode:
+                try:
+                    os.chmod(destination, mode)
+                except OSError:
+                    pass
 
 
 def find_source_package_root(extracted_dir: Path) -> Path:

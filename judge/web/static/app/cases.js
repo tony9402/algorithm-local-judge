@@ -7,7 +7,7 @@ const { state } = app;
 
 function formatCaseDiagnostic(diagnostic) {
   const line = diagnostic.line ? `:${diagnostic.line}` : "";
-  const profile = diagnostic.profile ? `profile ${diagnostic.profile}, ` : "";
+  const profile = diagnostic.profile ? `프로필 ${app.profileLabel(diagnostic.profile)}, ` : "";
   const location = diagnostic.location || "cases.yml";
   const hint = diagnostic.hint ? `\n\nhint:\n  ${diagnostic.hint}` : "";
   return `${diagnostic.path}${line}\n  ${profile}${location}\n  ${diagnostic.message}${hint}`;
@@ -19,12 +19,12 @@ function formatCasesCompile(result) {
   }
   const lines = ["cases.yml: 정상"];
   for (const profile of result.profiles) {
-    lines.push(`profile ${profile.name}: ${profile.caseCount}개 케이스`);
+    lines.push(`${app.profileLabel(profile.name)} 프로필: ${profile.caseCount}개 테스트케이스`);
   }
   return lines.join("\n");
 }
 async function compileCasesData({ showSuccess = true, profile = app.judgeProfile() } = {}) {
-  app.setStatusCard("cases", "검사 중", `${profile} cases.yml`);
+  app.setStatusCard("cases", "검사 중", `${app.profileLabel(profile)} cases.yml`);
   const result = await app.runQueuedJob("/api/cases/jobs", {
     method: "POST",
     body: JSON.stringify({
@@ -35,11 +35,11 @@ async function compileCasesData({ showSuccess = true, profile = app.judgeProfile
   if (showSuccess || !result.valid) {
     state.debugLogs = formatCasesCompile(result).split("\n");
     app.renderDebugLog();
-    app.setBadge(result.valid ? "Cases 정상" : "Cases 오류", result.valid ? "accepted" : "wrong");
+    app.setBadge(result.valid ? "케이스 정상" : "케이스 오류", result.valid ? "accepted" : "wrong");
     if (result.valid) {
       const caseCount = compiledCaseCount(result);
       app.setStatusCard("cases", "정상", app.profileCaseText(caseCount, profile));
-      app.setSummary(`${profile} cases.yml 전개가 완료되었습니다.`, "result-summary success");
+      app.setSummary(`${app.profileLabel(profile)} cases.yml 전개가 완료되었습니다.`, "result-summary success");
     } else {
       const first = result.diagnostics[0];
       app.setStatusCard("cases", "오류", first?.location || "-");
@@ -52,7 +52,7 @@ async function compileCasesData({ showSuccess = true, profile = app.judgeProfile
     const first = result.diagnostics[0];
     state.debugLogs = formatCasesCompile(result).split("\n");
     app.renderDebugLog();
-    app.setBadge("Cases 오류", "wrong");
+    app.setBadge("케이스 오류", "wrong");
     app.setStatusCard("cases", "오류", first?.location || "-");
     app.setSummary(first?.message || "cases.yml 검사에 실패했습니다.", "result-summary error");
   }

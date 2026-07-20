@@ -4,7 +4,6 @@ requires-python = ">=3.11"
 
 [[package]]
 name = "algorithm-local-judge"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },
@@ -19,26 +18,24 @@ dependencies = [
 dev = [
     { name = "httpx" },
     { name = "nuitka" },
-    { name = "playwright" },
     { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "certifi", specifier = ">=2026.4.22" },
-    { name = "fastapi", specifier = ">=0.136.1" },
-    { name = "playwright", specifier = ">=1.60.0" },
-    { name = "python-multipart", specifier = ">=0.0.28" },
-    { name = "pyyaml", specifier = ">=6.0" },
-    { name = "uvicorn", specifier = ">=0.46.0" },
+    { name = "certifi", specifier = ">=2026.4.22,<2027" },
+    { name = "fastapi", specifier = ">=0.136.1,<0.137" },
+    { name = "playwright", specifier = ">=1.60.0,<1.61" },
+    { name = "python-multipart", specifier = ">=0.0.28,<0.1" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
+    { name = "uvicorn", specifier = ">=0.46.0,<0.47" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "nuitka", specifier = ">=4.0.8" },
-    { name = "playwright", specifier = ">=1.55.0" },
-    { name = "ruff", specifier = ">=0.8.0" },
+    { name = "httpx", specifier = ">=0.28.1,<0.29" },
+    { name = "nuitka", specifier = ">=4.0.8,<5" },
+    { name = "ruff", specifier = ">=0.8.0,<1" },
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
-"""문제팩 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다.
-"""
+"""문제팩 API 요청을 서비스 계층 호출과 HTTP 응답으로 연결합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,15 +11,18 @@ from commons.job_queue import ACTIVE_STATUSES
 from problem_studio.core.packflow import build_problem_pack
 from problem_studio.web.routes.common import (
     enqueue_background_job,
-    jobs_from_request,
     job_matches_active_repository,
+    jobs_from_request,
     scoped_lane,
     stream_operation,
     to_http_error,
     workspace_from_request,
 )
 from problem_studio.web.schemas import PackBuildRequest
-from problem_studio.web.security_policy import ensure_local_write_allowed
+from problem_studio.web.security_policy import (
+    ensure_local_web_action_allowed,
+    ensure_local_write_allowed,
+)
 
 router = APIRouter(prefix="/api/problems/{problem_id}/packs", tags=["packs"])
 PACK_OUTPUT_DIR = Path("dist/packs")
@@ -151,6 +154,10 @@ def api_pack_build_jobs(request: Request, problem_id: str) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 build 작업 데이터입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "pack job history read")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     return {
         "jobs": [
@@ -173,6 +180,10 @@ def api_pack_build_job(request: Request, problem_id: str, job_id: str) -> dict:
     Returns:
         dict: API 응답, 저장 파일, 또는 후속 서비스 호출에 전달할 문제팩 build 작업 데이터입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "pack job detail read")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
     if not job or job.problem_id != problem_id or not job_matches_active_repository(request, job):
@@ -237,11 +248,15 @@ def api_pack_build_job_cancel(request: Request, problem_id: str, job_id: str) ->
 def api_pack_build_download(request: Request, problem_id: str, job_id: str) -> FileResponse:
     """문제팩 build 다운로드 요청을 검증하고 서비스 계층에서 만든 데이터를 HTTP 응답으로 돌려줍니다.
 
-        Args:
-            request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
-            problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
-            job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
+    Args:
+        request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
+        problem_id (str): 문제를 찾고 결과를 저장할 때 사용하는 안전한 문제 ID입니다.
+        job_id (str): 백그라운드 작업 상태와 결과를 조회하는 작업 ID입니다.
     """
+    try:
+        ensure_local_web_action_allowed(request, "pack artifact download")
+    except Exception as exc:
+        raise to_http_error(exc) from exc
     jobs = jobs_from_request(request)
     job = jobs.get(job_id)
     if not job or job.problem_id != problem_id or not job_matches_active_repository(request, job):

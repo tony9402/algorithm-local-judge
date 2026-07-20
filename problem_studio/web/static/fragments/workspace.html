@@ -6,50 +6,74 @@
       </div>
       <div class="toolbar-actions">
         <div id="globalTaskStatus" class="global-task-status" aria-live="polite"></div>
-        <button id="jobCenterButton" class="job-center-button" type="button" aria-expanded="false">
+        <button id="jobCenterButton" class="job-center-button" type="button" aria-controls="jobCenterDrawer" aria-expanded="false">
           작업 0개
         </button>
       </div>
     </section>
 
+    <section
+      id="workspaceEmptyState"
+      class="workspace-empty-state panel hidden"
+      aria-labelledby="workspaceEmptyTitle"
+      aria-describedby="workspaceEmptyDescription"
+    >
+      <div class="workspace-empty-icon" aria-hidden="true">01</div>
+      <div class="workspace-empty-copy">
+        <span class="workspace-empty-kicker">Problem Studio 시작하기</span>
+        <h2 id="workspaceEmptyTitle">첫 문제를 만들어 시작하세요</h2>
+        <p id="workspaceEmptyDescription">
+          문제를 만들면 메타데이터, 테스트 데이터, 채점기와 솔루션을 한곳에서 관리할 수 있습니다.
+        </p>
+      </div>
+      <div class="workspace-empty-actions">
+        <button id="emptyCreateProblemButton" class="primary" type="button">
+          첫 문제 만들기
+        </button>
+        <button id="emptyAddRepositoryButton" type="button">저장소 추가</button>
+        <button id="emptyOpenRepositoryButton" type="button">저장소 열기</button>
+      </div>
+    </section>
+
+    <div id="problemAuthoringWorkspace" class="problem-authoring-workspace">
     <section class="studio-tabs panel">
-      <div class="tab-list" role="tablist" aria-label="Problem authoring areas">
-        <button class="tab-button active" data-tab="info" role="tab" aria-label="문제 정보" aria-selected="true" type="button">
+      <div class="tab-list" role="tablist" aria-label="문제 제작 단계">
+        <button id="authoringTab-info" class="tab-button active" data-tab="info" role="tab" aria-controls="authoringTabPanel" aria-label="문제 정보" aria-selected="true" tabindex="0" type="button">
           <span class="tab-marker" aria-hidden="true">1</span>
           <span class="tab-copy">
             <span class="tab-label">문제 정보</span>
             <span class="tab-hint">메타데이터</span>
           </span>
         </button>
-        <button class="tab-button" data-tab="generator" role="tab" aria-label="데이터 생성" aria-selected="false" type="button">
+        <button id="authoringTab-generator" class="tab-button" data-tab="generator" role="tab" aria-controls="authoringTabPanel" aria-label="데이터 생성" aria-selected="false" tabindex="-1" type="button">
           <span class="tab-marker" aria-hidden="true">2</span>
           <span class="tab-copy">
             <span class="tab-label">데이터 생성</span>
             <span class="tab-hint">케이스 구성</span>
           </span>
         </button>
-        <button class="tab-button" data-tab="validator" role="tab" aria-label="데이터 검증" aria-selected="false" type="button">
+        <button id="authoringTab-validator" class="tab-button" data-tab="validator" role="tab" aria-controls="authoringTabPanel" aria-label="데이터 검증" aria-selected="false" tabindex="-1" type="button">
           <span class="tab-marker" aria-hidden="true">3</span>
           <span class="tab-copy">
             <span class="tab-label">데이터 검증</span>
             <span class="tab-hint">입력 조건 검증</span>
           </span>
         </button>
-        <button class="tab-button" data-tab="checker" role="tab" aria-label="채점기" aria-selected="false" type="button">
+        <button id="authoringTab-checker" class="tab-button" data-tab="checker" role="tab" aria-controls="authoringTabPanel" aria-label="채점기" aria-selected="false" tabindex="-1" type="button">
           <span class="tab-marker" aria-hidden="true">4</span>
           <span class="tab-copy">
             <span class="tab-label">채점기</span>
-            <span class="tab-hint">checker/정답</span>
+            <span class="tab-hint">채점기·정답</span>
           </span>
         </button>
-        <button class="tab-button" data-tab="solutions" role="tab" aria-label="솔루션" aria-selected="false" type="button">
+        <button id="authoringTab-solutions" class="tab-button" data-tab="solutions" role="tab" aria-controls="authoringTabPanel" aria-label="솔루션" aria-selected="false" tabindex="-1" type="button">
           <span class="tab-marker" aria-hidden="true">5</span>
           <span class="tab-copy">
             <span class="tab-label">솔루션</span>
             <span class="tab-hint">기대 결과</span>
           </span>
         </button>
-        <button class="tab-button" data-tab="build" role="tab" aria-label="검증과 빌드" aria-selected="false" type="button">
+        <button id="authoringTab-build" class="tab-button" data-tab="build" role="tab" aria-controls="authoringTabPanel" aria-label="검증과 빌드" aria-selected="false" tabindex="-1" type="button">
           <span class="tab-marker" aria-hidden="true">6</span>
           <span class="tab-copy">
             <span class="tab-label">검증/빌드</span>
@@ -59,24 +83,7 @@
       </div>
     </section>
 
-    <aside id="jobCenterDrawer" class="job-center-drawer hidden" aria-label="작업 센터">
-      <div class="job-center-heading">
-        <div>
-          <strong>작업 센터</strong>
-          <p id="jobCenterMeta">실행 중인 작업이 없습니다.</p>
-        </div>
-        <button id="jobCenterCloseButton" class="icon-button" type="button" aria-label="작업 센터 닫기">×</button>
-      </div>
-      <div class="job-center-actions">
-        <button data-job-filter="active" class="active" type="button">진행</button>
-        <button data-job-filter="done" type="button">완료</button>
-        <button data-job-filter="failed" type="button">실패</button>
-        <button id="jobCenterClearButton" type="button">완료 항목 정리</button>
-      </div>
-      <div id="jobCenterList" class="job-center-list muted">작업이 없습니다.</div>
-    </aside>
-
-    <section class="studio-layout">
+    <section id="authoringTabPanel" class="studio-layout" role="tabpanel" aria-labelledby="authoringTab-info" tabindex="0">
       <div class="panel task-panel">
         <div class="task-copy">
           <h2 id="taskTitle">문제 정보</h2>
@@ -180,7 +187,7 @@
             </summary>
             <div class="metadata-tools-grid">
               <label>
-                Generator
+                생성기 (Generator)
                 <input id="metadataToolGenerator" />
               </label>
               <label>
@@ -188,11 +195,11 @@
                 <input id="metadataToolGeneratorConfig" />
               </label>
               <label>
-                Validator
+                검증기 (Validator)
                 <input id="metadataToolValidator" />
               </label>
               <label>
-                Checker
+                채점기 (Checker)
                 <input id="metadataToolChecker" />
               </label>
               <label>
@@ -215,7 +222,7 @@
             <span id="buildValidationStatus">전체 테스트를 통과한 뒤 현재 문제 팩을 생성합니다.</span>
           </div>
           <label>
-            Pack ID
+            팩 ID (Pack ID)
             <input id="packIdInput" placeholder="basic" />
           </label>
           <label>
@@ -223,7 +230,7 @@
             <input id="packVerifyProfileInput" value="hidden" />
           </label>
           <div class="build-output-note">
-            <span>출력 위치</span>
+            <span>팩 출력 위치</span>
             <strong id="packOutputLabel">dist/packs</strong>
           </div>
           <a id="packDownloadLink" class="download-link hidden" href="#" download>팩 다운로드</a>
@@ -234,6 +241,8 @@
           type="file"
           multiple
           accept=".cpp,.cc,.cxx,.py,.java"
+          aria-label="업로드할 솔루션 파일 선택"
+          tabindex="-1"
         />
 
         <div
@@ -283,7 +292,7 @@
             </section>
             <section>
               <span>출력 폴더</span>
-              <strong id="buildDashboardOutput">dist/packs</strong>
+          <strong id="buildDashboardOutput">dist/packs</strong>
               <p>웹에서 완료된 팩을 바로 받을 수 있습니다.</p>
             </section>
             <section>
@@ -326,9 +335,9 @@
           id="editorSettingsPanel"
           class="editor-settings-panel hidden"
           role="dialog"
-          aria-label="에디터 설정"
+          aria-labelledby="editorSettingsTitle"
         >
-          <div class="editor-settings-title">에디터 설정</div>
+          <div id="editorSettingsTitle" class="editor-settings-title">에디터 설정</div>
           <div class="editor-setting-row">
             <span>입력 방식</span>
             <div class="segmented-control" role="group" aria-label="입력 방식">
@@ -377,5 +386,78 @@
         </section>
       </div>
     </section>
+    </div>
   </main>
 </div>
+
+<aside
+  id="gitDrawer"
+  class="git-drawer hidden"
+  role="complementary"
+  aria-hidden="true"
+  aria-labelledby="gitDrawerTitle"
+  aria-describedby="gitDrawerDescription"
+>
+  <div class="git-drawer-heading">
+    <div>
+      <strong id="gitDrawerTitle">Git 상태 및 동기화</strong>
+      <p id="gitDrawerDescription">현재 저장소의 상태를 확인하고 동기화 작업을 실행합니다.</p>
+    </div>
+    <button
+      id="gitDrawerCloseButton"
+      class="icon-button"
+      type="button"
+      aria-label="Git 상태 및 동기화 닫기"
+    >×</button>
+  </div>
+  <div class="git-drawer-content">
+    <div id="gitStatus" class="status-text muted">불러오는 중...</div>
+    <div
+      id="gitControlReason"
+      class="git-control-reason"
+      tabindex="0"
+      role="status"
+      aria-live="polite"
+    >Git 상태를 확인하는 중입니다.</div>
+    <label class="git-commit-field">
+      <span>커밋 메시지</span>
+      <input
+        id="gitCommitMessage"
+        type="text"
+        placeholder="변경 내용을 설명하세요"
+        aria-describedby="gitControlReason"
+      />
+    </label>
+    <div class="git-actions">
+      <button id="gitFetchButton" type="button">가져오기</button>
+      <button id="gitPullButton" type="button">당겨오기</button>
+      <button id="gitCommitButton" type="button">커밋</button>
+      <button id="gitPushButton" type="button">푸시</button>
+    </div>
+  </div>
+</aside>
+
+<aside
+  id="jobCenterDrawer"
+  class="job-center-drawer hidden"
+  role="complementary"
+  aria-hidden="true"
+  aria-labelledby="jobCenterTitle"
+  aria-describedby="jobCenterMeta"
+>
+  <div class="job-center-heading">
+    <div>
+      <strong id="jobCenterTitle">작업 센터</strong>
+      <p id="jobCenterMeta">실행 중인 작업이 없습니다.</p>
+    </div>
+    <button id="jobCenterCloseButton" class="icon-button" type="button" aria-label="작업 센터 닫기">×</button>
+  </div>
+  <div class="job-center-actions">
+    <button data-job-filter="active" class="active" type="button">진행</button>
+    <button data-job-filter="done" type="button">완료</button>
+    <button data-job-filter="failed" type="button">실패</button>
+    <button id="jobCenterClearButton" type="button">완료 항목 정리</button>
+  </div>
+  <div id="jobCenterList" class="job-center-list muted">작업이 없습니다.</div>
+  <p id="jobCenterAnnouncements" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+</aside>

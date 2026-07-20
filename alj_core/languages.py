@@ -1,4 +1,5 @@
 """Submission language normalization shared by CLI, web, and judge runtime."""
+
 from __future__ import annotations
 
 from pathlib import Path

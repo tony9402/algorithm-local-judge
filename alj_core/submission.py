@@ -1,5 +1,5 @@
-"""제출 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""제출 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -7,8 +7,9 @@ from pathlib import Path
 
 from alj_core.cases_compile import ensure_cases_compiled
 from alj_core.compiler import compile_problem_tools, prepare_user_submission
-from alj_core.errors import JudgeError
+from alj_core.errors import JudgeError, SubmissionCompileError
 from alj_core.generation import generate
+from alj_core.languages import language_id_from_filename, normalize_language_id
 from alj_core.paths import rel, repo_root, validate_safe_id
 from alj_core.problem import load_problem
 from alj_core.runner import checker_compare
@@ -86,13 +87,25 @@ def run_submission(
     run_id, run_dir = new_run_dir(root)
     emit(f"Created run {run_id}.")
     emit("Compiling or preparing user submission.")
-    submission = prepare_user_submission(
-        source.resolve(),
-        run_dir,
-        metadata.get("limits", {}).get("compileTimeoutMs", 5000),
-        display_root,
-        language=language,
-    )
+    try:
+        submission = prepare_user_submission(
+            source.resolve(),
+            run_dir,
+            metadata.get("limits", {}).get("compileTimeoutMs", 5000),
+            display_root,
+            language=language,
+        )
+    except SubmissionCompileError as exc:
+        exc.result.update(
+            {
+                "problemId": problem_id,
+                "profile": profile,
+                "language": normalize_language_id(language)
+                or language_id_from_filename(source.name),
+            }
+        )
+        write_json(run_dir / "result.json", exc.result)
+        raise
     emit(f"Submission language detected: {submission.language}.")
     warmup = None
     if warmup_profile:
@@ -106,6 +119,7 @@ def run_submission(
             warmup_profile,
             emit,
             command_runner=run_command_result,
+            memory_limit_bytes=user_memory_limit_bytes(limits),
         )
     data_dir = data_dirs.get(profile) or profile_data_dir(profile)
     manifest = read_json(data_dir / "manifest.json")

@@ -1,5 +1,5 @@
-"""문제 설치 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""문제 설치 도메인 로직과 파일시스템 변경 정책을 담당합니다."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,6 +28,8 @@ def install_problem_pack(archive_path: Path) -> dict[str, Any]:
         "installedPath": str(target),
         "label": rel(target),
         "installType": "pack",
+        "signatureVerified": False,
+        "signaturePolicy": "local-user-trusted",
         "trustWarning": PACK_INSTALL_TRUST_WARNING,
     }
 
@@ -70,20 +72,33 @@ def install_problem_source(
     ref: str | None = None,
     checksum: str | None = None,
     checksum_url: str | None = None,
+    signature_url: str | None = None,
+    require_pack: bool = False,
 ) -> dict[str, Any]:
+    """경로 또는 원격 저장소에서 문제를 설치하고 선택적으로 signed pack만 허용합니다."""
     source = source or official_pack_repository()
     local_path = Path(source).expanduser()
     parsed_source = urlparse(source)
     direct_pack_url = parsed_source.scheme in {"http", "https"} and parsed_source.path.endswith(
         ".aljpack"
     )
-    if (checksum or checksum_url) and (local_path.exists() or not direct_pack_url):
-        raise JudgeError("checksum options are only supported for direct HTTP(S) .aljpack URLs")
+    if (checksum or checksum_url or signature_url) and (
+        local_path.exists() or not direct_pack_url
+    ):
+        raise JudgeError(
+            "checksum/signature options are only supported for direct HTTP(S) .aljpack URLs"
+        )
     if local_path.exists():
         return install_local_problem_source(local_path, ref=ref)
 
     if direct_pack_url:
-        return download_problem_pack_from_url(source, checksum=checksum, checksum_url=checksum_url)
+        return download_problem_pack_from_url(
+            source,
+            checksum=checksum,
+            checksum_url=checksum_url,
+            signature_url=signature_url,
+            require_signature=require_pack,
+        )
 
     repository = github_repository_from_source(source)
     if repository is None:
@@ -91,4 +106,9 @@ def install_problem_source(
             "problem install source must be a .aljpack path, owner/name, "
             "GitHub repository URL, or direct .aljpack URL"
         )
-    return download_problem_pack_from_github(repository, asset_name, ref)
+    return download_problem_pack_from_github(
+        repository,
+        asset_name,
+        ref,
+        require_pack=require_pack,
+    )

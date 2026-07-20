@@ -4,16 +4,31 @@
 
 import { api, normalizeErrorDetail } from "./api.js";
 import { optional, escapeHtml } from "./dom.js";
-import { showAlert } from "./feedback.js";
+import { showAlert, showOperationAlert } from "./feedback.js";
 import { setProgressInsight, updateRunningProgressDetail } from "./progress.js";
 import { reconcileRunAllLockWithJobs } from "./actions/build-locks.js";
 import { updateGlobalActionState } from "./actions/build-status.js";
+import { trapFocusWithin } from "./modal.js";
 
 let jobs = [];
 let filter = "active";
 let pollTimer = null;
 const waiters = new Map();
 const expandedJobIds = new Set();
+const announcedTerminalJobIds = new Set();
+const operationToastJobIds = new Set();
+let previousJobStatuses = null;
+let jobCenterTrigger = null;
+
+const jobViewCallbacks = {
+  closeGitDrawer: () => {},
+  closeSidebar: () => {},
+  openFailureTarget: async () => {},
+};
+
+export function configureJobsView(callbacks = {}) {
+  Object.assign(jobViewCallbacks, callbacks);
+}
 
 const ACTIVE = new Set(["queued", "running", "cancelling"]);
 const DONE = new Set(["succeeded", "cancelled", "stale"]);
@@ -206,11 +221,12 @@ function renderJobResultPanel(job, expanded) {
       ${
         details.length
           ? `<ul class="job-result-detail-list">
-              ${details.map((detail) => `
+              ${details.map((detail, index) => `
                 <li>
                   <strong>${escapeHtml(detail.label || job.failureStageLabel || "실패 상세")}</strong>
                   ${detailTarget(detail) ? `<span>${escapeHtml(detailTarget(detail))}</span>` : ""}
                   ${detail.message ? `<p>${escapeHtml(detail.message)}</p>` : ""}
+                  ${renderFailureActions(job, detail, index)}
                 </li>
               `).join("")}
             </ul>`
@@ -233,15 +249,32 @@ function renderJobResultPanel(job, expanded) {
   `;
 }
 
+function renderFailureActions(job, detail, index) {
+  const source = detail.source || detail.path || detail.sourcePath || "";
+  const solution = String(source).includes("solutions/");
+  const buttons = [];
+  if (source) {
+    buttons.push(`<button type="button" data-job-failure-action="file" data-job-id="${escapeHtml(job.jobId)}" data-detail-index="${index}">파일 열기</button>`);
+  }
+  if (solution) {
+    buttons.push(`<button type="button" data-job-failure-action="solution" data-job-id="${escapeHtml(job.jobId)}" data-detail-index="${index}">솔루션 행</button>`);
+  }
+  if (solution && detail.runId) {
+    buttons.push(`<button type="button" data-job-failure-action="artifact" data-job-id="${escapeHtml(job.jobId)}" data-detail-index="${index}">채점 결과</button>`);
+  }
+  return buttons.length ? `<div class="job-failure-actions">${buttons.join("")}</div>` : "";
+}
+
 function renderFailureDetails(job) {
   const details = failureDetails(job);
   if (!jobNeedsAttention(job) && !details.length) return "";
   const items = details.length
-    ? details.map((detail) => `
+    ? details.map((detail, index) => `
         <li>
           <strong>${escapeHtml(detail.label || job.failureStageLabel || "실패 상세")}</strong>
           ${detailTarget(detail) ? `<span>${escapeHtml(detailTarget(detail))}</span>` : ""}
           ${detail.message ? `<p>${escapeHtml(detail.message)}</p>` : ""}
+          ${renderFailureActions(job, detail, index)}
         </li>
       `).join("")
     : `<li><strong>${escapeHtml(job.failureStageLabel || "실패 상세")}</strong><p>${escapeHtml(job.error || "작업이 실패했습니다.")}</p></li>`;
@@ -372,12 +405,76 @@ function renderJobRow(job) {
 async function refreshJobs() {
   try {
     const payload = await api("/api/jobs");
-    jobs = payload.jobs || [];
+    const nextJobs = payload.jobs || [];
+    announceTerminalTransitions(nextJobs);
+    for (const job of nextJobs) syncOperationToast(job);
+    jobs = nextJobs;
     if (reconcileRunAllLockWithJobs(jobs)) updateGlobalActionState();
     renderJobs();
     await resolveWaiters();
   } finally {
     schedulePoll();
+  }
+}
+
+function syncOperationToast(job) {
+  if (!operationToastJobIds.has(job.jobId)) return;
+  const title = job.title || "작업";
+  if (job.status === "queued") {
+    showOperationAlert(job.jobId, `${title}을 작업 대기열에 추가했습니다.`, "info", {
+      title: "작업 대기열",
+      timeout: 0,
+    });
+    return;
+  }
+  if (["running", "cancelling"].includes(job.status)) {
+    const cancelling = job.status === "cancelling";
+    showOperationAlert(
+      job.jobId,
+      cancelling ? `${title} 취소 요청을 처리하고 있습니다.` : `${title}을 실행하고 있습니다.`,
+      "info",
+      { title: cancelling ? "작업 취소 중" : "작업 실행 중", timeout: 0 }
+    );
+    return;
+  }
+  const attention = jobNeedsAttention(job);
+  const type = attention || ["cancelled", "stale"].includes(job.status) ? "error" : "success";
+  showOperationAlert(
+    job.jobId,
+    attention ? jobResultSummary(job) : `${title}: ${jobDisplayLabel(job)}`,
+    type,
+    {
+      title: attention ? `${title} 실패` : `${title} ${jobDisplayLabel(job)}`,
+      timeout: type === "error" ? 9000 : 5000,
+    }
+  );
+  operationToastJobIds.delete(job.jobId);
+}
+
+function announceTerminalTransitions(nextJobs) {
+  const nextStatuses = new Map(nextJobs.map((job) => [job.jobId, job.status]));
+  if (previousJobStatuses === null) {
+    previousJobStatuses = nextStatuses;
+    return;
+  }
+  const announcements = [];
+  for (const job of nextJobs) {
+    const previous = previousJobStatuses.get(job.jobId);
+    const terminal = ["succeeded", "failed", "cancelled", "stale"].includes(job.status);
+    if (
+      previous
+      && ACTIVE.has(previous)
+      && terminal
+      && !announcedTerminalJobIds.has(job.jobId)
+    ) {
+      announcedTerminalJobIds.add(job.jobId);
+      announcements.push(`${job.title || "작업"}: ${jobDisplayLabel(job)}`);
+    }
+  }
+  previousJobStatuses = nextStatuses;
+  if (announcements.length) {
+    const region = optional("jobCenterAnnouncements");
+    if (region) region.textContent = announcements.join(". ");
   }
 }
 
@@ -417,10 +514,8 @@ export async function runQueuedJob(path, body, options = {}) {
     method: "POST",
     body: JSON.stringify(body || {}),
   });
-  showAlert(`${job.title || options.label || "작업"}을 작업 센터에 추가했습니다.`, "info", {
-    title: job.status === "queued" ? "작업 대기열" : "작업 시작",
-    timeout: 3500,
-  });
+  operationToastJobIds.add(job.jobId);
+  syncOperationToast(job);
   await refreshJobs();
   return new Promise((resolve, reject) => {
     waiters.set(job.jobId, {
@@ -443,10 +538,8 @@ export async function enqueueQueuedJob(path, body, options = {}) {
     method: "POST",
     body: JSON.stringify(body || {}),
   });
-  showAlert(`${job.title || options.label || "작업"}을 작업 센터에 추가했습니다.`, "info", {
-    title: job.status === "queued" ? "작업 대기열" : "작업 시작",
-    timeout: 3500,
-  });
+  operationToastJobIds.add(job.jobId);
+  syncOperationToast(job);
   await refreshJobs();
   if (options.onResult || options.onFailure || options.onProgress) {
     waiters.set(job.jobId, {
@@ -500,12 +593,75 @@ async function clearCompleted() {
  *
  * @param {boolean} open drawer을 계산하거나 검증할 때 필요한 open 입력입니다.
  */
-function openDrawer(open) {
+const COMPACT_SURFACE_QUERY = "(max-width: 1199px)";
+
+export function compactJobCenterActive() {
+  return window.matchMedia?.(COMPACT_SURFACE_QUERY).matches ?? false;
+}
+
+function setJobBackgroundInert(inert) {
+  for (const id of ["sidebarToggle", "sidebarBackdrop", "alertStack"]) {
+    optional(id)?.toggleAttribute("inert", inert);
+  }
+  document.querySelector(".shell")?.toggleAttribute("inert", inert);
+}
+
+export function isJobCenterOpen() {
+  return !optional("jobCenterDrawer")?.classList.contains("hidden");
+}
+
+export function syncJobCenterAccessibility() {
   const drawer = optional("jobCenterDrawer");
   const button = optional("jobCenterButton");
   if (!drawer || !button) return;
-  drawer.classList.toggle("hidden", !open);
+  const open = isJobCenterOpen();
+  const compact = compactJobCenterActive();
+  drawer.setAttribute("role", compact ? "dialog" : "complementary");
+  if (compact) drawer.setAttribute("aria-modal", "true");
+  else drawer.removeAttribute("aria-modal");
+  drawer.setAttribute("aria-hidden", open ? "false" : "true");
+  drawer.toggleAttribute("tabindex", compact);
+  document.body.classList.toggle("job-center-open", open);
+  document.body.classList.toggle("job-center-modal-open", open && compact);
+  setJobBackgroundInert(open && compact);
   button.setAttribute("aria-expanded", String(open));
+}
+
+export function openJobCenter(trigger = document.activeElement) {
+  const drawer = optional("jobCenterDrawer");
+  if (!drawer) return false;
+  jobViewCallbacks.closeGitDrawer({ restoreFocus: false });
+  jobViewCallbacks.closeSidebar({ restoreFocus: false });
+  jobCenterTrigger = trigger instanceof HTMLElement ? trigger : optional("jobCenterButton");
+  drawer.classList.remove("hidden");
+  syncJobCenterAccessibility();
+  window.requestAnimationFrame(() => optional("jobCenterCloseButton")?.focus());
+  return true;
+}
+
+export function closeJobCenter(options = {}) {
+  const drawer = optional("jobCenterDrawer");
+  if (!drawer || drawer.classList.contains("hidden")) {
+    syncJobCenterAccessibility();
+    return false;
+  }
+  drawer.classList.add("hidden");
+  syncJobCenterAccessibility();
+  if (options.restoreFocus !== false && jobCenterTrigger?.isConnected) {
+    jobCenterTrigger.focus();
+  }
+  jobCenterTrigger = null;
+  return true;
+}
+
+function openDrawer(open) {
+  const button = optional("jobCenterButton");
+  if (!button) return;
+  if (open) {
+    openJobCenter(button);
+    return;
+  }
+  closeJobCenter();
 }
 /**
  * 작업 center 이벤트를 DOM 요소와 핸들러에 연결합니다.
@@ -525,6 +681,12 @@ export function bindJobCenter() {
       renderJobs();
     });
   }
+  document.addEventListener("keydown", (event) => {
+    if (!isJobCenterOpen() || !compactJobCenterActive()) return;
+    trapFocusWithin(event, optional("jobCenterDrawer"));
+  });
+  window.matchMedia?.(COMPACT_SURFACE_QUERY).addEventListener("change", syncJobCenterAccessibility);
+  syncJobCenterAccessibility();
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -543,6 +705,16 @@ export function bindJobCenter() {
       }
       renderJobs();
       optional(jobResultPanelId(job))?.focus({ preventScroll: true });
+    }
+    const failureAction = target.getAttribute("data-job-failure-action");
+    const failureJobId = target.getAttribute("data-job-id");
+    const detailIndex = Number.parseInt(target.getAttribute("data-detail-index") || "", 10);
+    if (failureAction && failureJobId && Number.isInteger(detailIndex)) {
+      const job = jobs.find((item) => item.jobId === failureJobId);
+      const detail = job ? failureDetails(job)[detailIndex] : null;
+      if (job && detail) {
+        void jobViewCallbacks.openFailureTarget(detail, failureAction, job);
+      }
     }
   });
   void refreshJobs();

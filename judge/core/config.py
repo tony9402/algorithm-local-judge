@@ -1,14 +1,9 @@
-"""설정 도메인 로직과 파일시스템 변경 정책을 담당합니다.
-"""
+"""Compatibility alias for the canonical :mod:`alj_core.config` module."""
 
-import re
+from __future__ import annotations
 
-PROTOCOL_VERSION = 1
-COMPILE_FLAGS = ["-std=c++17", "-O2", "-pipe"]
-SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
-FORBIDDEN_METADATA_KEYS = {
-    "externalId",
-    "externalUrl",
-    "externalPlatform",
-    "platform",
-}
+import sys
+
+from alj_core import config as _canonical
+
+sys.modules[__name__] = _canonical

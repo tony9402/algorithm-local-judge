@@ -15,6 +15,11 @@
   box-shadow: var(--shadow-soft);
 }
 
+.topbar > div,
+.top-actions {
+  min-width: 0;
+}
+
 .topbar p,
 .panel-heading p {
   color: var(--muted);
@@ -41,6 +46,10 @@
 
 .top-actions button:hover {
   background: color-mix(in srgb, var(--topbar-text) 16%, transparent);
+}
+
+.top-actions button {
+  min-height: 44px;
 }
 
 .theme-toggle {
@@ -70,9 +79,43 @@
   margin-bottom: 10px;
 }
 
+.sidebar-problems {
+  min-width: 0;
+}
+
+.sidebar-section-toggle {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sidebar-section-toggle:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+}
+
+.sidebar-section-chevron {
+  font-size: 14px;
+}
+
 .list {
   display: grid;
   gap: 8px;
+}
+
+#problemList:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  outline-offset: 2px;
 }
 
 .problem-folder-tools {
@@ -141,7 +184,7 @@
 }
 
 .folder-delete {
-  min-height: 28px;
+  min-height: 44px;
   padding: 0 8px;
   color: var(--bad);
 }
@@ -156,6 +199,36 @@
 .problem-folder-items {
   display: grid;
   gap: 8px;
+}
+
+.problem-item-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 6px;
+}
+
+.problem-item-row.has-folder-action {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.problem-item-row > .list-item {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  text-align: left;
+  white-space: normal;
+}
+
+.problem-folder-move-action {
+  width: 48px;
+  min-width: 48px;
+  min-height: 44px;
+  padding-inline: 6px;
+  font-size: 12px;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .empty-folder {
@@ -186,6 +259,7 @@
   display: block;
   color: var(--text);
   margin-bottom: 2px;
+  overflow-wrap: anywhere;
 }
 
 .list-item span {
@@ -209,6 +283,61 @@
   display: grid;
   gap: 16px;
   align-content: start;
+}
+
+@media (min-width: 901px) {
+  .shell {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .topbar {
+    grid-row: 1;
+  }
+
+  .connection-banner {
+    grid-row: 2;
+  }
+
+  .layout {
+    grid-row: 3;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    min-height: 0;
+    grid-template-rows: auto minmax(160px, 1fr) auto auto;
+    align-content: stretch;
+    overflow: hidden;
+  }
+
+  .sidebar-problems {
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  #problemList,
+  .workspace {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  #problemList {
+    align-content: start;
+  }
+
+  .workspace {
+    height: 100%;
+  }
 }
 
 .panel {

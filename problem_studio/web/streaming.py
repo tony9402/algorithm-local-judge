@@ -1,5 +1,5 @@
-"""streaming 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""streaming 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 import json

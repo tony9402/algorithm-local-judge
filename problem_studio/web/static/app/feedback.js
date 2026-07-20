@@ -7,6 +7,7 @@ import { escapeHtml, optional } from "./dom.js";
 import { TAB_CONFIGS, state } from "./state.js";
 
 const TAB_FEEDBACK_LIMIT = 16;
+const alertTimers = new WeakMap();
 
 function feedbackId() {
   return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -186,8 +187,37 @@ export function showAlert(message, type = "info", options = {}) {
 
   const timeout = options.timeout ?? (type === "error" ? 8000 : 4200);
   if (timeout > 0) {
-    window.setTimeout(() => alert.remove(), timeout);
+    alertTimers.set(alert, window.setTimeout(() => alert.remove(), timeout));
   }
+  return alert;
+}
+
+/**
+ * 같은 작업의 대기, 실행, 완료 상태를 새 알림으로 쌓지 않고 하나의 알림에서 갱신합니다.
+ */
+export function showOperationAlert(operationId, message, type = "info", options = {}) {
+  const stack = optional("alertStack");
+  if (!stack || !operationId) {
+    return showAlert(message, type, options);
+  }
+  const selector = `.app-alert[data-operation-id="${CSS.escape(String(operationId))}"]`;
+  let alert = stack.querySelector(selector);
+  if (!alert) {
+    alert = showAlert(message, type, { ...options, timeout: 0 });
+    alert.dataset.operationId = String(operationId);
+  }
+  const timer = alertTimers.get(alert);
+  if (timer) window.clearTimeout(timer);
+  alert.className = `app-alert ${type}`;
+  alert.querySelector("strong").textContent = options.title || alertTitle(type);
+  alert.querySelector("p").textContent = normalizeErrorDetail(message) || "알 수 없는 문제가 발생했습니다.";
+  const timeout = options.timeout ?? 0;
+  if (timeout > 0) {
+    alertTimers.set(alert, window.setTimeout(() => alert.remove(), timeout));
+  } else {
+    alertTimers.delete(alert);
+  }
+  return alert;
 }
 export function showResult(message, className = "") {
   const type = alertTypeFromClass(className);

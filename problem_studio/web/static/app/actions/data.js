@@ -108,12 +108,12 @@ function formatCasesDiagnostics(result) {
     + `\n\n예제 preview:\n${CASES_EXAMPLE_PREVIEW}`;
 }
 export async function compileCases(options = {}) {
-  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  if (!state.selectedProblem) throw new Error("먼저 문제를 선택하세요.");
   if (options.clear !== false) clearOutput();
   const result = await runQueuedJob(
     `/api/problems/${state.selectedProblem}/cases/jobs`,
     { profile: null },
-    { label: "Cases 검사" }
+    { label: "케이스 파일 검사" }
   );
   appendOutput(JSON.stringify(result, null, 2));
   showCasesAlertDetails(result);
@@ -122,7 +122,7 @@ export async function compileCases(options = {}) {
   } else {
     recordFailure(
       "generator",
-      "Cases 검사 실패",
+      "케이스 파일 검사 실패",
       formatOperationFailure(
         `cases.yml compile failed\n\n${formatCasesDiagnostics(result)}`,
         ["대상: generator/cases.yml"]
@@ -132,7 +132,7 @@ export async function compileCases(options = {}) {
     );
   }
   showLastRun(
-    result.valid ? "Cases 검사 완료" : "Cases 검사 실패",
+    result.valid ? "케이스 파일 검사 완료" : "케이스 파일 검사 실패",
     result.valid
       ? `${result.profiles?.length || 0}개 profile을 확인했습니다.`
       : formatOperationFailure(
@@ -148,7 +148,7 @@ export async function compileCases(options = {}) {
   return result;
 }
 export async function compileTool(tool, label, options = {}) {
-  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  if (!state.selectedProblem) throw new Error("먼저 문제를 선택하세요.");
   if (options.clear !== false) clearOutput();
   const ownsProgress = !state.progress.active;
   if (ownsProgress) {
@@ -192,7 +192,7 @@ export async function compileTool(tool, label, options = {}) {
   }
 }
 export async function compileTools(options = {}) {
-  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  if (!state.selectedProblem) throw new Error("먼저 문제를 선택하세요.");
   if (options.clear !== false) clearOutput();
   const ownsProgress = !state.progress.active;
   if (ownsProgress) {
@@ -281,7 +281,7 @@ export async function streamRequest(path, body, options = {}) {
   return finalResult;
 }
 export async function generateData(profile = "hidden", options = {}) {
-  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  if (!state.selectedProblem) throw new Error("먼저 문제를 선택하세요.");
   const ownsProgress = !state.progress.active;
   if (ownsProgress) {
     beginProgress(`${profile} 데이터 생성`, [{ label: `${profile} 데이터 생성+검증`, status: "running" }]);
@@ -329,7 +329,7 @@ export async function generateData(profile = "hidden", options = {}) {
   }
 }
 export async function validateAllData(options = {}) {
-  if (!state.selectedProblem) throw new Error("Select a problem first.");
+  if (!state.selectedProblem) throw new Error("먼저 문제를 선택하세요.");
   const ownsProgress = !state.progress.active;
   if (ownsProgress) {
     beginProgress("모든 데이터 생성+검증", [{ label: "모든 데이터 생성+검증", status: "running" }]);

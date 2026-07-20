@@ -1,5 +1,5 @@
-"""소스 이력 메타데이터 웹 백엔드 구성과 응답 데이터 조립을 담당합니다.
-"""
+"""소스 이력 메타데이터 웹 백엔드 구성과 응답 데이터 조립을 담당합니다."""
+
 from __future__ import annotations
 
 import contextlib
@@ -35,7 +35,9 @@ def source_history_metadata(
         "problemId": problem_id,
         "sourceMode": source_mode,
         "filename": target.name,
-        "language": language_display(language_id) if language_id else language_from_filename(target.name),
+        "language": language_display(language_id)
+        if language_id
+        else language_from_filename(target.name),
         "languageId": language_id,
         "savedAt": saved_at,
         "size": stat.st_size,
@@ -118,7 +120,11 @@ def source_entry_metadata(entry_dir: Path) -> dict[str, Any] | None:
         language_id = normalize_language_id(metadata.get("languageId") or metadata.get("language"))
         language_id = language_id or language_id_from_filename(source_file.name)
         metadata["languageId"] = language_id
-        metadata["language"] = language_display(language_id) if language_id else language_from_filename(source_file.name)
+        metadata["language"] = (
+            language_display(language_id)
+            if language_id
+            else language_from_filename(source_file.name)
+        )
         metadata["size"] = source_file.stat().st_size
         metadata["sizeLabel"] = format_size(source_file.stat().st_size)
         metadata["sourcePath"] = str(source_file)

@@ -1,22 +1,9 @@
+"""Compatibility alias for the canonical :mod:`alj_core.security_limits` module."""
+
 from __future__ import annotations
 
-MIB = 1024 * 1024
+import sys
 
-MAX_SOURCE_TEXT_BYTES = 2 * MIB
-MAX_SOURCE_UPLOAD_BYTES = 4 * MIB
-MAX_PACK_UPLOAD_BYTES = 200 * MIB
-MAX_REMOTE_DOWNLOAD_BYTES = 200 * MIB
-MAX_ARCHIVE_TOTAL_BYTES = 200 * MIB
-MAX_ARCHIVE_FILE_BYTES = 50 * MIB
-MAX_ARCHIVE_MEMBERS = 5000
+from alj_core import security_limits as _canonical
 
-__all__ = [
-    "MAX_ARCHIVE_FILE_BYTES",
-    "MAX_ARCHIVE_MEMBERS",
-    "MAX_ARCHIVE_TOTAL_BYTES",
-    "MAX_PACK_UPLOAD_BYTES",
-    "MAX_REMOTE_DOWNLOAD_BYTES",
-    "MAX_SOURCE_TEXT_BYTES",
-    "MAX_SOURCE_UPLOAD_BYTES",
-    "MIB",
-]
+sys.modules[__name__] = _canonical
