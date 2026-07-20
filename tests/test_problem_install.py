@@ -297,6 +297,10 @@ class ProblemInstallTest(unittest.TestCase):
                 "name": "basic-1-macos-arm64.aljpack.sha256",
                 "browser_download_url": "https://example.com/basic.aljpack.sha256",
             },
+            {
+                "name": "basic-1-macos-arm64.aljpack.sigstore.json",
+                "browser_download_url": "https://example.com/basic.aljpack.sigstore.json",
+            },
         ]
 
         def fake_download(url: str, target: Path) -> None:
@@ -308,6 +312,9 @@ class ProblemInstallTest(unittest.TestCase):
             """
             if url.endswith(".aljpack"):
                 create_minimal_pack(target)
+                return
+            if url.endswith(".sigstore.json"):
+                target.write_text("{}", encoding="utf-8")
                 return
             target.write_text(
                 f"{sha256_file(target.with_name('basic-1-macos-arm64.aljpack'))}  "
@@ -329,6 +336,13 @@ class ProblemInstallTest(unittest.TestCase):
                 ),
                 patch("judge.core.remote_install.download_asset", side_effect=fake_download),
                 patch(
+                    "judge.core.remote_install.verify_pack_signature",
+                    return_value={
+                        "signatureVerified": True,
+                        "signatureIdentity": "release workflow",
+                    },
+                ) as verify_signature,
+                patch(
                     "judge.core.remote_install.install_downloaded_problem_pack",
                     return_value={"installedPath": "/tmp/pack", "installType": "pack"},
                 ) as install_pack,
@@ -337,7 +351,13 @@ class ProblemInstallTest(unittest.TestCase):
 
         self.assertTrue(result["trustedRepository"])
         self.assertTrue(result["checksumVerified"])
+        self.assertTrue(result["signatureVerified"])
         self.assertEqual(result["checksumSource"], "basic-1-macos-arm64.aljpack.sha256")
+        self.assertEqual(
+            result["signatureSource"],
+            "basic-1-macos-arm64.aljpack.sigstore.json",
+        )
+        verify_signature.assert_called_once()
         install_pack.assert_called_once()
 
     def test_github_pack_download_rejects_missing_or_mismatched_checksum(self) -> None:
@@ -349,6 +369,10 @@ class ProblemInstallTest(unittest.TestCase):
         checksum_asset = {
             "name": "basic-1-macos-arm64.aljpack.sha256",
             "browser_download_url": "https://example.com/basic.aljpack.sha256",
+        }
+        signature_asset = {
+            "name": "basic-1-macos-arm64.aljpack.sigstore.json",
+            "browser_download_url": "https://example.com/basic.aljpack.sigstore.json",
         }
 
         with tempfile.TemporaryDirectory(prefix="alj-remote-pack-test-") as tmp:
@@ -366,6 +390,20 @@ class ProblemInstallTest(unittest.TestCase):
                 patch("judge.core.remote_install.download_asset") as download_asset,
                 patch("judge.core.remote_install.install_downloaded_problem_pack") as install_pack,
                 self.assertRaisesRegex(JudgeError, "no checksum asset"),
+            ):
+                download_problem_pack_from_github("tony9402/algorithm-package")
+            download_asset.assert_not_called()
+            install_pack.assert_not_called()
+
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch(
+                    "judge.core.remote_install.github_json",
+                    return_value={"assets": [pack_asset, checksum_asset]},
+                ),
+                patch("judge.core.remote_install.download_asset") as download_asset,
+                patch("judge.core.remote_install.install_downloaded_problem_pack") as install_pack,
+                self.assertRaisesRegex(JudgeError, "no Sigstore bundle"),
             ):
                 download_problem_pack_from_github("tony9402/algorithm-package")
             download_asset.assert_not_called()
@@ -390,7 +428,7 @@ class ProblemInstallTest(unittest.TestCase):
                 patch.dict(os.environ, env, clear=True),
                 patch(
                     "judge.core.remote_install.github_json",
-                    return_value={"assets": [pack_asset, checksum_asset]},
+                    return_value={"assets": [pack_asset, checksum_asset, signature_asset]},
                 ),
                 patch("judge.core.remote_install.download_asset", side_effect=mismatched_download),
                 patch("judge.core.remote_install.install_downloaded_problem_pack") as install_pack,

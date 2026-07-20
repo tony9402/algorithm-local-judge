@@ -200,8 +200,9 @@ def docker_verification_script() -> str:
     Returns:
         str: `python`으로 실행할 컨테이너 내부 검증 스크립트입니다.
     """
-    return textwrap.dedent(
-        f"""
+    return (
+        textwrap.dedent(
+            f"""
         from __future__ import annotations
 
         import json
@@ -686,7 +687,9 @@ def docker_verification_script() -> str:
             "pypy": pypy_summary,
         }})
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 class DockerRemotePackageScriptContractTest(unittest.TestCase):
@@ -697,6 +700,7 @@ class DockerRemotePackageScriptContractTest(unittest.TestCase):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
         self.assertIn("pypy3", dockerfile)
+        self.assertIn("COPY alj_core ./alj_core", dockerfile)
 
     def test_verification_script_checks_pypy_runtime_and_runs_dynamic_pypy_smoke(self) -> None:
         """Docker 검증 스크립트가 PyPy를 고정 문제 없이 실제 Judge 실행으로 검증하는지 확인합니다."""
@@ -709,7 +713,7 @@ class DockerRemotePackageScriptContractTest(unittest.TestCase):
         self.assertIn("pythonDefaultLanguage", script)
         self.assertIn("create_pypy_smoke_package()", script)
         self.assertIn("pypy-smoke-{os.getpid()}", script)
-        self.assertIn("judge\", \"problem\", \"install\"", script)
+        self.assertIn('judge", "problem", "install"', script)
         self.assertIn("latest_run_result()", script)
         self.assertNotIn('"06"', script)
         self.assertNotIn("main_solution.ac.py", script)
@@ -813,7 +817,9 @@ class DockerRemotePackageE2ETest(unittest.TestCase):
         self.assertGreater(summary["problemCount"], 0)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(summary["problemCount"], len(summary["generated"]))
-        self.assertEqual(summary.get("pypy", {}).get("status"), "passed", format_failure_report(summary))
+        self.assertEqual(
+            summary.get("pypy", {}).get("status"), "passed", format_failure_report(summary)
+        )
         self.assertEqual(summary.get("pypy", {}).get("language"), "pypy")
         self.assertEqual(summary.get("pypy", {}).get("resultStatus"), "accepted")
         self.assertEqual(summary.get("pypy", {}).get("pythonDefaultLanguage"), "python")

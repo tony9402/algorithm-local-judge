@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -14,6 +15,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from judge.core import problem_folders
 from judge.core.errors import JudgeError
 from judge.web import services
 from judge.web.app import create_app
@@ -25,8 +27,12 @@ FRONTEND_INNER_HTML_SAFE_MARKERS = (
     "app.escapeHtml(",
     "renderDiffArtifact(",
     "highlightCode(",
+    "highlightSourceCode(",
     "renderSolutionCasesBody(",
 )
+CHECKSUM_PINNED_FRONTEND_VENDORS = {
+    "judge/web/static/app/prism-1.30.0.js",
+}
 
 
 def sse_events(text: str) -> list[tuple[str, dict]]:
@@ -144,6 +150,9 @@ class WebUiTest(unittest.TestCase):
         ]
         for root in roots:
             for path in sorted(root.rglob("*.js")):
+                relative_path = path.relative_to(ROOT).as_posix()
+                if relative_path in CHECKSUM_PINNED_FRONTEND_VENDORS:
+                    continue
                 source = path.read_text(encoding="utf-8")
                 for line, statement in iter_inner_html_assignments(source):
                     if is_static_inner_html_assignment(statement):
@@ -162,6 +171,71 @@ class WebUiTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_prism_highlighter_assets_and_security_contract(self) -> None:
+        """고정 Prism 자산, 안전한 언어 allowlist와 큰 소스 fallback 계약을 검증합니다."""
+        client = TestClient(create_app())
+
+        app_script = client.get("/static/app.js")
+        vendor = client.get("/static/app/prism-1.30.0.js")
+        adapter = client.get("/static/app/editor-highlight.js")
+        submissions = client.get("/static/app/submissions.js")
+        notice = client.get("/static/THIRD_PARTY_NOTICES.md")
+
+        for response in (app_script, vendor, adapter, submissions, notice):
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers.get("cache-control"), "no-store")
+
+        self.assertLess(
+            app_script.text.index('import "./app/prism-1.30.0.js";'),
+            app_script.text.index('import "./app/state.js";'),
+        )
+        self.assertIn("window.Prism.manual = true", vendor.text)
+        self.assertIn("PrismJS 1.30.0", notice.text)
+        self.assertIn("https://github.com/PrismJS/prism/tree/v1.30.0", notice.text)
+        self.assertIn("MIT LICENSE", notice.text)
+
+        expected_checksums = {
+            "core": "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e",
+            "clike": "c76ba4e240932bdc75546be30e550f5ba5e13815ff71511c76e9e27ac3072444",
+            "c": "9e05cf21207bff46afbf80cb8f43bb58bc4a4a87b68f28bc0470342f69345209",
+            "cpp": "12077d9ea67882c149066e94843a6ede9036994b3724bfc45b31d97619328e14",
+            "python": "ed4385685bcf2d4935c8dbbab4bde16603da1329e092d2bf36c3dadd67e9a85c",
+            "java": "4c2dc81dfc9efa51e38a7573938065288c63c64850f01a32f8a7b20a3e24c5a7",
+        }
+        component_names = list(expected_checksums)
+        for index, name in enumerate(component_names):
+            marker = f"/* upstream component: prism-{name}.min.js */\n"
+            start = vendor.text.index(marker) + len(marker)
+            if index + 1 < len(component_names):
+                next_name = component_names[index + 1]
+                end = vendor.text.index(
+                    f"\n\n/* upstream component: prism-{next_name}.min.js */",
+                    start,
+                )
+            else:
+                end = len(vendor.text)
+            component = vendor.text[start:end].strip().encode()
+            self.assertEqual(hashlib.sha256(component).hexdigest(), expected_checksums[name])
+            self.assertIn(expected_checksums[name], notice.text)
+
+        self.assertIn("function normalizeHighlightLanguage", adapter.text)
+        self.assertIn('plain: "일반 텍스트"', adapter.text)
+        self.assertIn('key === "cpp" || key === "c++"', adapter.text)
+        self.assertIn('key === "python" || key === "pypy"', adapter.text)
+        self.assertIn('if (key === "pypy") return "PyPy"', adapter.text)
+        self.assertIn('key === "java"', adapter.text)
+        self.assertIn('return "plain"', adapter.text)
+        self.assertIn('text.includes("\\u00a0")', adapter.text)
+        self.assertIn("HIGHLIGHT_MAX_BYTES = 200 * 1024", adapter.text)
+        self.assertIn("HIGHLIGHT_MAX_LINES = 10000", adapter.text)
+        self.assertIn("new TextEncoder().encode(source).byteLength", adapter.text)
+        self.assertIn("requestAnimationFrame(renderCodeHighlight)", adapter.text)
+        self.assertIn("prism.highlight(text, grammar, normalizedLanguage)", adapter.text)
+        self.assertIn("returns escaped/tokenized markup", adapter.text)
+        self.assertIn("app.highlightSourceCode", submissions.text)
+        self.assertIn("highlighted.languageLabel", submissions.text)
+        self.assertIn("큰 소스이므로 구문 강조를 생략했습니다", submissions.text)
+
     def test_dashboard_status_endpoint(self) -> None:
         """대시보드 상태 엔드포인트 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
@@ -177,10 +251,12 @@ class WebUiTest(unittest.TestCase):
                 self.assertEqual(page.status_code, 200)
                 self.assertEqual(page.headers.get("cache-control"), "no-store")
                 self.assertIn("문제 팩 설치", page.text)
+                self.assertIn("기본 문제 세트 설치", page.text)
+                self.assertIn("고급 설치", page.text)
                 self.assertIn("신뢰한 repository 또는 .aljpack만 설치하세요", page.text)
-                self.assertIn("source archive로 fallback", page.text)
+                self.assertNotIn("source archive로 fallback", page.text)
                 self.assertIn("캐시 정리", page.text)
-                self.assertIn("Samples", page.text)
+                self.assertIn("예제", page.text)
                 self.assertIn("themeToggleButton", page.text)
                 self.assertIn("sourceLineNumbers", page.text)
                 self.assertIn("sourceHighlight", page.text)
@@ -410,6 +486,146 @@ class WebUiTest(unittest.TestCase):
                 self.assertFalse(source_problem.exists())
                 self.assertEqual(client.get("/api/problems").json(), [])
 
+    def test_problem_folder_safe_delete_moves_problems_without_deleting_directories(self) -> None:
+        """안전 폴더 삭제는 문제를 미분류로 옮기고 directory를 보존합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-web-folder-safe-delete-test-") as tmp:
+            tmp_path = Path(tmp)
+            project = tmp_path / "project"
+            project.mkdir()
+            problem_root = tmp_path / "data" / "problem-sources" / "owner" / "repo" / "problems"
+            problem_paths = []
+            for problem_id in ("alpha", "beta"):
+                problem_path = problem_root / problem_id
+                problem_path.mkdir(parents=True)
+                (problem_path / "problem.json").write_text(
+                    json.dumps(
+                        {"problemId": problem_id, "title": problem_id.title(), "folder": "Graph"}
+                    ),
+                    encoding="utf-8",
+                )
+                problem_paths.append(problem_path)
+            env = {
+                **os.environ,
+                "ALJ_PROJECT_ROOT": str(project),
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+                "ALJ_CACHE_HOME": str(tmp_path / "cache"),
+            }
+            with patch.dict(os.environ, env, clear=True):
+                client = TestClient(create_app())
+                client.post("/api/folders", json={"folder": "Graph"})
+                response = client.request(
+                    "DELETE",
+                    "/api/folders",
+                    json={"folder": "Graph", "mode": "move_to_uncategorized"},
+                )
+
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json()["movedProblems"], ["alpha", "beta"])
+                self.assertEqual(response.json()["deletedProblems"], [])
+                self.assertNotIn("Graph", {item["folder"] for item in response.json()["folders"]})
+                for problem_path in problem_paths:
+                    self.assertTrue(problem_path.is_dir())
+                    metadata = json.loads(
+                        (problem_path / "problem.json").read_text(encoding="utf-8")
+                    )
+                    self.assertEqual(metadata["folder"], "")
+                self.assertEqual(len(client.get("/api/problems").json()), 2)
+
+    def test_problem_folder_safe_delete_restores_all_metadata_on_partial_failure(self) -> None:
+        """여러 metadata 중 쓰기가 실패하면 폴더 registry와 이미 쓴 파일을 복구합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-web-folder-rollback-test-") as tmp:
+            tmp_path = Path(tmp)
+            project = tmp_path / "project"
+            project.mkdir()
+            problem_root = tmp_path / "data" / "problem-sources" / "owner" / "repo" / "problems"
+            metadata_paths = []
+            for problem_id in ("alpha", "beta"):
+                metadata_path = problem_root / problem_id / "problem.json"
+                metadata_path.parent.mkdir(parents=True)
+                metadata_path.write_text(
+                    json.dumps(
+                        {"problemId": problem_id, "title": problem_id.title(), "folder": "Graph"}
+                    ),
+                    encoding="utf-8",
+                )
+                metadata_paths.append(metadata_path)
+            env = {
+                **os.environ,
+                "ALJ_PROJECT_ROOT": str(project),
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+                "ALJ_CACHE_HOME": str(tmp_path / "cache"),
+            }
+            with patch.dict(os.environ, env, clear=True):
+                client = TestClient(create_app())
+                client.post("/api/folders", json={"folder": "Graph"})
+                registry_path = problem_folders.problem_folder_registry_path()
+                original_registry = registry_path.read_bytes()
+                original_metadata = [path.read_bytes() for path in metadata_paths]
+                real_writer = problem_folders._write_problem_folder_metadata
+                write_count = 0
+
+                def fail_second_write(metadata_path, metadata):
+                    nonlocal write_count
+                    write_count += 1
+                    if write_count == 2:
+                        raise OSError("simulated metadata write failure")
+                    real_writer(metadata_path, metadata)
+
+                with patch.object(
+                    problem_folders,
+                    "_write_problem_folder_metadata",
+                    side_effect=fail_second_write,
+                ):
+                    response = client.request(
+                        "DELETE",
+                        "/api/folders",
+                        json={"folder": "Graph", "mode": "move_to_uncategorized"},
+                    )
+
+                self.assertEqual(response.status_code, 500, response.text)
+                self.assertEqual([path.read_bytes() for path in metadata_paths], original_metadata)
+                self.assertEqual(registry_path.read_bytes(), original_registry)
+                self.assertIn(
+                    "Graph", {item["folder"] for item in client.get("/api/folders").json()}
+                )
+
+                registry_called_after_metadata = False
+
+                def fail_registry_write(folders):
+                    nonlocal registry_called_after_metadata
+                    self.assertNotIn("Graph", folders)
+                    for metadata_path in metadata_paths:
+                        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                        self.assertEqual(metadata["folder"], "")
+                    registry_called_after_metadata = True
+                    raise OSError("simulated registry write failure")
+
+                with patch.object(
+                    problem_folders,
+                    "write_problem_folder_registry",
+                    side_effect=fail_registry_write,
+                ):
+                    response = client.request(
+                        "DELETE",
+                        "/api/folders",
+                        json={"folder": "Graph", "mode": "move_to_uncategorized"},
+                    )
+
+                self.assertEqual(response.status_code, 500, response.text)
+                self.assertTrue(registry_called_after_metadata)
+                self.assertEqual([path.read_bytes() for path in metadata_paths], original_metadata)
+                self.assertEqual(registry_path.read_bytes(), original_registry)
+
+    def test_problem_folder_delete_rejects_unknown_mode(self) -> None:
+        """알 수 없는 삭제 mode는 legacy 삭제로 떨어지지 않습니다."""
+        client = TestClient(create_app())
+        response = client.request(
+            "DELETE",
+            "/api/folders",
+            json={"folder": "Graph", "mode": "delete_problems"},
+        )
+        self.assertEqual(response.status_code, 422, response.text)
+
     def test_submission_rate_limit_is_per_problem(self) -> None:
         """같은 문제의 제출은 5초 안에 거절되고 다른 문제는 영향을 받지 않는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-rate-test-") as tmp:
@@ -495,7 +711,9 @@ class WebUiTest(unittest.TestCase):
             with patch.dict(os.environ, env, clear=True):
                 python_source = services.save_text_source("print(1)\n", "main", "06", "python")
                 pypy_source = services.save_text_source("print(1)\n", "main.py", "06", "pypy")
-                cpp_source = services.save_text_source("int main(){}\n", "solution.cpp", "06", "cpp")
+                cpp_source = services.save_text_source(
+                    "int main(){}\n", "solution.cpp", "06", "cpp"
+                )
                 java_source = services.save_text_source("class Main {}\n", "", "06", "java")
                 with self.assertRaises(JudgeError):
                     services.save_text_source("int main(){}\n", "solution.cpp", "06", "python")
@@ -584,7 +802,9 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual(first_data["total"], 6)
         self.assertEqual(first_data["totalPages"], 2)
         self.assertEqual([job["title"] for job in first_data["jobs"]], ["run-5", "run-4", "run-3"])
-        self.assertEqual([job["title"] for job in second_data["jobs"]], ["run-2", "run-1", "run-0"])
+        self.assertEqual(
+            [job["title"] for job in second_data["jobs"]], ["run-2", "run-1", "run-0"]
+        )
         self.assertTrue(all(job["kind"] == "judge-run" for job in first_data["jobs"]))
 
     def test_pack_install_job_exposes_blocked_cancel_reason(self) -> None:
@@ -622,6 +842,99 @@ class WebUiTest(unittest.TestCase):
             cancel = client.post(f"/api/jobs/{data['jobId']}/cancel")
             self.assertEqual(cancel.status_code, 409, cancel.text)
             release.set()
+
+    def test_pack_removal_requires_exact_id_and_reports_impact(self) -> None:
+        """문제 팩 제거는 별도 확인을 요구하고 제거되는 문제 수를 응답합니다."""
+        pack = {
+            "packId": "basic",
+            "version": "1",
+            "problems": ["01", "02"],
+            "path": "/packs/basic",
+        }
+        with (
+            patch("judge.web.service_catalog.problem_pack_root", return_value=Path("/packs")),
+            patch("judge.web.service_catalog.installed_packs", return_value=[pack]),
+            patch("judge.web.service_catalog.remove_pack") as remove_pack,
+        ):
+            client = TestClient(create_app())
+            rejected = client.request(
+                "DELETE",
+                "/api/packs/basic",
+                json={"confirm_pack_id": "wrong"},
+            )
+            self.assertEqual(rejected.status_code, 400, rejected.text)
+            remove_pack.assert_not_called()
+
+            removed = client.request(
+                "DELETE",
+                "/api/packs/basic",
+                json={"confirm_pack_id": "basic"},
+            )
+            self.assertEqual(removed.status_code, 200, removed.text)
+            self.assertEqual(removed.json()["removedProblems"], ["01", "02"])
+            self.assertEqual(removed.json()["removedProblemCount"], 2)
+            remove_pack.assert_called_once_with("basic")
+
+            pack["path"] = "/packs/other"
+            mismatched = client.request(
+                "DELETE",
+                "/api/packs/basic",
+                json={"confirm_pack_id": "basic"},
+            )
+            self.assertEqual(mismatched.status_code, 400, mismatched.text)
+            remove_pack.assert_called_once_with("basic")
+
+        packs_script = (ROOT / "judge/web/static/app/packs.js").read_text(encoding="utf-8")
+        self.assertIn("문제 팩 설치본과 포함 문제 복사본", packs_script)
+        self.assertIn("confirm_pack_id", packs_script)
+        self.assertIn("window.prompt", packs_script)
+        self.assertIn('app.optional("packSectionToggle")?.focus()', packs_script)
+        self.assertIn("void app.withErrors(() => removeInstalledPack", packs_script)
+
+    def test_pack_removal_deletes_only_the_selected_installation(self) -> None:
+        """팩 제거는 선택한 설치 디렉터리만 지우고 제출 기록과 다른 팩은 보존합니다."""
+        with tempfile.TemporaryDirectory(prefix="alj-web-pack-remove-test-") as tmp:
+            tmp_path = Path(tmp)
+            pack_root = tmp_path / "packs"
+            for pack_id, problems in (("basic", ["01", "02"]), ("extra", ["03"])):
+                pack_dir = pack_root / pack_id
+                pack_dir.mkdir(parents=True)
+                (pack_dir / "pack.json").write_text(
+                    json.dumps({"packId": pack_id, "version": "1", "problems": problems}),
+                    encoding="utf-8",
+                )
+            submissions = tmp_path / "submissions"
+            submissions.mkdir()
+            submission_marker = submissions / "preserved.json"
+            submission_marker.write_text('{"status":"accepted"}\n', encoding="utf-8")
+            env = {
+                **os.environ,
+                "ALJ_PACK_HOME": str(pack_root),
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+                "ALJ_CACHE_HOME": str(tmp_path / "cache"),
+            }
+
+            with patch.dict(os.environ, env, clear=True):
+                client = TestClient(
+                    create_app(
+                        submission_history_root=submissions,
+                        legacy_source_history_root=tmp_path / "legacy-sources",
+                    )
+                )
+                removed = client.request(
+                    "DELETE",
+                    "/api/packs/basic",
+                    json={"confirm_pack_id": "basic"},
+                )
+
+            self.assertEqual(removed.status_code, 200, removed.text)
+            self.assertEqual(removed.json()["removedProblems"], ["01", "02"])
+            self.assertFalse((pack_root / "basic").exists())
+            self.assertTrue((pack_root / "extra" / "pack.json").is_file())
+            self.assertEqual(
+                submission_marker.read_text(encoding="utf-8"),
+                '{"status":"accepted"}\n',
+            )
 
     def test_run_pasted_python_submission(self) -> None:
         """실행 붙여넣은 Python 제출 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -1058,6 +1371,11 @@ class WebUiTest(unittest.TestCase):
                     "/api/packs/install/jobs",
                     json={"archive_path": str(Path(tmp) / "basic.aljpack")},
                 )
+                pack_remove = client.request(
+                    "DELETE",
+                    "/api/packs/basic",
+                    json={"confirm_pack_id": "basic"},
+                )
                 generic_dismiss = client.delete("/api/jobs/missing")
                 generic_clear = client.delete("/api/jobs/completed")
                 cache_clear = client.post(
@@ -1068,13 +1386,14 @@ class WebUiTest(unittest.TestCase):
 
         self.assertEqual(generate.status_code, 403, generate.text)
         self.assertEqual(samples.status_code, 403, samples.text)
-        self.assertEqual(cases_compile.status_code, 200, cases_compile.text)
+        self.assertEqual(cases_compile.status_code, 403, cases_compile.text)
         self.assertEqual(source_detail.status_code, 403, source_detail.text)
         self.assertEqual(pack_upload.status_code, 403, pack_upload.text)
         self.assertEqual(pack_upload_job.status_code, 403, pack_upload_job.text)
         self.assertEqual(pack_download.status_code, 403, pack_download.text)
         self.assertEqual(pack_download_job.status_code, 403, pack_download_job.text)
         self.assertEqual(pack_install_job.status_code, 403, pack_install_job.text)
+        self.assertEqual(pack_remove.status_code, 403, pack_remove.text)
         self.assertEqual(generic_dismiss.status_code, 403, generic_dismiss.text)
         self.assertEqual(generic_clear.status_code, 403, generic_clear.text)
         self.assertEqual(cache_clear.status_code, 403, cache_clear.text)

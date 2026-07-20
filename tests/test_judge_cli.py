@@ -17,6 +17,10 @@ ROOT = Path(__file__).resolve().parents[1]
 JUDGE = [sys.executable, "-m", "judge"]
 PROBLEM_PACKAGE_ROOT = ROOT / "problems" / "algorithm-package"
 PROBLEM_SOURCE_ROOT = PROBLEM_PACKAGE_ROOT / "problems"
+ISOLATED_RUNTIME = tempfile.TemporaryDirectory(prefix="alj-unit-cli-runtime-")
+ISOLATED_PROJECT_ROOT = Path(ISOLATED_RUNTIME.name) / "project"
+shutil.copytree(PROBLEM_SOURCE_ROOT / "06", ISOLATED_PROJECT_ROOT / "problems" / "06")
+shutil.copy2(ROOT / "testlib.h", ISOLATED_PROJECT_ROOT / "testlib.h")
 
 
 def run_judge(
@@ -35,7 +39,9 @@ def run_judge(
         subprocess.CompletedProcess[str]: judge 명령줄 실행 결과 객체입니다.
     """
     env = os.environ.copy()
-    env["ALJ_CACHE_HOME"] = str(ROOT / ".judge-cache")
+    env["ALJ_PROJECT_ROOT"] = str(ISOLATED_PROJECT_ROOT)
+    env["ALJ_DATA_HOME"] = str(Path(ISOLATED_RUNTIME.name) / "data")
+    env["ALJ_CACHE_HOME"] = str(Path(ISOLATED_RUNTIME.name) / "cache")
     env["ALJ_PYTHON"] = sys.executable
     if extra_env:
         env.update(extra_env)
@@ -84,7 +90,7 @@ class JudgeCliSmokeTest(unittest.TestCase):
         result = run_judge(
             "--profile",
             "sample",
-            "problems/algorithm-package/problems/06/solutions/main_solution.ac.cpp",
+            str(ISOLATED_PROJECT_ROOT / "problems" / "06" / "solutions" / "main_solution.ac.cpp"),
             check=True,
         )
         self.assertIn("Accepted", result.stdout)
@@ -117,7 +123,7 @@ class JudgeCliSmokeTest(unittest.TestCase):
 
         self.assertIn("Accepted", result.stdout)
         run_line = next(line for line in result.stdout.splitlines() if line.startswith("run: "))
-        run_dir = ROOT / run_line.removeprefix("run: ").strip()
+        run_dir = ISOLATED_PROJECT_ROOT / run_line.removeprefix("run: ").strip()
         payload = json.loads((run_dir / "result.json").read_text(encoding="utf-8"))
         self.assertEqual(payload["language"], "pypy")
 

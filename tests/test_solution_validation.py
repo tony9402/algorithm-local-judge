@@ -137,7 +137,10 @@ class SolutionValidationTest(unittest.TestCase):
 
             with (
                 patch("judge.core.solution_validation.generate", return_value=root / "cache"),
-                patch("judge.core.solution_validation.run_submission", side_effect=fake_run_submission),
+                patch(
+                    "judge.core.solution_validation.run_submission",
+                    side_effect=fake_run_submission,
+                ),
             ):
                 result = verify_problem_solutions(
                     "01",
@@ -631,10 +634,13 @@ class SolutionValidationTest(unittest.TestCase):
         self.assertTrue(result.passed)
         self.assertEqual(mocked_tools.call_count, 1)
         self.assertEqual(mocked_run.call_count, 2)
-        self.assertEqual([check.source.name for check in result.checks], [
-            "main_solution.ac.cpp",
-            "wrong_solution.wa.py",
-        ])
+        self.assertEqual(
+            [check.source.name for check in result.checks],
+            [
+                "main_solution.ac.cpp",
+                "wrong_solution.wa.py",
+            ],
+        )
 
     def test_parallel_solution_verification_stops_submitting_after_cancel(self) -> None:
         """병렬 검증 취소 후에는 아직 제출하지 않은 솔루션 작업을 새로 시작하지 않아야 합니다."""

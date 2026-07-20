@@ -390,6 +390,196 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 )
                 self.assert_no_browser_errors()
 
+    def test_double_solution_verify_keeps_latest_when_older_finishes_first(
+        self,
+    ) -> None:
+        """두 요청이 1→2 순서로 끝나도 두 번째 요청만 현재 결과와 저장소를 갱신해야 합니다."""
+        jobs: dict[str, dict] = {}
+        request_count = 0
+        older_result = accepted_solution_result(
+            problem_id="alpha",
+            path="solutions/main_solution.ac.cpp",
+            run_id="older-finished-first",
+            scope="all",
+        )
+        latest_result = accepted_solution_result(
+            problem_id="alpha",
+            path="solutions/main_solution.ac.cpp",
+            run_id="latest-finished-second",
+            scope="all",
+        )
+
+        def verify_job(route):
+            """두 running 검증 요청을 등록해 오래된 요청부터 완료시킵니다."""
+            nonlocal request_count
+            request_count += 1
+            job_id = f"verify-in-order-{request_count}"
+            job = {
+                "jobId": job_id,
+                "kind": "solution-verify",
+                "title": "솔루션 기대 결과 검증",
+                "problemId": "alpha",
+                "status": "running",
+                "cancelSupported": True,
+                "target": {"problemId": "alpha", "profile": "hidden", "scope": "all"},
+                "progress": {"message": f"{job_id} running"},
+                "lastLog": f"{job_id} running",
+                "logs": [{"message": f"{job_id} running"}],
+                "result": None,
+            }
+            jobs[job_id] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-in-order-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha In-order Verify", "E2E")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/verify/jobs", verify_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#jobCenterButton", "작업 2개")
+
+                page.locator("#jobCenterButton").click()
+                page.locator('[data-job-filter="done"]').click()
+                jobs["verify-in-order-1"] = completed_solution_job(
+                    "verify-in-order-1",
+                    older_result,
+                    last_log="older request finished first",
+                )
+                wait_for_text(page, "#jobCenterList", "older request finished first")
+                self.assertNotIn("older-finished-first", page.locator("#tabFiles").inner_text())
+
+                jobs["verify-in-order-2"] = completed_solution_job(
+                    "verify-in-order-2",
+                    latest_result,
+                    last_log="latest request finished second",
+                )
+                wait_for_text(page, "#tabFiles", "latest-finished-second", timeout=30_000)
+
+                tab_text = page.locator("#tabFiles").inner_text()
+                self.assertNotIn("older-finished-first", tab_text)
+                self.assertNotIn("검증중", tab_text)
+                self.assertTrue(
+                    page.evaluate(
+                        """() => {
+                            const raw = localStorage.getItem(
+                                "problem-studio:last-results:v1"
+                            ) || "";
+                            return raw.includes("latest-finished-second")
+                                && !raw.includes("older-finished-first");
+                        }"""
+                    )
+                )
+                self.assert_no_browser_errors()
+
+    def test_triple_solution_verify_ignores_stale_results_after_latest_clears_active_state(
+        self,
+    ) -> None:
+        """세 요청이 3→1→2 순서로 끝나도 마지막에 시작한 세 번째 결과만 유지해야 합니다."""
+        jobs: dict[str, dict] = {}
+        request_count = 0
+
+        results = {
+            index: accepted_solution_result(
+                problem_id="alpha",
+                path="solutions/main_solution.ac.cpp",
+                run_id=f"triple-run-{index}",
+                scope="all",
+            )
+            for index in range(1, 4)
+        }
+
+        def verify_job(route):
+            """세 검증 요청을 running 상태로 등록해 완료 순서를 테스트가 제어하게 합니다."""
+            nonlocal request_count
+            request_count += 1
+            job_id = f"verify-triple-{request_count}"
+            job = {
+                "jobId": job_id,
+                "kind": "solution-verify",
+                "title": "솔루션 기대 결과 검증",
+                "problemId": "alpha",
+                "status": "running",
+                "cancelSupported": True,
+                "target": {"problemId": "alpha", "profile": "hidden", "scope": "all"},
+                "progress": {"message": f"{job_id} running"},
+                "lastLog": f"{job_id} running",
+                "logs": [{"message": f"{job_id} running"}],
+                "result": None,
+            }
+            jobs[job_id] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-problem-studio-solution-triple-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Triple Verify", "E2E")
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                route_solution_jobs(page, jobs)
+                page.route("**/api/problems/*/solutions/verify/jobs", verify_job)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="solutions"]').click()
+
+                for _ in range(3):
+                    click_by_text(page, "#tabActions button", "기대 결과 검증")
+                wait_for_text(page, "#jobCenterButton", "작업 3개")
+
+                jobs["verify-triple-3"] = completed_solution_job(
+                    "verify-triple-3",
+                    results[3],
+                    last_log="third latest finished first",
+                )
+                wait_for_text(page, "#tabFiles", "triple-run-3", timeout=30_000)
+
+                page.locator("#jobCenterButton").click()
+                page.locator('[data-job-filter="done"]').click()
+                wait_for_text(page, "#jobCenterList", "third latest finished first")
+
+                jobs["verify-triple-1"] = completed_solution_job(
+                    "verify-triple-1",
+                    results[1],
+                    last_log="first stale finished second",
+                )
+                wait_for_text(page, "#jobCenterList", "first stale finished second")
+                self.assertIn("triple-run-3", page.locator("#tabFiles").inner_text())
+
+                jobs["verify-triple-2"] = completed_solution_job(
+                    "verify-triple-2",
+                    results[2],
+                    last_log="second stale finished last",
+                )
+                wait_for_text(page, "#jobCenterList", "second stale finished last")
+
+                tab_text = page.locator("#tabFiles").inner_text()
+                self.assertIn("triple-run-3", tab_text)
+                self.assertNotIn("triple-run-1", tab_text)
+                self.assertNotIn("triple-run-2", tab_text)
+                self.assertNotIn("검증중", tab_text)
+                self.assertTrue(
+                    page.evaluate(
+                        """() => {
+                            const raw = localStorage.getItem(
+                                "problem-studio:last-results:v1"
+                            ) || "";
+                            return raw.includes("triple-run-3")
+                                && !raw.includes("triple-run-1")
+                                && !raw.includes("triple-run-2");
+                        }"""
+                    )
+                )
+                self.assert_no_browser_errors()
+
     def test_solution_verify_cancel_from_job_center_allows_retry(self) -> None:
         """작업 센터에서 검증 job을 취소한 뒤 row 상태가 풀리고 즉시 재시도할 수 있어야 합니다."""
         calls = {"count": 0}
@@ -1130,9 +1320,9 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 page.goto(server.url)
                 page.locator("#repositorySelect").wait_for(state="visible")
                 page.locator("#repositoryRefreshButton").click()
-                page.locator("#repositoryCloneButton").click()
-                page.locator("#repositoryNameInput").fill("repo-a")
-                page.locator("#repositoryRegisterButton").click()
+                page.locator("#repositoryOpenButton").click()
+                page.locator("#repositoryOpenSelect").select_option("repo-a")
+                page.locator("#repositoryOpenStartButton").click()
                 wait_for_text(page, "#problemTitle", "Repo A Solution")
                 page.locator('[data-tab="solutions"]').click()
                 page.locator(f'[data-solution-test="{solution_path}"]').click()
@@ -1220,13 +1410,13 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                     "kind": "solution-verify",
                     "title": "솔루션 기대 결과 검증",
                     "problemId": "alpha",
-                    "status": "failed",
+                    "status": "running",
                     "cancelSupported": True,
                     "target": {"problemId": "alpha", "profile": "hidden", "scope": "all"},
-                    "progress": {"message": "verification failed"},
-                    "lastLog": "verification failed",
-                    "logs": [{"message": "verification failed"}],
-                    "error": "forced verification failure",
+                    "progress": {"message": "verifying solutions"},
+                    "lastLog": "verifying solutions",
+                    "logs": [{"message": "verifying solutions"}],
+                    "error": None,
                     "result": None,
                 }
             jobs[job["jobId"]] = job
@@ -1251,6 +1441,14 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 click_by_text(page, "#tabActions button", "기대 결과 검증")
                 wait_for_text(page, "#tabFiles", "검증중")
                 self.assertNotIn("previous-preserved", page.locator("#tabFiles").inner_text())
+                jobs["solution-failed"] = {
+                    **jobs["solution-failed"],
+                    "status": "failed",
+                    "progress": {"message": "verification failed"},
+                    "lastLog": "verification failed",
+                    "logs": [{"message": "verification failed"}],
+                    "error": "forced verification failure",
+                }
                 wait_for_text(page, "#alertStack", "forced verification failure")
                 self.assertNotIn("previous-preserved", page.locator("#tabFiles").inner_text())
                 self.assert_no_browser_errors()
@@ -1316,6 +1514,8 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
             workspace,
         ):
             create_problem(workspace, "alpha", "Alpha Job Center", "E2E")
+            wrong_source = workspace / "problems" / "alpha" / "solutions" / "wrong.wa.cpp"
+            wrong_source.write_text("int main() { return 0; }\n", encoding="utf-8")
             with run_app(create_app(workspace)) as server:
                 page = self.new_page(server.url)
                 route_solution_jobs(page, jobs)
@@ -1333,6 +1533,19 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 wait_for_text(page, "#jobCenterList", "solutions/wrong.wa.cpp")
                 wait_for_text(page, "#jobCenterList", "기대 wrong_answer · 실제 accepted")
                 wait_for_text(page, "#jobCenterList", "expected WA but accepted")
+                self.assertTrue(page.locator('[data-job-failure-action="file"]').is_visible())
+                self.assertTrue(page.locator('[data-job-failure-action="solution"]').is_visible())
+                self.assertTrue(page.locator('[data-job-failure-action="artifact"]').is_visible())
+                page.locator('[data-job-failure-action="solution"]').click()
+                page.locator("#jobCenterDrawer").wait_for(state="hidden")
+                page.locator('[data-solution-path="solutions/wrong.wa.cpp"]').wait_for(
+                    state="visible"
+                )
+                self.assertTrue(
+                    page.locator('[data-solution-path="solutions/wrong.wa.cpp"]').evaluate(
+                        "element => element.classList.contains('active')"
+                    )
+                )
                 self.assert_no_browser_errors()
 
     def test_solution_upload_rename_edit_full_verify_and_single_test(self) -> None:

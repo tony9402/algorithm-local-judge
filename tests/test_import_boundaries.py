@@ -6,7 +6,6 @@ import ast
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOTS = {
     "judge": ROOT / "judge",
@@ -43,9 +42,7 @@ class ImportBoundaryTest(unittest.TestCase):
             for path in sorted(source_root.rglob("*.py")):
                 for line, module in iter_imports(path):
                     if imported_root(module) in forbidden:
-                        violations.append(
-                            f"{path.relative_to(ROOT)}:{line}: {module}"
-                        )
+                        violations.append(f"{path.relative_to(ROOT)}:{line}: {module}")
 
         self.assertEqual([], violations)
 

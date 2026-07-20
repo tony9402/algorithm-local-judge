@@ -8,6 +8,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch
 
+from problem_studio.core.diagnostics import verification_failure_payload
 from problem_studio.core.templates import create_problem
 from problem_studio.core.workspace import link_testlib
 from problem_studio.web.app import create_app
@@ -61,6 +62,12 @@ def completed_studio_job(
     Returns:
         dict: 완료된 문제 스튜디오 작업을 나타내는 작업 큐 응답 객체입니다.
     """
+    verification = result.get("verification")
+    serialized_result = (
+        {**result, **verification_failure_payload(verification)}
+        if isinstance(verification, dict)
+        else result
+    )
     return {
         "jobId": job_id,
         "kind": kind,
@@ -72,7 +79,7 @@ def completed_studio_job(
         "progress": {"message": last_log},
         "lastLog": last_log,
         "logs": [{"message": last_log}],
-        "result": result,
+        "result": serialized_result,
     }
 
 
@@ -101,7 +108,9 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     "problem_studio.web.routes.checks.compile_problem_tools",
                     fake_compile_problem_tools,
                 ),
-                patch("problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data),
+                patch(
+                    "problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data
+                ),
                 patch(
                     "problem_studio.web.routes.checks.verify_solutions",
                     fake_verify_solutions,
@@ -174,7 +183,9 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     "problem_studio.web.routes.checks.compile_problem_tools",
                     fake_compile_problem_tools,
                 ),
-                patch("problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data),
+                patch(
+                    "problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data
+                ),
                 patch(
                     "problem_studio.web.routes.checks.verify_solutions",
                     fake_verify_solutions,
@@ -196,7 +207,9 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     wait_for_text(page, "#buildDashboardTitle", "전체 테스트 통과", timeout=30_000)
 
                     page.locator("#packButton").click()
-                    wait_for_text(page, "#alertStack", "forced cold-start pack failure", timeout=30_000)
+                    wait_for_text(
+                        page, "#alertStack", "forced cold-start pack failure", timeout=30_000
+                    )
                     page.wait_for_function(
                         """async () => {
                             const response = await fetch("/api/jobs", { cache: "no-store" });
@@ -257,7 +270,9 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     "problem_studio.web.routes.checks.compile_problem_tools",
                     fake_compile_problem_tools,
                 ),
-                patch("problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data),
+                patch(
+                    "problem_studio.web.routes.checks.validate_all_data", fake_validate_all_data
+                ),
                 patch(
                     "problem_studio.web.routes.checks.verify_solutions",
                     cancel_then_success_verify,
@@ -1111,8 +1126,15 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     page.locator("#newProblemButton").wait_for(state="visible")
                     page.locator("#workspaceBuildAllButton").click()
                     page.locator("#workspaceBuildModal").wait_for(state="visible")
-                    for checkbox in page.locator("[data-bulk-problem]").all():
-                        checkbox.uncheck()
+                    page.locator("#bulkProblemSearchInput").fill("Alpha")
+                    self.assertEqual(page.locator("[data-bulk-problem]").count(), 1)
+                    self.assertEqual(
+                        page.locator("[data-bulk-problem]").first.input_value(), "alpha"
+                    )
+                    page.locator("#bulkProblemSearchInput").fill("")
+                    page.locator("#bulkProblemFolderFilter").select_option("E2E")
+                    self.assertEqual(page.locator("[data-bulk-problem]").count(), 2)
+                    page.locator("#bulkDeselectAllButton").click()
                     wait_for_text(page, "#workspaceBuildStartButton", "문제를 선택하세요")
                     self.assertTrue(page.locator("#workspaceBuildStartButton").is_disabled())
 
@@ -1131,4 +1153,10 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     wait_for_text(page, "#buildDiagnostics", "현재 문제 진단")
                     wait_for_text(page, "#buildDiagnostics", "솔루션 기대 결과")
                     wait_for_text(page, "#buildDiagnostics", "solutions/beta.wa.cpp")
+                    page.locator("#workspaceBuildAllButton").click()
+                    page.locator("#bulkProblemStatusFilter").select_option("failed")
+                    self.assertEqual(page.locator("[data-bulk-problem]").count(), 1)
+                    self.assertEqual(
+                        page.locator("[data-bulk-problem]").first.input_value(), "beta"
+                    )
                     self.assert_no_browser_errors()

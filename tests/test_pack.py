@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import shutil
 import tarfile
 import tempfile
 import unittest
@@ -33,8 +34,12 @@ class ProblemPackTest(unittest.TestCase):
             cache_home = tmp_path / "cache"
             empty_project_root = tmp_path / "empty-project"
             empty_project_root.mkdir()
+            isolated_project_root = tmp_path / "pack-project"
+            isolated_problem_root = isolated_project_root / "problems" / "06"
+            shutil.copytree(PROBLEM_SOURCE_ROOT / "06", isolated_problem_root)
+            shutil.copy2(ROOT / "testlib.h", isolated_project_root / "testlib.h")
             result = build_pack(
-                PROBLEM_SOURCE_ROOT / "06",
+                isolated_problem_root,
                 "basic",
                 current_platform_id(),
                 output_dir,

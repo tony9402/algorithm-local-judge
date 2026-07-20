@@ -124,7 +124,9 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                 first = compile_problem_tool("alpha", "checker", workspace)
                 second = compile_problem_tool("alpha", "checker", workspace)
                 checker = workspace / "problems" / "alpha" / "checker" / "judge.cpp"
-                checker.write_text(checker.read_text(encoding="utf-8") + "\n// changed\n", encoding="utf-8")
+                checker.write_text(
+                    checker.read_text(encoding="utf-8") + "\n// changed\n", encoding="utf-8"
+                )
                 third = compile_problem_tool("alpha", "checker", workspace)
 
         self.assertEqual(first, second)
@@ -189,10 +191,16 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                     return_value={"path": "/fake/g++", "version": "1"},
                 ),
             ):
-                first = prepare_user_submission(source, workspace / "runs" / "first", 5000, workspace)
-                second = prepare_user_submission(source, workspace / "runs" / "second", 5000, workspace)
+                first = prepare_user_submission(
+                    source, workspace / "runs" / "first", 5000, workspace
+                )
+                second = prepare_user_submission(
+                    source, workspace / "runs" / "second", 5000, workspace
+                )
                 source.write_text("int main(){return 1;}\n", encoding="utf-8")
-                third = prepare_user_submission(source, workspace / "runs" / "third", 5000, workspace)
+                third = prepare_user_submission(
+                    source, workspace / "runs" / "third", 5000, workspace
+                )
 
         self.assertEqual(first.command, second.command)
         self.assertNotEqual(second.command, third.command)
@@ -226,9 +234,15 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                     side_effect=identities,
                 ),
             ):
-                first = prepare_user_submission(source, workspace / "runs" / "first", 5000, workspace)
-                second = prepare_user_submission(source, workspace / "runs" / "second", 5000, workspace)
-                third = prepare_user_submission(source, workspace / "runs" / "third", 5000, workspace)
+                first = prepare_user_submission(
+                    source, workspace / "runs" / "first", 5000, workspace
+                )
+                second = prepare_user_submission(
+                    source, workspace / "runs" / "second", 5000, workspace
+                )
+                third = prepare_user_submission(
+                    source, workspace / "runs" / "third", 5000, workspace
+                )
 
         self.assertEqual(first.command, second.command)
         self.assertNotEqual(second.command, third.command)
@@ -239,7 +253,10 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="alj-java-cache-") as tmp:
             workspace = Path(tmp)
             source = workspace / "Main.java"
-            source.write_text("public class Main { public static void main(String[] args) {} }\n", encoding="utf-8")
+            source.write_text(
+                "public class Main { public static void main(String[] args) {} }\n",
+                encoding="utf-8",
+            )
             compile_calls = []
 
             def fake_resolve_tool(env_name, candidates):
@@ -264,11 +281,17 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                 ),
                 patch("alj_core.submission_compiler.run_command", side_effect=fake_run_command),
             ):
-                first = prepare_user_submission(source, workspace / "runs" / "first", 5000, workspace)
-                second = prepare_user_submission(source, workspace / "runs" / "second", 5000, workspace)
+                first = prepare_user_submission(
+                    source, workspace / "runs" / "first", 5000, workspace
+                )
+                second = prepare_user_submission(
+                    source, workspace / "runs" / "second", 5000, workspace
+                )
                 class_file = Path(first.command[2]) / "Main.class"
                 class_file.unlink()
-                third = prepare_user_submission(source, workspace / "runs" / "third", 5000, workspace)
+                third = prepare_user_submission(
+                    source, workspace / "runs" / "third", 5000, workspace
+                )
 
         self.assertEqual(first.command, second.command)
         self.assertEqual(first.command, third.command)
@@ -1127,13 +1150,19 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                 f"/api/jobs/{job_a_id}",
                 params={"repository_scope": job_a.json()["target"]["repositoryScope"]},
             )
-            self.assertEqual(scoped_repo_a_job_from_b.status_code, 200, scoped_repo_a_job_from_b.text)
+            self.assertEqual(
+                scoped_repo_a_job_from_b.status_code, 200, scoped_repo_a_job_from_b.text
+            )
             self.assertEqual(scoped_repo_a_job_from_b.json()["jobId"], job_a_id)
             wrong_scoped_repo_a_job_from_b = client.get(
                 f"/api/jobs/{job_a_id}",
                 params={"repository_scope": job_b.json()["target"]["repositoryScope"]},
             )
-            self.assertEqual(wrong_scoped_repo_a_job_from_b.status_code, 404, wrong_scoped_repo_a_job_from_b.text)
+            self.assertEqual(
+                wrong_scoped_repo_a_job_from_b.status_code,
+                404,
+                wrong_scoped_repo_a_job_from_b.text,
+            )
 
             client.post("/api/repositories/select", json={"repo_name": "repo-a"})
             repo_a_jobs = client.get("/api/jobs")
@@ -1145,7 +1174,9 @@ class ProblemStudioFunctionalTest(unittest.TestCase):
                 f"/api/jobs/{job_b_id}",
                 params={"repository_scope": job_b.json()["target"]["repositoryScope"]},
             )
-            self.assertEqual(scoped_repo_b_job_from_a.status_code, 200, scoped_repo_b_job_from_a.text)
+            self.assertEqual(
+                scoped_repo_b_job_from_a.status_code, 200, scoped_repo_b_job_from_a.text
+            )
             self.assertEqual(scoped_repo_b_job_from_a.json()["jobId"], job_b_id)
 
     def test_git_commit_runs_inside_selected_repository(self) -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import parse_qs, urlparse
 
 from judge.web import services
 from judge.web.app import create_app
@@ -55,7 +56,81 @@ def route_jobs_list(page, jobs: dict[str, dict]) -> None:
         page (Any): 브라우저 상호작용을 수행할 Playwright 페이지입니다.
         jobs (dict[str, dict]): 브라우저 라우팅에 사용할 작업 목록 응답 데이터입니다.
     """
-    page.route(re.compile(r"/api/jobs(?:\?.*)?$"), lambda route: route.fulfill(json={"jobs": list(jobs.values())}))
+    page.route(
+        re.compile(r"/api/jobs(?:\?.*)?$"),
+        lambda route: route.fulfill(json={"jobs": list(jobs.values())}),
+    )
+
+
+def route_submission_history(
+    page,
+    submissions: dict[str, dict],
+    details: dict[str, dict],
+) -> None:
+    """제출 목록의 필터·상세·삭제 계약을 브라우저 안에서 재현합니다."""
+
+    def list_submissions(route):
+        if route.request.method == "DELETE":
+            submissions.clear()
+            details.clear()
+            route.fulfill(json={"deletedCount": 2, "legacyPreserved": 0})
+            return
+        query = parse_qs(urlparse(route.request.url).query)
+        items = list(submissions.values())
+        problem_id = query.get("problem_id", [""])[0]
+        status = query.get("status", [""])[0]
+        language = query.get("language", [""])[0]
+        profile = query.get("profile", [""])[0]
+        search = query.get("query", [""])[0].casefold()
+        if problem_id:
+            items = [item for item in items if item["problemId"] == problem_id]
+        if status:
+            items = [
+                item for item in items if status in {item.get("lifecycle"), item.get("verdict")}
+            ]
+        if language:
+            items = [item for item in items if item.get("language") == language]
+        if profile:
+            items = [item for item in items if item.get("profile") == profile]
+        if search:
+            items = [
+                item
+                for item in items
+                if search
+                in " ".join(
+                    str(item.get(key) or "")
+                    for key in ("submissionId", "problemId", "filename", "runId")
+                ).casefold()
+            ]
+        items.sort(
+            key=lambda item: (item["createdAt"], item["submissionId"]),
+            reverse=query.get("order", ["newest"])[0] != "oldest",
+        )
+        page_size = int(query.get("page_size", ["20"])[0])
+        current_page = int(query.get("page", ["1"])[0])
+        start = (current_page - 1) * page_size
+        total_pages = max(1, (len(items) + page_size - 1) // page_size)
+        route.fulfill(
+            json={
+                "submissions": items[start : start + page_size],
+                "page": current_page,
+                "pageSize": page_size,
+                "total": len(items),
+                "totalPages": total_pages,
+            }
+        )
+
+    def submission_detail(route):
+        submission_id = route.request.url.rsplit("/", 1)[-1]
+        if route.request.method == "DELETE":
+            submissions.pop(submission_id, None)
+            details.pop(submission_id, None)
+            route.fulfill(json={"deleted": True, "submissionId": submission_id})
+            return
+        route.fulfill(json=details[submission_id])
+
+    page.route(re.compile(r"/api/submissions(?:\?.*)?$"), list_submissions)
+    page.route(re.compile(r"/api/submissions/[^/?]+$"), submission_detail)
 
 
 def wait_for_captured_body(page, captured: dict[str, str], *, timeout_ms: int = 5000) -> str:
@@ -160,10 +235,327 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 )
                 self.assert_no_browser_errors()
 
+    def test_submission_history_master_detail_filters_mobile_and_source_restore(self) -> None:
+        """제출 기록이 소스별 결과, 필터, 모바일 상세과 편집기 복원을 함께 제공합니다."""
+        accepted_source = (
+            "print('accepted')\n"
+            "# <img src=x onerror=alert(1)>\n"
+            "payload = '<script>alert(1)</script>'\n"
+        )
+        accepted = {
+            "submissionId": "submission-accepted",
+            "problemId": "06",
+            "filename": "accepted.py",
+            "language": "pypy",
+            "profile": "full",
+            "lifecycle": "completed",
+            "verdict": "accepted",
+            "createdAt": "2026-07-11T02:00:00+00:00",
+            "finishedAt": "2026-07-11T02:00:01+00:00",
+            "jobId": "job-accepted",
+            "runId": "run-accepted",
+            "resultSummary": {
+                "caseCount": 1,
+                "metrics": {"maxTimeLabel": "2 ms", "maxMemoryLabel": "2 KiB"},
+            },
+        }
+        wrong = {
+            "submissionId": "submission-wrong",
+            "problemId": "06",
+            "filename": "wrong.cpp",
+            "language": "cpp",
+            "profile": "sample",
+            "lifecycle": "completed",
+            "verdict": "wrong_answer",
+            "createdAt": "2026-07-11T01:00:00+00:00",
+            "finishedAt": "2026-07-11T01:00:01+00:00",
+            "jobId": "job-wrong",
+            "runId": "run-wrong",
+            "resultSummary": {
+                "caseCount": 1,
+                "metrics": {"maxTimeLabel": "4 ms", "maxMemoryLabel": "3 KiB"},
+            },
+        }
+        running = {
+            "submissionId": "submission-running",
+            "problemId": "06",
+            "filename": "running.java",
+            "language": "java",
+            "profile": "full",
+            "lifecycle": "running",
+            "verdict": None,
+            "createdAt": "2026-07-11T00:00:00+00:00",
+            "finishedAt": None,
+            "jobId": "job-running",
+            "runId": None,
+            "resultSummary": None,
+        }
+        submissions = {
+            accepted["submissionId"]: accepted,
+            wrong["submissionId"]: wrong,
+            running["submissionId"]: running,
+        }
+        accepted_result = {
+            "runId": "run-accepted",
+            "problemId": "06",
+            "profile": "full",
+            "language": "pypy",
+            "status": "accepted",
+            "cases": [{"case": "001", "status": "ok", "timeMs": 2, "memoryBytes": 2048}],
+            "metrics": {"maxTimeLabel": "2 ms", "maxMemoryLabel": "2 KiB"},
+        }
+        details = {
+            "submission-accepted": {
+                **accepted,
+                "sourceText": accepted_source,
+                "result": accepted_result,
+                "artifactAvailable": False,
+            },
+            "submission-wrong": {
+                **wrong,
+                "sourceText": "int main() { return 1; }\n",
+                "result": {
+                    **accepted_result,
+                    "runId": "run-wrong",
+                    "language": "cpp",
+                    "status": "wrong_answer",
+                    "cases": [
+                        {
+                            "case": "001",
+                            "status": "wrong_answer",
+                            "message": "expected 1, got 0",
+                            "timeMs": 4,
+                            "memoryBytes": 3072,
+                        }
+                    ],
+                },
+                "artifactAvailable": True,
+            },
+            "submission-running": {
+                **running,
+                "sourceText": "class Main {}\n",
+                "result": None,
+                "artifactAvailable": False,
+            },
+        }
+        for index in range(24):
+            submission_id = f"submission-archive-{index:02d}"
+            submissions[submission_id] = {
+                "submissionId": submission_id,
+                "problemId": "06",
+                "filename": f"archive-{index:02d}.cpp",
+                "language": "cpp",
+                "profile": "full",
+                "lifecycle": "completed",
+                "verdict": "runtime_error",
+                "createdAt": f"2025-07-{index + 1:02d}T00:00:00+00:00",
+                "finishedAt": f"2025-07-{index + 1:02d}T00:00:01+00:00",
+                "jobId": f"job-archive-{index:02d}",
+                "runId": f"run-archive-{index:02d}",
+                "resultSummary": {"caseCount": 1, "metrics": {}},
+            }
+
+        with isolated_runtime("alj-submission-history-e2e-") as (_directory, runtime):
+            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+                page = self.new_page(server.url)
+                page.route(
+                    "**/api/problems",
+                    lambda route: route.fulfill(
+                        json=[
+                            {
+                                "problemId": "06",
+                                "title": "Submission history",
+                                "version": 1,
+                                "defaultProfile": "full",
+                                "profiles": ["sample", "full"],
+                            }
+                        ]
+                    ),
+                )
+                stub_samples(page)
+                route_submission_history(page, submissions, details)
+                page.goto(server.url)
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                wait_for_text(page, "#recentSubmissionsList", "accepted.py")
+                wait_for_text(page, "#jobsButton", "작업 센터")
+
+                page.locator("#filenameInput").fill("draft.py")
+                page.locator("#sourceTextInput").fill("print('draft')\n")
+                page.locator("#submissionsButton").click()
+                page.locator("#submissionsDrawer").wait_for(state="visible")
+                wait_for_text(page, "#submissionDetailTitle", "accepted.py")
+                drawer_box = page.locator("#submissionsDrawer").bounding_box()
+                self.assertIsNotNone(drawer_box)
+                self.assertAlmostEqual(
+                    drawer_box["x"],
+                    (1440 - drawer_box["width"]) / 2,
+                    delta=1,
+                )
+                self.assertLessEqual(drawer_box["width"], 1120)
+                self.assertLessEqual(drawer_box["height"], 820)
+                self.assertTrue(page.locator("#submissionsMaster").is_visible())
+                self.assertTrue(page.locator("#submissionDetail").is_visible())
+                self.assertEqual(
+                    page.locator("#submissionsQueryInput").evaluate(
+                        "node => node === document.activeElement"
+                    ),
+                    True,
+                )
+                list_metrics = page.locator("#submissionsList").evaluate(
+                    "node => ({clientHeight: node.clientHeight, scrollHeight: node.scrollHeight})"
+                )
+                self.assertGreater(list_metrics["scrollHeight"], list_metrics["clientHeight"])
+                filter_top = page.locator("#submissionsQueryInput").bounding_box()["y"]
+                page.locator("#submissionsList").evaluate(
+                    "node => node.scrollTop = node.scrollHeight"
+                )
+                self.assertAlmostEqual(
+                    page.locator("#submissionsQueryInput").bounding_box()["y"],
+                    filter_top,
+                    delta=1,
+                )
+                self.assertEqual(
+                    page.locator(".submission-tabs").evaluate(
+                        "node => getComputedStyle(node).position"
+                    ),
+                    "sticky",
+                )
+                page.locator('#submissionsList [data-submission-id="submission-running"]').click()
+                wait_for_text(page, "#submissionDetailTitle", "running.java")
+                self.assertTrue(page.locator("#submissionDeleteButton").is_disabled())
+                wait_for_text(page, "#submissionDeleteHint", "완료되거나 취소된 뒤 삭제")
+                self.assertTrue(page.locator("#submissionsClearAllButton").is_disabled())
+                wait_for_text(page, "#submissionsClearAllHint", "전체 삭제할 수 있습니다")
+                page.locator('#submissionsList [data-submission-id="submission-accepted"]').click()
+                wait_for_text(page, "#submissionDetailTitle", "accepted.py")
+
+                page.locator("#submissionsStatusFilter").select_option("accepted")
+                wait_for_text(page, "#submissionsCount", "1개 제출")
+                self.assertNotIn("wrong.cpp", page.locator("#submissionsList").inner_text())
+                self.assertTrue(page.locator("#submissionsClearAllButton").is_disabled())
+                page.evaluate("() => window.AljApp.state.lastRunResult = {runId: 'main-run'}")
+                page.locator("#submissionCasesTab").click()
+                wait_for_text(page, "#submissionDetailPanel", "테스트케이스 판정은 보존")
+                wait_for_text(page, "#submissionDetailPanel", "맞음")
+                self.assertEqual(
+                    page.evaluate("() => window.AljApp.state.lastRunResult.runId"),
+                    "main-run",
+                )
+                page.locator("#submissionSourceTab").click()
+                wait_for_text(page, "#submissionDetailPanel", "print('accepted')")
+                source_viewer = page.locator(".submission-source.language-python")
+                source_viewer.wait_for(state="visible")
+                self.assertGreater(
+                    source_viewer.locator(".token.string, .token.builtin").count(),
+                    0,
+                )
+                self.assertEqual(source_viewer.locator("code").text_content(), accepted_source)
+                self.assertEqual(
+                    source_viewer.locator("img, script").count(),
+                    0,
+                )
+                page.locator("#submissionSourceTab").press("ArrowRight")
+                self.assertEqual(
+                    page.locator("#submissionDiagnosticsTab").get_attribute("aria-selected"),
+                    "true",
+                )
+                page.locator("#submissionSourceTab").click()
+
+                page.on(
+                    "dialog",
+                    lambda dialog: (
+                        dialog.accept("전체 삭제") if dialog.type == "prompt" else dialog.accept()
+                    ),
+                )
+                page.locator("#submissionLoadButton").click()
+                page.locator("#submissionsDrawer").wait_for(state="hidden")
+                self.assertEqual(
+                    page.locator("#sourceTextInput").input_value(),
+                    accepted_source,
+                )
+                self.assertEqual(page.locator("#languageHint").input_value(), "pypy")
+
+                page.locator("#submissionsButton").click()
+                page.locator("#submissionsDrawer").wait_for(state="visible")
+                page.keyboard.press("Escape")
+                page.locator("#submissionsDrawer").wait_for(state="hidden")
+                self.assertEqual(
+                    page.evaluate("() => document.activeElement?.id"),
+                    "submissionsButton",
+                )
+
+                page.set_viewport_size({"width": 820, "height": 900})
+                page.locator("#submissionsButton").click()
+                page.locator("#submissionsDrawer").wait_for(state="visible")
+                page.locator("#submissionBackButton").click()
+                page.locator("#submissionsMaster").wait_for(state="visible")
+                tablet_box = page.locator("#submissionsDrawer").bounding_box()
+                self.assertAlmostEqual(
+                    tablet_box["x"],
+                    (820 - tablet_box["width"]) / 2,
+                    delta=1,
+                )
+                self.assertAlmostEqual(tablet_box["width"], 796, delta=1)
+                self.assertFalse(page.locator("#submissionDetail").is_visible())
+                page.locator('#submissionsList [data-submission-id="submission-accepted"]').click()
+                page.locator("#submissionDetail").wait_for(state="visible")
+                self.assertFalse(page.locator("#submissionsMaster").is_visible())
+                self.assertTrue(page.locator("#submissionBackButton").is_visible())
+                page.keyboard.press("Escape")
+                page.locator("#submissionsDrawer").wait_for(state="hidden")
+                self.assertEqual(
+                    page.evaluate("() => document.activeElement?.id"),
+                    "submissionsButton",
+                )
+
+                page.set_viewport_size({"width": 390, "height": 844})
+                page.locator("#submissionsButton").click()
+                page.locator("#submissionsDrawer").wait_for(state="visible")
+                page.locator("#submissionBackButton").click()
+                page.locator("#submissionsMaster").wait_for(state="visible")
+                mobile_box = page.locator("#submissionsDrawer").bounding_box()
+                self.assertAlmostEqual(mobile_box["x"], 0, delta=1)
+                self.assertAlmostEqual(mobile_box["y"], 0, delta=1)
+                self.assertAlmostEqual(mobile_box["width"], 390, delta=1)
+                self.assertAlmostEqual(mobile_box["height"], 844, delta=1)
+                self.assertLessEqual(
+                    page.evaluate("() => document.documentElement.scrollWidth"),
+                    390,
+                )
+                self.assertGreaterEqual(
+                    page.locator("#submissionsPrevButton").evaluate(
+                        "node => node.getBoundingClientRect().height"
+                    ),
+                    44,
+                )
+
+                page.set_viewport_size({"width": 1440, "height": 900})
+                submissions.pop("submission-running")
+                details.pop("submission-running")
+                page.wait_for_function(
+                    "() => !document.querySelector('#submissionsClearAllButton')?.disabled"
+                )
+                page.locator('#submissionsList [data-submission-id="submission-accepted"]').click()
+                wait_for_text(page, "#submissionDetailTitle", "accepted.py")
+                page.locator("#submissionDeleteButton").click()
+                wait_for_text(page, "#submissionsList", "필터와 일치하는 제출이 없습니다")
+                wait_for_text(page, "#recentSubmissionsList", "wrong.cpp")
+                page.locator("#submissionsClearAllButton").click()
+                wait_for_text(
+                    page,
+                    "#recentSubmissionsList",
+                    "아직 이 문제에 제출한 코드가 없습니다",
+                )
+                self.assertEqual(
+                    page.evaluate("() => document.activeElement?.id"),
+                    "submissionsResetButton",
+                )
+                self.assert_no_browser_errors()
+
     def test_selected_problem_is_restored_after_reload_in_browser(self) -> None:
         """선택된 문제 복원 이후 새로고침 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         sample_payload = (
-            '{"profile":"sample","caseCount":1,"label":"persist",'
+            '{"profile":"sample","caseCount":1,"label":"problems/01/de3900e/internal",'
             '"cases":[{"case":"001","name":"persist","input":"1\\n","expected":"1\\n"}]}'
         )
         with isolated_runtime("alj-judge-web-selection-e2e-") as (_directory, runtime):
@@ -219,7 +611,295 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         "node => node.classList.contains('active')"
                     )
                 )
-                wait_for_text(page, "#sampleMeta", "persist")
+                wait_for_text(page, "#sampleMeta", "1개 샘플 테스트케이스")
+                self.assertNotIn("problems/01", page.locator("#sampleMeta").inner_text())
+                self.assertFalse(page.locator(".sample-diagnostics").evaluate("node => node.open"))
+                page.locator(".sample-diagnostics > summary").click()
+                wait_for_text(page, "#sampleDiagnosticLabel", "problems/01/de3900e/internal")
+                self.assert_no_browser_errors()
+
+    def test_desktop_sidebar_scroll_state_pack_disclosure_and_mobile_flow(self) -> None:
+        """큰 문제 목록은 독립 스크롤하고 모바일에서는 문서 흐름으로 복귀합니다."""
+        problems = [
+            {
+                "problemId": f"mock-{index:03d}",
+                "title": f"Mock problem {index:03d}",
+                "version": 1,
+                "defaultProfile": "full",
+                "profiles": ["sample", "full"],
+            }
+            for index in range(105)
+        ]
+        sample_payload = {
+            "profile": "sample",
+            "caseCount": 1,
+            "label": "sidebar",
+            "cases": [{"case": "001", "name": "stub", "input": "1\n", "expected": "1\n"}],
+        }
+
+        with isolated_runtime("alj-sidebar-scroll-e2e-") as (_directory, runtime):
+            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+                page = self.new_page(server.url, width=1200, height=800)
+                page.route(
+                    "**/api/problems",
+                    lambda route: route.fulfill(json=problems),
+                )
+                page.route(
+                    "**/api/problems/*/samples**",
+                    lambda route: route.fulfill(json=sample_payload),
+                )
+                route_submission_history(page, {}, {})
+                page.goto(server.url)
+                page.wait_for_function(
+                    "() => document.querySelectorAll('#problemList [data-problem-id]').length === 105"
+                )
+
+                self.assertEqual(
+                    page.locator("#problemList").evaluate(
+                        "node => getComputedStyle(node).overflowY"
+                    ),
+                    "auto",
+                )
+                self.assertEqual(
+                    page.locator(".workspace").evaluate(
+                        "node => getComputedStyle(node).overflowY"
+                    ),
+                    "auto",
+                )
+                self.assertGreater(
+                    page.locator("#problemList").evaluate("node => node.scrollHeight"),
+                    page.locator("#problemList").evaluate("node => node.clientHeight"),
+                )
+                self.assertGreater(
+                    page.locator(".workspace").evaluate("node => node.scrollHeight"),
+                    page.locator(".workspace").evaluate("node => node.clientHeight"),
+                )
+
+                page.locator("#problemList").evaluate("node => node.scrollTop = 420")
+                preserved_scroll = page.locator("#problemList").evaluate("node => node.scrollTop")
+                page.evaluate("() => window.AljApp.renderProblems(window.AljApp.state.problems)")
+                self.assertAlmostEqual(
+                    page.locator("#problemList").evaluate("node => node.scrollTop"),
+                    preserved_scroll,
+                    delta=1,
+                )
+
+                page.locator("#problemSearchInput").fill("mock-104")
+                page.wait_for_function(
+                    "() => document.querySelectorAll('#problemList [data-problem-id]').length === 1"
+                )
+                self.assertEqual(
+                    page.locator("#problemList").evaluate("node => node.scrollTop"),
+                    0,
+                )
+                page.locator("#problemSearchInput").fill("")
+                page.wait_for_function(
+                    "() => document.querySelectorAll('#problemList [data-problem-id]').length === 105"
+                )
+                self.assertEqual(
+                    page.locator("#problemList").evaluate("node => node.scrollTop"),
+                    0,
+                )
+
+                page.locator("#problemSelect").select_option("mock-104")
+                page.wait_for_function(
+                    "() => document.querySelector('[data-problem-id=\"mock-104\"]')?.classList.contains('active')"
+                )
+                visibility = page.evaluate(
+                    """() => {
+                        const list = document.querySelector('#problemList').getBoundingClientRect();
+                        const item = document
+                            .querySelector('[data-problem-id="mock-104"]')
+                            .getBoundingClientRect();
+                        return {listTop: list.top, listBottom: list.bottom,
+                            itemTop: item.top, itemBottom: item.bottom};
+                    }"""
+                )
+                self.assertGreaterEqual(visibility["itemTop"], visibility["listTop"] - 1)
+                self.assertLessEqual(visibility["itemBottom"], visibility["listBottom"] + 1)
+
+                page.evaluate(
+                    """() => {
+                        document.querySelector('#problemList').scrollTop = 360;
+                        document.querySelector('.workspace').scrollTop = 260;
+                    }"""
+                )
+                initial_scroll = page.evaluate(
+                    """() => ({
+                        problems: document.querySelector('#problemList').scrollTop,
+                        workspace: document.querySelector('.workspace').scrollTop,
+                    })"""
+                )
+                page.locator("#problemList").evaluate("node => node.scrollTop += 80")
+                self.assertEqual(
+                    page.locator(".workspace").evaluate("node => node.scrollTop"),
+                    initial_scroll["workspace"],
+                )
+                list_after_scroll = page.locator("#problemList").evaluate("node => node.scrollTop")
+                page.locator(".workspace").evaluate("node => node.scrollTop += 80")
+                self.assertEqual(
+                    page.locator("#problemList").evaluate("node => node.scrollTop"),
+                    list_after_scroll,
+                )
+
+                self.assertEqual(
+                    page.locator("#packSectionToggle").get_attribute("aria-expanded"),
+                    "false",
+                )
+                self.assertTrue(
+                    page.locator("#packList").evaluate("node => node.classList.contains('hidden')")
+                )
+                page.locator("#packSectionToggle").click()
+                self.assertEqual(
+                    page.locator("#packSectionToggle").get_attribute("aria-expanded"),
+                    "true",
+                )
+                page.locator("#packList").wait_for(state="visible")
+                page.locator("#packSectionToggle").click()
+                self.assertEqual(
+                    page.locator("#packSectionToggle").get_attribute("aria-expanded"),
+                    "false",
+                )
+
+                page.set_viewport_size({"width": 900, "height": 800})
+                self.assertEqual(
+                    page.locator("#problemList").evaluate(
+                        "node => getComputedStyle(node).overflowY"
+                    ),
+                    "visible",
+                )
+                self.assertEqual(
+                    page.locator(".workspace").evaluate(
+                        "node => getComputedStyle(node).overflowY"
+                    ),
+                    "visible",
+                )
+                page.evaluate("() => window.scrollTo(0, 240)")
+                self.assertGreater(page.evaluate("() => window.scrollY"), 0)
+                self.assert_no_browser_errors()
+
+    def test_mobile_problem_picker_search_focus_and_folder_move(self) -> None:
+        """모바일 picker가 긴 문서 이동 없이 검색·선택·폴더 이동을 제공합니다."""
+        problems = [
+            {
+                "problemId": f"mock-{index:03d}",
+                "title": f"Mock problem {index:03d}",
+                "version": 1,
+                "defaultProfile": "full",
+                "profiles": ["sample", "full"],
+                "folder": "Math" if index % 2 else "",
+                "folderEditable": True,
+            }
+            for index in range(100)
+        ]
+        folders = [
+            {"folder": "", "label": "미분류", "problemCount": 50},
+            {"folder": "Graph", "label": "Graph", "problemCount": 0},
+            {"folder": "Math", "label": "Math", "problemCount": 50},
+        ]
+        captured: dict[str, str] = {}
+
+        def update_folder(route):
+            body = route.request.post_data_json
+            problem_id = route.request.url.split("/api/problems/", 1)[1].split("/", 1)[0]
+            captured.update(problem_id=problem_id, folder=body["folder"])
+            problem = next(item for item in problems if item["problemId"] == problem_id)
+            problem["folder"] = body["folder"]
+            route.fulfill(json=problem)
+
+        with isolated_runtime("alj-mobile-problem-picker-e2e-") as (_directory, runtime):
+            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+                page = self.new_page(server.url, width=390, height=844)
+                page.route("**/api/problems", lambda route: route.fulfill(json=problems))
+                page.route("**/api/folders", lambda route: route.fulfill(json=folders))
+                page.route("**/api/problems/*/folder", update_folder)
+                page.route(
+                    "**/api/problems/*/samples**",
+                    lambda route: route.fulfill(
+                        json={"profile": "sample", "caseCount": 0, "label": "picker", "cases": []}
+                    ),
+                )
+                route_submission_history(page, {}, {})
+                page.goto(server.url)
+                page.locator("#sampleRunButton").wait_for(state="visible")
+                page.wait_for_function(
+                    "() => document.querySelectorAll('#problemList [data-problem-id]').length === 100"
+                )
+
+                initial_scroll = page.evaluate("() => window.scrollY")
+                page.locator("#problemJumpButton").click()
+                page.locator("#problemPickerModal").wait_for(state="visible")
+                page.wait_for_function(
+                    "() => document.activeElement?.id === 'problemPickerSearchInput'"
+                )
+                self.assertEqual(page.evaluate("() => window.scrollY"), initial_scroll)
+
+                page.locator("#problemPickerSearchInput").fill("mock-099")
+                wait_for_text(page, "#problemPickerResults", "1개 문제 검색됨")
+                self.assertEqual(
+                    page.locator("#problemPickerList [data-problem-id]").count(),
+                    1,
+                )
+                self.assertEqual(
+                    page.locator("#problemPickerList [data-folder-move-problem]").count(),
+                    0,
+                )
+                page.locator('#problemPickerList [data-problem-id="mock-099"]').click()
+                page.locator("#problemPickerModal").wait_for(state="hidden")
+                page.locator("#problemJumpButton").click()
+                folder_action = page.locator(
+                    '#problemPickerList [data-folder-move-problem="mock-099"]'
+                )
+                self.assertEqual(folder_action.count(), 1)
+                folder_action.click()
+                page.locator("#problemFolderMoveModal").wait_for(state="visible")
+                page.wait_for_function(
+                    "() => document.activeElement?.id === 'problemFolderMoveSelect'"
+                )
+                self.assertEqual(
+                    page.locator("#problemFolderMoveProblemLabel").inner_text(),
+                    "mock-099 Mock problem 099",
+                )
+                page.locator("#problemFolderMoveCancelButton").focus()
+                page.keyboard.press("Tab")
+                self.assertEqual(
+                    page.evaluate(
+                        "() => document.activeElement?.getAttribute('data-modal-close')"
+                    ),
+                    "",
+                )
+                page.locator("#problemFolderMoveSelect").select_option("Graph")
+                page.locator("#problemFolderMoveConfirmButton").click()
+                wait_for_text(page, "#toastHost", "mock-099 문제를 Graph 폴더로 옮겼습니다.")
+                self.assertEqual(captured, {"problem_id": "mock-099", "folder": "Graph"})
+                page.locator("#problemPickerModal").wait_for(state="visible")
+                self.assertEqual(
+                    page.evaluate("() => document.activeElement?.dataset.folderMoveProblem"),
+                    "mock-099",
+                )
+
+                page.keyboard.press("Escape")
+                page.locator("#problemPickerModal").wait_for(state="hidden")
+                self.assertEqual(
+                    page.evaluate("() => document.activeElement?.id"), "problemJumpButton"
+                )
+
+                page.locator("#problemJumpButton").click()
+                page.locator('#problemPickerList [data-problem-id="mock-099"]').click()
+                page.locator("#problemPickerModal").wait_for(state="hidden")
+                page.wait_for_function(
+                    "() => document.querySelector('#problemSelect')?.value === 'mock-099'"
+                )
+                self.assertEqual(
+                    page.evaluate("() => document.activeElement?.id"), "sourceTextInput"
+                )
+
+                page.set_viewport_size({"width": 901, "height": 844})
+                page.locator("#problemJumpButton").click()
+                self.assertTrue(page.locator("#problemPickerModal").is_hidden())
+                self.assertEqual(
+                    page.evaluate("() => document.activeElement?.id"), "problemSearchInput"
+                )
                 self.assert_no_browser_errors()
 
     def test_problem_folder_drag_drop_updates_problem_metadata_in_browser(self) -> None:
@@ -349,8 +1029,8 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assertEqual(captured, {"problemId": "alpha", "folder": "Dynamic"})
                 self.assert_no_browser_errors()
 
-    def test_problem_folder_create_collapse_and_delete_confirmation_in_browser(self) -> None:
-        """폴더 생성, 접기, 빈 폴더 삭제, 문제 포함 폴더 삭제 확인창을 브라우저에서 검증합니다."""
+    def test_problem_folder_create_collapse_and_safe_delete_in_browser(self) -> None:
+        """폴더 생성·접기와 문제를 미분류로 옮기는 안전 삭제를 검증합니다."""
         problems = [
             {
                 "problemId": "alpha",
@@ -370,12 +1050,23 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 "folder": "Graph",
                 "folderEditable": True,
             },
+            {
+                "problemId": "gamma",
+                "title": "Gamma",
+                "version": 1,
+                "defaultProfile": "full",
+                "profiles": ["sample"],
+                "folder": "Error",
+                "folderEditable": True,
+            },
         ]
         folders = [
             {"folder": "", "label": "미분류", "problemCount": 1},
+            {"folder": "Error", "label": "Error", "problemCount": 1},
             {"folder": "Graph", "label": "Graph", "problemCount": 1},
         ]
         dialogs: list[str] = []
+        delete_requests: list[dict] = []
 
         def folders_route(route):
             """브라우저 폴더 관리 테스트용 폴더 API 응답을 제공합니다."""
@@ -391,14 +1082,25 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 return
             if request.method == "DELETE":
                 folder = body["folder"]
+                delete_requests.append(body)
+                if folder == "Error":
+                    route.fulfill(status=500, json={"detail": "simulated folder move failure"})
+                    return
                 folders[:] = [item for item in folders if item["folder"] != folder]
-                if body.get("confirm_delete_problems"):
-                    problems[:] = [problem for problem in problems if problem["folder"] != folder]
+                moved_problem_ids = []
+                for problem in problems:
+                    if problem["folder"] == folder:
+                        problem["folder"] = ""
+                        moved_problem_ids.append(problem["problemId"])
+                for item in folders:
+                    if item["folder"] == "":
+                        item["problemCount"] += len(moved_problem_ids)
                 route.fulfill(
                     json={
                         "deleted": True,
                         "folder": folder,
-                        "deletedProblems": ["beta"] if folder == "Graph" else [],
+                        "movedProblems": moved_problem_ids,
+                        "deletedProblems": [],
                         "folders": folders,
                     }
                 )
@@ -427,14 +1129,16 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
 
                 page.locator('[data-folder-toggle="Graph"]').click()
                 self.assertTrue(
-                    page.locator('.problem-folder-group[data-folder="Graph"] .problem-folder-items')
-                    .evaluate("node => node.classList.contains('hidden')")
+                    page.locator(
+                        '.problem-folder-group[data-folder="Graph"] .problem-folder-items'
+                    ).evaluate("node => node.classList.contains('hidden')")
                 )
                 page.reload()
                 page.locator("#sampleRunButton").wait_for(state="visible")
                 self.assertTrue(
-                    page.locator('.problem-folder-group[data-folder="Graph"] .problem-folder-items')
-                    .evaluate("node => node.classList.contains('hidden')")
+                    page.locator(
+                        '.problem-folder-group[data-folder="Graph"] .problem-folder-items'
+                    ).evaluate("node => node.classList.contains('hidden')")
                 )
 
                 page.locator('[data-folder-delete="Empty"]').click()
@@ -445,9 +1149,48 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
 
                 page.locator('[data-folder-delete="Graph"]').click()
                 page.wait_for_function(
-                    "() => !document.querySelector('[data-problem-id=\"beta\"]')"
+                    """() => document.querySelector(
+                        '.problem-folder-group[data-folder=""] [data-problem-id="beta"]'
+                    )"""
                 )
-                self.assertTrue(any("폴더 내 문제들이 모두 삭제됩니다" in text for text in dialogs))
+                self.assertTrue(
+                    any("문제는 삭제하지 않고 미분류로 옮깁니다" in text for text in dialogs)
+                )
+                self.assertEqual(
+                    delete_requests,
+                    [
+                        {"folder": "Empty", "mode": "move_to_uncategorized"},
+                        {"folder": "Graph", "mode": "move_to_uncategorized"},
+                    ],
+                )
+                self.assertIn("beta", {problem["problemId"] for problem in problems})
+
+                page.locator('[data-folder-delete="Error"]').click()
+                wait_for_text(page, "#resultSummary", "simulated folder move failure")
+                self.assertEqual(
+                    delete_requests[-1],
+                    {"folder": "Error", "mode": "move_to_uncategorized"},
+                )
+                self.assertEqual(
+                    page.locator('[data-problem-id="gamma"]').get_attribute("data-problem-id"),
+                    "gamma",
+                )
+                self.assertEqual(
+                    next(problem for problem in problems if problem["problemId"] == "gamma")[
+                        "folder"
+                    ],
+                    "Error",
+                )
+                self.assertTrue(
+                    any(
+                        "http 500:" in error and "/api/folders" in error
+                        for error in self.browser_errors
+                    )
+                )
+                self.assertTrue(
+                    any("500 (Internal Server Error)" in error for error in self.browser_errors)
+                )
+                self.browser_errors.clear()
                 self.assert_no_browser_errors()
 
     def test_submission_language_buttons_jobs_and_case_results_in_browser(self) -> None:
@@ -513,7 +1256,9 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#problemSelect").select_option("06")
                 page.locator("#filenameInput").fill("main.cpp")
-                page.wait_for_function("() => document.querySelector('#languageHint')?.value === 'cpp'")
+                page.wait_for_function(
+                    "() => document.querySelector('#languageHint')?.value === 'cpp'"
+                )
                 wait_for_text(page, "#languageBadge", "C++")
                 page.locator("#sourceTextInput").fill("int main(){return 0;}\n")
                 page.locator("#fullRunButton").click()
@@ -521,6 +1266,8 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.wait_for_function(
                     "() => document.querySelector('#jobsPageLabel')?.textContent === '1 / 2'"
                 )
+                self.assertTrue(page.locator("#jobsPanel").is_hidden())
+                page.locator("#jobsButton").click()
                 wait_for_text(page, "#jobsPanel", "채점 · 5")
                 run_body = wait_for_captured_body(page, captured_run_request)
                 self.assertIn('name="profile"', run_body)
@@ -564,13 +1311,13 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 wait_for_text(page, "#resultSummary", "채점 완료", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "main.py", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "accepted", timeout=120_000)
-                wait_for_text(page, "#sampleCases", "Input")
+                wait_for_text(page, "#sampleCases", "입력")
 
                 page.locator("#cacheManageButton").click()
                 page.on("dialog", lambda dialog: dialog.accept())
                 page.locator("#cacheClearAllButton").click()
                 wait_for_text(page, "#cacheOutput", "삭제했습니다", timeout=30_000)
-                wait_for_text(page, "#sourceHistoryList", "캐시 소스가 없습니다")
+                wait_for_text(page, "#sourceHistoryList", "이전 캐시 코드가 없습니다")
                 page.keyboard.press("Escape")
 
                 page.locator("#themeToggleButton").click()
@@ -683,6 +1430,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#problemSelect").select_option("06")
                 page.locator("#sampleRunButton").wait_for(state="visible")
                 wait_for_text(page, "#sourceHistoryList", "accepted.py", timeout=120_000)
+                page.locator(".source-history > summary").click()
                 page.get_by_role("button", name="코드 사용").first.click()
                 wait_for_text(page, "#sourceReadiness", "accepted.py 준비됨")
                 page.wait_for_function(
@@ -690,15 +1438,15 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         .querySelector("#sourceTextInput")
                         ?.value.includes("def main")"""
                 )
-                wait_for_text(page, "#sampleCases", "Input")
+                wait_for_text(page, "#sampleCases", "입력")
                 self.assertIn("def main", page.locator("#sourceTextInput").input_value())
                 wait_for_text(page, "#resultSummary", "채점 완료")
                 wait_for_text(page, "#resultMeta", "06")
 
                 page.on("dialog", lambda dialog: dialog.accept())
                 page.locator(".source-history-actions .danger").first.click()
-                wait_for_text(page, "#toastHost", "캐시 소스 삭제됨")
-                wait_for_text(page, "#sourceHistoryList", "캐시 소스가 없습니다")
+                wait_for_text(page, "#toastHost", "이전 캐시 코드 삭제됨")
+                wait_for_text(page, "#sourceHistoryList", "이전 캐시 코드가 없습니다")
 
                 page.locator("#cacheManageButton").click()
                 page.locator("#cachePreviewButton").click()
@@ -800,18 +1548,18 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 wait_for_text(page, "#sourceReadiness", "wrong.py 준비됨")
                 page.locator("#fullRunButton").click()
                 wait_for_text(page, "#statusBadge", "오답", timeout=120_000)
-                wait_for_text(page, "#wrongPanel", "Wrong Case", timeout=120_000)
-                page.get_by_role("button", name="Actual").click()
+                wait_for_text(page, "#wrongPanel", "오답 케이스", timeout=120_000)
+                page.get_by_role("button", name="실제 출력").click()
                 wait_for_text(page, "#artifactOutput", "42", timeout=120_000)
                 page.locator("#artifactCopyButton").click()
-                wait_for_text(page, "#toastHost", "Copied actual artifact")
+                wait_for_text(page, "#toastHost", "실제 출력 산출물을 복사했습니다.")
                 page.locator("#artifactWrapButton").click()
                 self.assertTrue(
                     page.locator("#artifactOutput").evaluate(
                         "node => node.classList.contains('wrapped')"
                     )
                 )
-                page.get_by_role("button", name="Diff").click()
+                page.get_by_role("button", name="차이점").click()
                 wait_for_text(page, "#artifactOutput", "-", timeout=120_000)
                 self.assertGreater(page.locator("#artifactOutput .diff-remove").count(), 0)
                 with page.expect_download() as download_info:
@@ -820,6 +1568,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
 
                 page.unroute(re.compile(r"/api/jobs(?:\?.*)?$"))
                 page.locator("#addProblemButton").click()
+                page.locator(".pack-advanced-install > summary").click()
                 page.locator("#packFileInput").set_input_files(str(pack_path))
                 page.locator("#uploadPackButton").click()
                 wait_for_text(page, "#packStatus", "문제 팩 설치 완료", timeout=30_000)
@@ -918,7 +1667,10 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 stub_samples(page)
                 page.route("**/api/cases/jobs", create_cases_job)
                 page.route("**/api/run/jobs", create_run_job)
-                page.route(re.compile(r"/api/jobs(?:\?.*)?$"), lambda route: route.fulfill(json=listed_jobs()))
+                page.route(
+                    re.compile(r"/api/jobs(?:\?.*)?$"),
+                    lambda route: route.fulfill(json=listed_jobs()),
+                )
                 page.route("**/api/jobs/run-1/cancel", cancel_job)
                 page.goto(server.url)
                 page.locator("#sampleRunButton").wait_for(state="visible")
@@ -930,6 +1682,8 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#jobsPanel", "채점")
                 wait_for_text(page, "#jobsPanel", "실행 중")
+                self.assertTrue(page.locator("#jobsPanel").is_hidden())
+                page.locator("#jobsButton").click()
                 self.assertFalse(page.locator("#sourceTextInput").is_disabled())
                 page.locator('[data-job-cancel="run-1"]').click()
                 page.locator("#jobsPanel").wait_for(state="visible")
@@ -1076,11 +1830,13 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
 
                 page.locator('[data-jobs-filter="attention"]').click()
                 wait_for_text(page, "#jobsList", "오답")
-                wait_for_text(page, "#jobsList", "case 001")
+                wait_for_text(page, "#jobsList", "테스트케이스 001")
                 wait_for_text(page, "#jobsList", "expected 1, got 2")
                 wait_for_text(page, "#jobsList", "forced cases compile failure")
                 wait_for_text(page, "#jobsList", "generator crashed on cold cache")
-                self.assertNotIn("문제 팩 설치 · seed.aljpack", page.locator("#jobsList").inner_text())
+                self.assertNotIn(
+                    "문제 팩 설치 · seed.aljpack", page.locator("#jobsList").inner_text()
+                )
 
                 page.locator('[data-jobs-filter="maintenance"]').click()
                 wait_for_text(page, "#jobsList", "cases.yml 검사 · e2e")
@@ -1092,6 +1848,63 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 wait_for_text(page, "#jobsList", "채점 · e2e")
                 wait_for_text(page, "#jobsList", "채점 · active")
                 self.assertNotIn("데이터 생성 · e2e", page.locator("#jobsList").inner_text())
+                self.assert_no_browser_errors()
+
+    def test_job_center_mobile_dialog_desktop_complementary_and_terminal_announcement(
+        self,
+    ) -> None:
+        """작업 센터의 반응형 의미·포커스·terminal 1회 알림을 검증합니다."""
+        job = {
+            "jobId": "responsive-job",
+            "kind": "judge-generate",
+            "title": "반응형 작업",
+            "problemId": "06",
+            "status": "queued",
+            "cancelSupported": True,
+            "target": {"problemId": "06"},
+            "progress": {"message": "대기 중", "current": 0, "total": 1},
+            "lastLog": "대기 중",
+            "logs": [],
+            "result": None,
+        }
+        jobs = {job["jobId"]: job}
+
+        with isolated_runtime("alj-jobs-responsive-e2e-") as (_directory, runtime):
+            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+                page = self.new_page(server.url, width=390, height=844)
+                route_jobs_list(page, jobs)
+                page.goto(server.url)
+                wait_for_text(page, "#jobsButton", "진행 1")
+
+                page.locator("#jobsButton").click()
+                page.locator("#jobsPanel").wait_for(state="visible")
+                self.assertEqual(page.locator("#jobsPanel").get_attribute("role"), "dialog")
+                self.assertEqual(page.locator("#jobsPanel").get_attribute("aria-modal"), "true")
+                self.assertIsNotNone(page.locator(".shell").get_attribute("inert"))
+                page.wait_for_function("() => document.activeElement?.id === 'jobsCloseButton'")
+                page.keyboard.press("Escape")
+                page.locator("#jobsPanel").wait_for(state="hidden")
+                self.assertEqual(page.evaluate("() => document.activeElement?.id"), "jobsButton")
+
+                job.update(
+                    status="succeeded",
+                    result={"passed": True},
+                    progress={"message": "완료", "current": 1, "total": 1},
+                    lastLog="완료",
+                )
+                wait_for_text(page, "#jobsAnnouncements", "완료 상태로 끝났습니다")
+                announcement = page.locator("#jobsAnnouncements").text_content()
+                page.wait_for_timeout(1200)
+                self.assertEqual(page.locator("#jobsAnnouncements").text_content(), announcement)
+
+                page.set_viewport_size({"width": 901, "height": 844})
+                page.locator("#jobsButton").click()
+                page.locator("#jobsPanel").wait_for(state="visible")
+                self.assertEqual(page.locator("#jobsPanel").get_attribute("role"), "complementary")
+                self.assertIsNone(page.locator("#jobsPanel").get_attribute("aria-modal"))
+                self.assertIsNone(page.locator(".shell").get_attribute("inert"))
+                page.keyboard.press("Escape")
+                page.locator("#jobsPanel").wait_for(state="hidden")
                 self.assert_no_browser_errors()
 
     def test_cases_compile_failure_blocks_run_stream_in_browser(self) -> None:
@@ -1355,9 +2168,11 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 "judge-pack-download",
                 "Install Official Problems",
                 {
+                    "installType": "pack",
                     "assetName": "official-e2e.aljpack",
                     "label": "downloads/official-e2e.aljpack",
                     "checksumVerified": True,
+                    "signatureVerified": True,
                 },
                 problem_id="__packs__",
                 target={"repository": "owner/problems", "assetName": "official-e2e.aljpack"},
@@ -1387,6 +2202,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sampleRunButton").wait_for(state="visible")
 
                 page.locator("#addProblemButton").click()
+                page.locator(".pack-advanced-install > summary").click()
                 page.locator("#officialRepoInput").fill("owner/problems")
                 page.locator("#packAssetInput").fill("official-e2e.aljpack")
                 page.locator("#packRefInput").fill("v1.2.3")
@@ -1394,6 +2210,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
 
                 wait_for_text(page, "#packStatus", "official-e2e.aljpack")
                 wait_for_text(page, "#packStatus", "체크섬 확인됨")
+                wait_for_text(page, "#packStatus", "게시자 서명 확인됨")
                 wait_for_text(page, "#packList", "official-e2e")
                 self.assertEqual(
                     captured["body"],
@@ -1403,6 +2220,10 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         "ref": "v1.2.3",
                     },
                 )
+                self.assertTrue(page.locator("#jobsPanel").is_hidden())
+                page.locator("#packJobsButton").click()
+                page.locator("#packModal").wait_for(state="hidden")
+                page.locator("#jobsPanel").wait_for(state="visible")
                 self.assert_no_browser_errors()
 
     def test_official_pack_download_error_guidance_in_browser(self) -> None:
@@ -1439,6 +2260,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sampleRunButton").wait_for(state="visible")
 
                 page.locator("#addProblemButton").click()
+                page.locator(".pack-advanced-install > summary").click()
                 page.locator("#officialRepoInput").fill("owner/problems")
                 page.locator("#packAssetInput").fill("missing.aljpack")
                 page.locator("#downloadPackButton").click()
@@ -1625,6 +2447,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.goto(server.url)
                 page.locator("#sampleRunButton").wait_for(state="visible")
                 page.locator("#addProblemButton").click()
+                page.locator(".pack-advanced-install > summary").click()
                 page.locator("#packFileInput").set_input_files(str(invalid_pack))
                 page.locator("#uploadPackButton").click()
                 wait_for_text(page, "#packStatus", ".aljpack", timeout=30_000)

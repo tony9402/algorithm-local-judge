@@ -96,8 +96,13 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("repositoryCloneButton", page.text)
         self.assertIn("repositoryRefreshButton", page.text)
         self.assertIn("repositoryModal", page.text)
+        self.assertIn("unsavedChangesModal", page.text)
+        self.assertIn("unsavedChangesSaveButton", page.text)
         self.assertIn("repositoryCloneStartButton", page.text)
-        self.assertIn("repositoryRegisterButton", page.text)
+        self.assertIn("repositoryOpenModal", page.text)
+        self.assertIn("repositoryOpenSelect", page.text)
+        self.assertIn("repositoryOpenStartButton", page.text)
+        self.assertNotIn("repositoryRegisterButton", page.text)
         self.assertIn("bulkProblemList", page.text)
         self.assertIn("workspaceBuildStartButton", page.text)
         self.assertIn("metadataFolder", page.text)
@@ -174,6 +179,9 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("buildDashboardDownloadLink", page.text)
         self.assertIn("jobCenterButton", page.text)
         self.assertIn("jobCenterDrawer", page.text)
+        self.assertIn('role="complementary"', page.text)
+        self.assertIn("jobCenterAnnouncements", page.text)
+        self.assertIn("problemNavigationTitle", page.text)
         self.assertIn("검증/빌드", page.text)
         self.assertIn("솔루션 편집", page.text)
         self.assertIn("솔루션 파일 생성", page.text)
@@ -231,12 +239,14 @@ class ProblemStudioTest(unittest.TestCase):
             "/static/app/actions/solution-forms.js",
             "/static/app/actions/solutions.js",
             "/static/app/build-view.js",
+            "/static/app/control-policy.js",
             "/static/app/events.js",
             "/static/app/feedback.js",
             "/static/app/jobs-view.js",
             "/static/app/loading.js",
             "/static/app/metadata-view.js",
             "/static/app/modal.js",
+            "/static/app/unsaved-changes.js",
             "/static/app/progress.js",
             "/static/app/resources-view.js",
             "/static/app/results.js",
@@ -270,6 +280,11 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("export function readStorage", storage_module.text)
         self.assertIn("function bindAppEvents", script_text)
         self.assertIn("function withLoading", script_text)
+        self.assertIn("function deriveControlState", script_text)
+        self.assertIn("function renderControlPolicies", script_text)
+        self.assertIn('bindControlPolicy(casesButton, "solution.cases"', script_text)
+        self.assertNotIn("function setControlsDisabled", script_text)
+        self.assertNotIn("window.setTimeout(applyButtonPolicy", script_text)
         self.assertIn("function showAlert", script_text)
         self.assertIn("function recordTabFeedback", script_text)
         self.assertIn("function recordOperationFailure", script_text)
@@ -278,12 +293,37 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("function renderFeedbackPanels", script_text)
         self.assertIn("function normalizeErrorDetail", api_module.text)
         self.assertIn("function confirmDiscardChanges", script_text)
+        self.assertIn("function dirtySources", script_text)
+        self.assertIn("function hasAnyUnsavedChanges", script_text)
+        self.assertIn("function guardUnsavedTransition", script_text)
+        self.assertIn("function saveDirtySources", script_text)
+        self.assertIn("function discardDirtySources", script_text)
+        self.assertIn("function requestCloseSurface", script_text)
+        self.assertIn("pendingTransitionId", state_module.text)
+        self.assertIn("savedCanonicalDraft", state_module.text)
+        self.assertIn("problem.json 원본과 문제 정보 폼", script_text)
         self.assertIn("function beginProgress", script_text)
         self.assertIn("function setProgressStep", script_text)
         self.assertIn("function setProgressInsight", script_text)
         self.assertIn("function streamProgressDetail", sse_module.text)
         self.assertIn("function validateAllData", script_text)
         self.assertIn("function bindJobCenter", script_text)
+        self.assertIn("function renderRepositoryOpenOptions", script_text)
+        self.assertIn("function openSelectedRepositoryFromModal", script_text)
+        self.assertIn("function updateRepositoryClonePreview", script_text)
+        self.assertNotIn("/api/repositories/register", script_text)
+        self.assertIn("function compactPath", script_text)
+        self.assertIn("function pathDisclosureHtml", script_text)
+        self.assertIn("ArrowRight", script_text)
+        self.assertIn("authoringTabPanel", page.text)
+        self.assertIn("function configureJobsView", script_text)
+        self.assertIn("function syncJobCenterAccessibility", script_text)
+        self.assertIn("function announceTerminalTransitions", script_text)
+        self.assertIn("function trapFocusWithin", script_text)
+        self.assertIn("function captureProblemListPosition", script_text)
+        self.assertIn("function restoreProblemListPosition", script_text)
+        self.assertIn("function revealSelectedProblemIfNeeded", script_text)
+        self.assertIn('"(max-width: 1199px)"', script_text)
         self.assertIn("function jobOutcome", script_text)
         self.assertIn("function jobNeedsAttention", script_text)
         self.assertIn("failureDetails", script_text)
@@ -336,8 +376,12 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("function renderSolutionCasesBody", script_text)
         self.assertIn('"solutionStressModal"', script_text)
         self.assertIn('"solutionStressReviewModal"', script_text)
-        self.assertIn('modal?.classList.add("hidden")', script_text)
-        self.assertIn('modal?.setAttribute("aria-hidden", "true")', script_text)
+        self.assertIn('modal.classList.add("hidden")', script_text)
+        self.assertIn('modal.setAttribute("aria-hidden", "true")', script_text)
+        self.assertIn("function renderProblemSelectionState", script_text)
+        self.assertIn("workspaceEmptyState", page.text)
+        self.assertIn("첫 문제 만들기", page.text)
+        self.assertIn('aria-labelledby="newProblemModalTitle"', page.text)
         self.assertIn("lastSolutionVerification", script_text)
         self.assertIn("function resetSolutionVerificationForRun", script_text)
         self.assertIn("function problemValidationStatus", script_text)
@@ -475,6 +519,12 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(codemirror.status_code, 200)
         self.assertIn("CodeMirror", codemirror.text)
         self.assertIn("body.sidebar-open .sidebar", stylesheet_text)
+        self.assertIn(".problem-navigation", stylesheet_text)
+        self.assertIn("overscroll-behavior: contain", stylesheet_text)
+        self.assertIn(
+            "grid-template-rows: auto auto auto auto auto minmax(96px, 1fr)", stylesheet_text
+        )
+        self.assertIn("@media (max-width: 1199px)", stylesheet_text)
         self.assertIn(".job-cancel-reason", stylesheet_text)
         self.assertIn(".job-row.attention", stylesheet_text)
         self.assertIn(".job-failure-detail", stylesheet_text)
@@ -644,9 +694,7 @@ class ProblemStudioTest(unittest.TestCase):
             blocked_reference_delete.json()["detail"],
         )
         self.assertTrue(
-            (
-                workspace / "problems" / "alpha" / "solutions" / "main_solution.ac.cpp"
-            ).exists()
+            (workspace / "problems" / "alpha" / "solutions" / "main_solution.ac.cpp").exists()
         )
 
         upload = client.post(
@@ -722,9 +770,7 @@ class ProblemStudioTest(unittest.TestCase):
             "solutions/renamed_solution.wa.py",
         )
         self.assertFalse(
-            (
-                workspace / "problems" / "alpha" / "solutions" / "renamed_solution.wa.py"
-            ).exists()
+            (workspace / "problems" / "alpha" / "solutions" / "renamed_solution.wa.py").exists()
         )
         remaining_files = {item["path"] for item in deleted_solution.json()["files"]}
         self.assertNotIn("solutions/renamed_solution.wa.py", remaining_files)
@@ -938,7 +984,9 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(finished["status"], "succeeded")
         self.assertEqual(finished["outcome"], "failed")
         self.assertEqual(finished["failureStage"], "solutions")
-        self.assertEqual(finished["failureDetails"][0]["source"], "problems/alpha/solutions/wrong.wa.cpp")
+        self.assertEqual(
+            finished["failureDetails"][0]["source"], "problems/alpha/solutions/wrong.wa.cpp"
+        )
         self.assertIn("expected WA but accepted", finished["failureDetails"][0]["message"])
 
     def test_solution_verify_job_passes_cancel_check_to_service(self) -> None:
@@ -1946,9 +1994,16 @@ class ProblemStudioTest(unittest.TestCase):
             samples = client.get("/api/problems/alpha/samples")
             git_fetch = client.post("/api/workspace/git/fetch")
             problems = client.get("/api/problems")
+            repositories = client.get("/api/repositories")
+            problem_detail = client.get("/api/problems/alpha")
+            problem_files = client.get("/api/problems/alpha/files")
+            solutions = client.get("/api/problems/alpha/solutions")
+            git_status = client.get("/api/workspace/git/status")
+            jobs = client.get("/api/jobs")
+            pack_jobs = client.get("/api/problems/alpha/packs/jobs")
+            workspace_jobs = client.get("/api/workspace/packs/jobs")
 
-        self.assertEqual(status.status_code, 200, status.text)
-        self.assertFalse(status.json()["writeEnabled"])
+        self.assertEqual(status.status_code, 403, status.text)
         self.assertEqual(created.status_code, 403, created.text)
         self.assertEqual(opened.status_code, 403, opened.text)
         self.assertEqual(linked.status_code, 403, linked.text)
@@ -1967,7 +2022,15 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(generic_clear.status_code, 403, generic_clear.text)
         self.assertEqual(samples.status_code, 403, samples.text)
         self.assertEqual(git_fetch.status_code, 403, git_fetch.text)
-        self.assertEqual(problems.status_code, 200, problems.text)
+        self.assertEqual(problems.status_code, 403, problems.text)
+        self.assertEqual(repositories.status_code, 403, repositories.text)
+        self.assertEqual(problem_detail.status_code, 403, problem_detail.text)
+        self.assertEqual(problem_files.status_code, 403, problem_files.text)
+        self.assertEqual(solutions.status_code, 403, solutions.text)
+        self.assertEqual(git_status.status_code, 403, git_status.text)
+        self.assertEqual(jobs.status_code, 403, jobs.text)
+        self.assertEqual(pack_jobs.status_code, 403, pack_jobs.text)
+        self.assertEqual(workspace_jobs.status_code, 403, workspace_jobs.text)
 
     def test_non_local_binding_blocks_background_job_cancel_and_dismiss(self) -> None:
         """비 로컬 바인딩 차단 백그라운드 작업 취소 및 정리 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
@@ -2049,8 +2112,8 @@ class ProblemStudioTest(unittest.TestCase):
             finally:
                 release.set()
 
-        self.assertEqual(pack_status.status_code, 200, pack_status.text)
-        self.assertEqual(workspace_status.status_code, 200, workspace_status.text)
+        self.assertEqual(pack_status.status_code, 403, pack_status.text)
+        self.assertEqual(workspace_status.status_code, 403, workspace_status.text)
         self.assertEqual(pack_cancel.status_code, 403, pack_cancel.text)
         self.assertEqual(pack_dismiss.status_code, 403, pack_dismiss.text)
         self.assertEqual(workspace_cancel.status_code, 403, workspace_cancel.text)

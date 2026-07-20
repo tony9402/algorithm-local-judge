@@ -163,6 +163,12 @@ class RunnerErrorMessageTest(unittest.TestCase):
                     hidden_dir / "cases" / "102.in",
                 ],
             )
+            self.assertTrue(
+                all(
+                    call.kwargs["memory_limit_bytes"] == DEFAULT_USER_MEMORY_LIMIT_BYTES
+                    for call in mocked_run.call_args_list
+                )
+            )
             result = read_json(run_dir / "result.json")
             self.assertEqual(result["metrics"]["maxTimeMs"], 11)
             self.assertEqual([case["timeMs"] for case in result["cases"]], [7, 11])

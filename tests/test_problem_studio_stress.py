@@ -7,9 +7,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from commons.job_queue import CancelToken, JobCancelledError
 from alj_core.errors import JudgeError
 from alj_core.utils.fs import write_json
+from commons.job_queue import CancelToken, JobCancelledError
 from problem_studio.core.stress import append_stress_case, stress_test_solutions
 
 

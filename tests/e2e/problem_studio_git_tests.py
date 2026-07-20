@@ -22,6 +22,103 @@ from tests.e2e.problem_studio_fakes import (
 class ProblemStudioGitE2ETest(BrowserE2ETestCase):
     """문제 스튜디오 Git 종단 간 테스트 시나리오를 묶어 API, 명령줄, 화면 계약이 회귀하지 않는지 검증하는 테스트 케이스입니다."""
 
+    def test_control_policy_survives_nested_loading_and_preserves_domain_rules(self) -> None:
+        """중첩 로딩이 끝난 뒤에도 Git, 결과, 일괄 작업, 삭제의 도메인 정책을 보존합니다."""
+        with isolated_runtime("alj-problem-studio-control-policy-e2e-") as (_directory, root):
+            workspace = root / "workspace"
+            workspace.mkdir()
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                wait_for_text(page, "#gitStatus", "Git 저장소가 아닙니다.")
+
+                policy_states = page.evaluate(
+                    """async () => {
+                        const { deriveControlState } = await import('/static/app/control-policy.js');
+                        const ready = { loadingDepth: 0, selectedProblem: 'alpha' };
+                        return {
+                            writeDisabled: deriveControlState('git.fetch', {
+                                ...ready,
+                                gitStatus: { isRepository: true, writeEnabled: false },
+                            }),
+                            toolRepository: deriveControlState('git.push', {
+                                ...ready,
+                                gitStatus: {
+                                    isRepository: true,
+                                    writeEnabled: true,
+                                    toolRepositoryRemote: true,
+                                },
+                            }),
+                            emptyBulk: deriveControlState('build.bulk-start', {
+                                ...ready,
+                                controlContext: { selectedCount: 0 },
+                            }),
+                            unconfirmedDelete: deriveControlState('problem.delete', {
+                                ...ready,
+                                controlContext: { deleteConfirmationMatches: false },
+                            }),
+                            confirmedDelete: deriveControlState('problem.delete', {
+                                ...ready,
+                                controlContext: { deleteConfirmationMatches: true },
+                            }),
+                        };
+                    }"""
+                )
+                self.assertTrue(policy_states["writeDisabled"]["disabled"])
+                self.assertIn("서버 정책", policy_states["writeDisabled"]["reason"])
+                self.assertTrue(policy_states["toolRepository"]["disabled"])
+                self.assertIn("도구 저장소", policy_states["toolRepository"]["reason"])
+                self.assertTrue(policy_states["emptyBulk"]["disabled"])
+                self.assertTrue(policy_states["unconfirmedDelete"]["disabled"])
+                self.assertFalse(policy_states["confirmedDelete"]["disabled"])
+
+                page.evaluate(
+                    """() => {
+                        window.__controlPolicyLoading = import('/static/app/loading.js').then(
+                            ({ withErrors }) => Promise.all([
+                                withErrors(
+                                    () => new Promise((resolve) => window.setTimeout(resolve, 240)),
+                                    '긴 정책 테스트 작업을 처리하는 중입니다.'
+                                ),
+                                withErrors(
+                                    () => new Promise((_, reject) => window.setTimeout(
+                                        () => reject(new Error('expected nested failure')),
+                                        40
+                                    )),
+                                    '짧은 정책 테스트 작업을 처리하는 중입니다.'
+                                ),
+                            ])
+                        );
+                    }"""
+                )
+                page.wait_for_function("() => document.body.getAttribute('aria-busy') === 'true'")
+                page.wait_for_timeout(80)
+                self.assertEqual(page.locator("body").get_attribute("aria-busy"), "true")
+                self.assertTrue(page.locator("#gitFetchButton").is_disabled())
+                page.evaluate("() => window.__controlPolicyLoading")
+                self.assertEqual(page.locator("body").get_attribute("aria-busy"), "false")
+                self.assertTrue(page.locator("#gitFetchButton").is_disabled())
+                self.assertIn(
+                    "Git 저장소가 아닙니다.",
+                    page.locator("#gitFetchButton").get_attribute("title") or "",
+                )
+
+                create_studio_problem(page, "policy", "Control Policy")
+                page.locator('[data-tab="solutions"]').click()
+                cases_button = page.locator("[data-solution-cases]").first
+                cases_button.wait_for(state="visible")
+                self.assertTrue(cases_button.is_disabled())
+                page.evaluate(
+                    """async () => {
+                        const { withErrors } = await import('/static/app/loading.js');
+                        await withErrors(async () => {}, '정책 테스트 작업을 처리하는 중입니다.');
+                    }"""
+                )
+                self.assertTrue(cases_button.is_disabled())
+                self.assertIn("테스트 후", cases_button.get_attribute("title") or "")
+                self.assert_no_browser_errors()
+
     def test_git_fetch_pull_main_branch_push_and_write_disabled_ui(self) -> None:
         """Git 가져오기 풀 메인 브랜치 푸시 및 쓰기 비활성 화면 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-problem-studio-git-policy-e2e-") as (_directory, root):
@@ -46,13 +143,15 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 page.wait_for_function(
                     "() => document.getElementById('gitPushButton')?.disabled === false"
                 )
+                page.locator("#gitDrawerButton").click()
+                page.locator("#gitDrawer").wait_for(state="visible")
                 self.browser_errors.clear()
                 page.locator("#gitPullButton").click()
-                wait_for_text(page, "#gitStatus", "ahead 0 / behind 0")
+                wait_for_text(page, "#gitStatus", "앞섬 0 / 뒤처짐 0")
                 page.locator("#gitFetchButton").click()
-                wait_for_text(page, "#gitStatus", "ahead 0 / behind 0")
+                wait_for_text(page, "#gitStatus", "앞섬 0 / 뒤처짐 0")
                 page.locator("#gitPushButton").click()
-                wait_for_text(page, "#gitStatus", "ahead 0 / behind 0")
+                wait_for_text(page, "#gitStatus", "앞섬 0 / 뒤처짐 0")
                 self.assert_no_browser_errors()
 
             with run_app(create_app(workspace, git_write_enabled=False)) as server:
@@ -60,7 +159,9 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 page.goto(server.url)
                 page.locator("#newProblemButton").wait_for(state="visible")
                 wait_for_text(page, "#gitStatus", "main")
-                wait_for_text(page, "#gitStatus", "Git network/write actions are disabled")
+                wait_for_text(
+                    page, "#gitControlReason", "서버 정책으로 Git 쓰기/네트워크 작업이 차단"
+                )
                 page.wait_for_function(
                     """() => {
                         const ids = [
@@ -86,7 +187,9 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 page.goto(server.url)
                 page.locator("#newProblemButton").wait_for(state="visible")
                 wait_for_text(page, "#workspaceStatus", "워크스페이스 열기와 파일 저장 API")
-                wait_for_text(page, "#gitStatus", "Git network/write actions are disabled")
+                wait_for_text(
+                    page, "#gitControlReason", "서버 정책으로 Git 쓰기/네트워크 작업이 차단"
+                )
                 self.browser_errors.clear()
                 self.assert_no_browser_errors()
 
@@ -172,10 +275,12 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 )
                 wait_for_text(page, "#fileStatus", "수정됨")
                 page.locator("#sidebarToggle").click()
+                page.locator("#gitDrawerButton").click()
                 page.locator("#gitCommitMessage").wait_for(state="visible")
                 page.locator("#gitCommitMessage").fill("Add gamma")
                 page.locator("#gitCommitButton").click()
-                wait_for_text(page, "#gitStatus", "clean", timeout=30_000)
+                page.locator("#unsavedChangesSaveButton").click()
+                wait_for_text(page, "#gitStatus", "변경 없음", timeout=30_000)
                 self.assertIn(
                     "git-auto-save",
                     (workspace / "problems" / "gamma" / "generator" / "cases.yml").read_text(
@@ -183,9 +288,11 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                     ),
                 )
                 page.locator("#gitPushButton").click()
-                wait_for_text(page, "#gitStatus", "ahead 0 / behind 0", timeout=30_000)
+                wait_for_text(page, "#gitStatus", "앞섬 0 / 뒤처짐 0", timeout=30_000)
                 wait_for_text(page, "#problemTitle", "Gamma Git", timeout=30_000)
 
+                page.locator("#gitDrawerCloseButton").click()
+                page.locator("#sidebarToggle").click()
                 page.locator("#newProblemButton").click()
                 assert_visible_in_viewport(
                     self,
@@ -216,6 +323,7 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 page.goto(server.url)
                 page.locator("#repositoryCloneButton").wait_for(state="visible")
                 page.locator("#repositoryCloneButton").click()
+                page.locator(".repository-advanced-options").evaluate("el => el.open = true")
                 page.locator("#repositoryUrlInput").fill(str(remote))
                 page.locator("#repositoryNameInput").fill("algorithm-package")
                 page.locator("#repositoryCloneStartButton").click()
@@ -229,9 +337,11 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
 
                 create_studio_problem(page, "delta", "Delta Repo")
                 wait_for_text(page, "#gitStatus", "커밋되지 않은 변경")
+                page.locator("#gitDrawerButton").click()
+                page.locator("#gitDrawer").wait_for(state="visible")
                 page.locator("#gitCommitMessage").fill("Add delta")
                 page.locator("#gitCommitButton").click()
-                wait_for_text(page, "#gitStatus", "clean", timeout=30_000)
+                wait_for_text(page, "#gitStatus", "변경 없음", timeout=30_000)
                 page.locator("#gitPushButton").click()
                 wait_for_text(page, "#gitStatus", "origin/feature/repository-ui", timeout=30_000)
                 wait_for_text(page, "#problemTitle", "Delta Repo", timeout=30_000)
@@ -258,12 +368,65 @@ class ProblemStudioGitE2ETest(BrowserE2ETestCase):
                 page.goto(server.url)
                 page.locator("#repositorySelect").wait_for(state="visible")
                 page.locator("#repositoryRefreshButton").click()
-                page.locator("#repositoryCloneButton").click()
-                page.locator("#repositoryNameInput").fill("repo-a")
-                page.locator("#repositoryRegisterButton").click()
+                page.locator("#repositoryOpenButton").click()
+                page.locator("#repositoryOpenSelect").select_option("repo-a")
+                page.locator("#repositoryOpenStartButton").click()
                 wait_for_text(page, "#problemTitle", "Repo A One")
                 wait_for_text(page, "#workspaceLabel", "repo-a")
                 page.locator("#repositorySelect").select_option("repo-b")
                 wait_for_text(page, "#problemTitle", "Repo B One")
                 wait_for_text(page, "#workspaceLabel", "repo-b")
+                self.assert_no_browser_errors()
+
+    def test_repository_open_onboarding_and_dirty_cancel_make_no_api_request(self) -> None:
+        """기존 저장소 modal은 발견 목록만 제공하고 dirty 취소 시 전환 API를 호출하지 않습니다."""
+        with isolated_runtime("alj-problem-studio-repository-open-e2e-") as (_directory, root):
+            workspace = root / "studio"
+            repo_a = workspace / "problems" / "repo-a"
+            repo_b = workspace / "problems" / "repo-b"
+            create_problem_template(repo_a, "01", "Repo A")
+            create_problem_template(repo_b, "02", "Repo B")
+            git(repo_a, "init")
+            git(repo_b, "init")
+
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                transition_requests: list[str] = []
+                page.on(
+                    "request",
+                    lambda request: (
+                        transition_requests.append(request.url)
+                        if "/api/repositories/select" in request.url
+                        or "/api/repositories/clone" in request.url
+                        else None
+                    ),
+                )
+                page.goto(server.url)
+                page.locator("#repositoryRefreshButton").click()
+                page.locator("#repositoryOpenButton").click()
+                page.locator("#repositoryOpenSelect").select_option("repo-a")
+                page.locator("#repositoryOpenStartButton").click()
+                page.locator("#metadataTitle").wait_for(state="visible")
+                transition_requests.clear()
+                page.locator("#metadataTitle").fill("저장하지 않은 제목")
+                page.locator("#repositoryOpenButton").click()
+                page.locator("#unsavedChangesModal").wait_for(state="visible")
+                page.locator("#unsavedChangesCancelButton").click()
+                page.locator("#unsavedChangesModal").wait_for(state="hidden")
+                self.assertEqual(transition_requests, [])
+                self.assertEqual(
+                    page.locator("#metadataTitle").input_value(),
+                    "저장하지 않은 제목",
+                )
+                self.assertFalse(page.locator("#repositoryOpenModal").is_visible())
+
+                page.locator("#repositoryOpenButton").click()
+                page.locator("#unsavedChangesDiscardButton").click()
+                page.locator("#repositoryOpenModal").wait_for(state="visible")
+                self.assertEqual(
+                    page.locator("#repositoryOpenSelect option").all_text_contents(),
+                    ["repo-a", "repo-b"],
+                )
+                wait_for_text(page, "#repositoryOpenSummary", "개 문제")
+                self.assertFalse(page.locator("#repositoryOpenCloneButton").is_visible())
                 self.assert_no_browser_errors()
