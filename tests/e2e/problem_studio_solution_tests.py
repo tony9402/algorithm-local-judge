@@ -14,6 +14,7 @@ from tests.e2e.helpers import (
     isolated_runtime,
     run_app,
     set_solution_modal_editor_value,
+    wait_for_async_result,
     wait_for_text,
 )
 from tests.e2e.problem_studio_fakes import fake_verify_solutions, git
@@ -178,7 +179,8 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 self.assertEqual(calls["count"], 1)
 
                 click_by_text(page, "#tabActions button", "기대 결과 검증")
-                page.wait_for_function(
+                wait_for_async_result(
+                    page,
                     """async () => {
                         const response = await fetch("/api/jobs", { cache: "no-store" });
                         const payload = await response.json();
@@ -229,7 +231,8 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                     "forced cold-start verify failure",
                     timeout=30_000,
                 )
-                page.wait_for_function(
+                wait_for_async_result(
+                    page,
                     """async () => {
                         const response = await fetch("/api/jobs", { cache: "no-store" });
                         const payload = await response.json();
@@ -247,7 +250,8 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 page.locator("#jobCenterCloseButton").click()
 
                 click_by_text(page, "#tabActions button", "기대 결과 검증")
-                page.wait_for_function(
+                wait_for_async_result(
+                    page,
                     """async () => {
                         const response = await fetch("/api/jobs", { cache: "no-store" });
                         const payload = await response.json();

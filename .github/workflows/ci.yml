@@ -63,6 +63,8 @@ jobs:
       - run: uv sync --dev --locked
       - run: uv run playwright install --with-deps chromium
       - name: Browser and CLI E2E with problems immutability guard
+        env:
+          ALJ_TOOL_COMPILE_TIMEOUT_MIN_MS: "30000"
         run: >-
           uv run python scripts/run_with_problems_guard.py --
           uv run python -m unittest discover tests/e2e -p 'e2e_*.py' -v

@@ -18,6 +18,7 @@ from tests.e2e.helpers import (
     judge_env,
     run_app,
     temporary_env,
+    wait_for_async_result,
     wait_for_text,
 )
 
@@ -223,7 +224,8 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "맞았습니다", timeout=120_000)
                 wait_for_text(page, "#jobsButton", "작업 센터", timeout=120_000)
-                page.wait_for_function(
+                wait_for_async_result(
+                    page,
                     """async () => {
                         const response = await fetch("/api/jobs");
                         const payload = await response.json();

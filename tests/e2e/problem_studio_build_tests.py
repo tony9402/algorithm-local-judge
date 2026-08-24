@@ -21,6 +21,8 @@ from tests.e2e.helpers import (
     run_judge_cli,
     set_solution_modal_editor_value,
     set_studio_editor_value,
+    wait_for_async_result,
+    wait_for_job_terminal,
     wait_for_studio_file_ready,
     wait_for_text,
     write_trivial_python_source,
@@ -133,7 +135,8 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     wait_for_text(page, "#buildDashboardTitle", "전체 테스트 통과", timeout=30_000)
                     page.locator("#packButton").click()
                     wait_for_text(page, "#buildDashboardPack", ".aljpack", timeout=30_000)
-                    page.wait_for_function(
+                    wait_for_async_result(
+                        page,
                         """async () => {
                             const response = await fetch("/api/jobs", { cache: "no-store" });
                             const payload = await response.json();
@@ -148,7 +151,8 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     )
 
                     page.locator("#packButton").click()
-                    page.wait_for_function(
+                    wait_for_async_result(
+                        page,
                         """async () => {
                             const response = await fetch("/api/jobs", { cache: "no-store" });
                             const payload = await response.json();
@@ -210,7 +214,8 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     wait_for_text(
                         page, "#alertStack", "forced cold-start pack failure", timeout=30_000
                     )
-                    page.wait_for_function(
+                    wait_for_async_result(
+                        page,
                         """async () => {
                             const response = await fetch("/api/jobs", { cache: "no-store" });
                             const payload = await response.json();
@@ -224,7 +229,8 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     )
 
                     page.locator("#packButton").click()
-                    page.wait_for_function(
+                    wait_for_async_result(
+                        page,
                         """async () => {
                             const response = await fetch("/api/jobs", { cache: "no-store" });
                             const payload = await response.json();
@@ -694,8 +700,25 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                 page.locator("#newProblemButton").wait_for(state="visible")
                 wait_for_text(page, "#problemTitle", "Real Pack")
                 page.locator('[data-tab="build"]').click()
-                click_by_text(page, "#tabActions button", "전체 테스트")
-                wait_for_text(page, "#buildDashboardTitle", "전체 테스트 통과", timeout=120_000)
+                with page.expect_response(
+                    lambda response: (
+                        response.request.method == "POST"
+                        and response.url.endswith("/api/problems/realpack/checks/jobs")
+                    )
+                ) as started_response:
+                    click_by_text(page, "#tabActions button", "전체 테스트")
+                started_job = started_response.value.json()
+                finished_job = wait_for_job_terminal(page, started_job["jobId"], timeout=120_000)
+                self.assertEqual(
+                    finished_job.get("status"),
+                    "succeeded",
+                    f"full-check job failed: {json.dumps(finished_job, ensure_ascii=False)}",
+                )
+                self.assertTrue(
+                    finished_job.get("result", {}).get("passed"),
+                    f"full-check result did not pass: {json.dumps(finished_job, ensure_ascii=False)}",
+                )
+                wait_for_text(page, "#buildDashboardTitle", "전체 테스트 통과")
                 page.locator("#packButton").click()
                 wait_for_text(page, "#buildDashboardPack", ".aljpack", timeout=120_000)
                 self.assertTrue(page.locator("#buildDashboardDownloadLink").is_visible())

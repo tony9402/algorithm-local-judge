@@ -208,6 +208,74 @@ def wait_for_text(page: Page, selector: str, text: str, timeout: int = 15_000) -
     )
 
 
+def wait_for_async_result(
+    page: Page,
+    expression: str,
+    *,
+    arg: Any = None,
+    timeout: int = 15_000,
+    interval: float = 0.1,
+) -> Any:
+    """Promise를 반환하는 브라우저 조건을 Python에서 반복 평가해 truthy 결과를 기다립니다.
+
+    Args:
+        page (Page): 비동기 조건을 평가할 Playwright 페이지입니다.
+        expression (str): Promise 또는 일반 값을 반환하는 JavaScript 함수입니다.
+        arg (Any): JavaScript 함수에 전달할 직렬화 가능한 인자입니다.
+        timeout (int): 조건이 만족될 때까지 기다릴 최대 시간입니다.
+        interval (float): 평가 사이의 대기 시간입니다.
+
+    Returns:
+        Any: 처음 관찰한 truthy 평가 결과입니다.
+    """
+    deadline = time.monotonic() + timeout / 1000
+    last_result: Any = None
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            last_result = page.evaluate(expression, arg)
+            last_error = None
+            if last_result:
+                return last_result
+        except PlaywrightError as exc:
+            last_error = exc
+        time.sleep(interval)
+    detail = f"last result: {last_result!r}"
+    if last_error is not None:
+        detail += f", last error: {last_error}"
+    raise AssertionError(f"async browser condition timed out after {timeout}ms ({detail})")
+
+
+def wait_for_job_terminal(page: Page, job_id: str, timeout: int = 15_000) -> dict[str, Any]:
+    """시작한 백그라운드 작업이 terminal 상태가 될 때까지 기다리고 최종 응답을 반환합니다.
+
+    Args:
+        page (Page): 작업 API에 접근할 Playwright 페이지입니다.
+        job_id (str): 시작 응답에서 받은 작업 식별자입니다.
+        timeout (int): terminal 상태를 기다릴 최대 시간입니다.
+
+    Returns:
+        dict[str, Any]: 성공 또는 실패를 포함한 최종 작업 응답입니다.
+    """
+    result = wait_for_async_result(
+        page,
+        """async (jobId) => {
+            const response = await fetch("/api/jobs", { cache: "no-store" });
+            if (!response.ok) return null;
+            const payload = await response.json();
+            const job = (payload.jobs || []).find((item) => item.jobId === jobId);
+            return job && ["succeeded", "failed", "cancelled", "stale"].includes(job.status)
+                ? job
+                : null;
+        }""",
+        arg=job_id,
+        timeout=timeout,
+    )
+    if not isinstance(result, dict):
+        raise AssertionError(f"terminal job payload is invalid: {result!r}")
+    return result
+
+
 def wait_for_value(page: Page, selector: str, value: str, timeout: int = 15_000) -> None:
     """브라우저 화면에서 값 조건이 만족될 때까지 기다려 비동기 렌더링 경합을 줄입니다.
 
