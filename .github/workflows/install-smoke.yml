@@ -88,7 +88,10 @@ jobs:
           test "$(readlink "$ALJ_BIN_DIR/problem-studio")" = "$ALJ_INSTALL_DIR/bin/problem-studio"
           test -f "$ALJ_INSTALL_DIR/.algorithm-local-judge-runtime"
           grep -F "export PATH=$ALJ_BIN_DIR:\$PATH" "$ALJ_SHELL_PROFILE"
-          module_path="$("$ALJ_INSTALL_DIR/bin/python" -c 'import judge; print(judge.__file__)')"
+          module_path="$(
+            cd "$RUNNER_TEMP"
+            "$ALJ_INSTALL_DIR/bin/python" -c 'import judge; print(judge.__file__)'
+          )"
           case "$module_path" in
             "$GITHUB_WORKSPACE"/*)
               echo "judge was installed in editable mode: $module_path" >&2

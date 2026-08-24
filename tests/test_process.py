@@ -90,7 +90,10 @@ class ProcessHardeningTest(unittest.TestCase):
                 self.closed = True
 
         job = FakeWindowsJob()
-        with patch("alj_core.utils.process.create_windows_job", return_value=job):
+        with (
+            patch("alj_core.utils.process.create_windows_job", return_value=job),
+            patch("alj_core.utils.process.process_memory_bytes", return_value=None),
+        ):
             result = run_command_result(
                 [sys.executable, "-c", "raise SystemExit(3)"],
                 timeout_ms=2000,

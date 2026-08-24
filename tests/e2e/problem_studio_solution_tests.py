@@ -66,7 +66,7 @@ def completed_stress_job(job_id: str, result: dict, *, problem_id: str = "alpha"
     return {
         "jobId": job_id,
         "kind": "solution-stress",
-        "title": "Stress 테스트",
+        "title": "스트레스 테스트",
         "problemId": problem_id,
         "status": "succeeded",
         "cancelSupported": True,
@@ -759,11 +759,11 @@ class ProblemStudioSolutionE2ETest(BrowserE2ETestCase):
                 page.goto(server.url)
                 page.locator("#newProblemButton").wait_for(state="visible")
                 page.locator('[data-tab="solutions"]').click()
-                click_by_text(page, "#tabActions button", "Stress 테스트")
+                click_by_text(page, "#tabActions button", "스트레스 테스트")
                 page.locator("#solutionStressModal").wait_for(state="visible")
                 wait_for_text(page, "#solutionStressSelection", "sneaky.wa.py")
                 page.locator("#solutionStressStartButton").click()
-                wait_for_text(page, "#solutionValidationSummary", "Stress mismatch")
+                wait_for_text(page, "#solutionValidationSummary", "스트레스 불일치")
                 page.locator("[data-stress-preview='000001']").first.click()
                 page.locator("#solutionStressReviewModal").wait_for(state="visible")
                 wait_for_text(page, "#solutionStressReviewBody", "981273")

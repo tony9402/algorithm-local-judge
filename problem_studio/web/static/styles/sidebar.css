@@ -24,8 +24,7 @@
   align-content: stretch;
   gap: 8px;
   min-width: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: clip;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }

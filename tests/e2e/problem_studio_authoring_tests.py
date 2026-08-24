@@ -335,18 +335,18 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 wait_for_text(page, "#resourceSummary", "1/2개 표시")
                 self.assertIn("generator/cases.yml", page.locator("#tabFiles").inner_text())
 
-                click_by_text(page, "#tabActions button", "Cases 검사")
-                wait_for_text(page, "#lastRunTitle", "Cases 검사 완료")
+                click_by_text(page, "#tabActions button", "케이스 파일 검사")
+                wait_for_text(page, "#lastRunTitle", "케이스 파일 검사 완료")
                 wait_for_text(page, "#alertStack", "cases.yml OK")
 
                 set_studio_editor_value(page, "profiles:\n  hidden:\n    cases: not-a-list\n")
                 page.locator("#saveFileButton").click()
                 wait_for_text(page, "#fileStatus", "저장됨")
-                click_by_text(page, "#tabActions button", "Cases 검사")
-                wait_for_text(page, "#lastRunTitle", "Cases 검사 실패")
+                click_by_text(page, "#tabActions button", "케이스 파일 검사")
+                wait_for_text(page, "#lastRunTitle", "케이스 파일 검사 실패")
                 wait_for_text(page, "#lastRunSummary", "예제 preview")
                 wait_for_text(page, "#lastRunSummary", "expected: profile은 mapping")
-                click_by_text(page, "#tabActions button", "Sample 데이터 생성")
+                click_by_text(page, "#tabActions button", "샘플 데이터 생성")
                 wait_for_text(page, "#lastRunTitle", "sample 데이터 생성 실패")
                 wait_for_text(page, "#lastRunSummary", "generator/cases.yml")
 
@@ -618,7 +618,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                         };
                     }"""
                 )
-                self.assertEqual(layout["sidebarOverflow"], "hidden")
+                self.assertEqual(layout["sidebarOverflow"], "clip")
                 self.assertEqual(layout["sidebarScrollTop"], 0)
                 self.assertEqual(layout["listOverflow"], "auto")
                 self.assertGreaterEqual(layout["listClientHeight"], 80)
@@ -791,5 +791,7 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 disclosure.wait_for(state="visible")
                 compact = disclosure.locator("summary").inner_text()
                 self.assertTrue(compact.startswith("~") or compact.startswith("…/"), compact)
+                disclosure.locator("summary").click()
+                disclosure.locator("code").wait_for(state="visible")
                 self.assertIn(str(workspace), disclosure.locator("code").inner_text())
                 self.assert_no_browser_errors()

@@ -1093,8 +1093,8 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                     )
                     wait_for_text(page, "#fileStatus", "수정됨")
 
-                    click_by_text(page, "#tabActions button", "Cases 검사")
-                    wait_for_text(page, "#lastRunTitle", "Cases 검사 완료")
+                    click_by_text(page, "#tabActions button", "케이스 파일 검사")
+                    wait_for_text(page, "#lastRunTitle", "케이스 파일 검사 완료")
                     cases_path = workspace / "problems" / "alpha" / "generator" / "cases.yml"
                     self.assertIn("cases-save", cases_path.read_text(encoding="utf-8"))
 

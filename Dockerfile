@@ -31,6 +31,7 @@ WORKDIR /app
 COPY --from=cosign-bin /ko-app/cosign /usr/local/bin/cosign
 COPY pyproject.toml README.md THIRD_PARTY_NOTICES.md ./
 COPY alj_core ./alj_core
+COPY alj_launcher ./alj_launcher
 COPY commons ./commons
 COPY judge ./judge
 COPY problem_studio ./problem_studio

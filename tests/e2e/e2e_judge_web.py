@@ -761,7 +761,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     "false",
                 )
 
-                page.set_viewport_size({"width": 900, "height": 800})
+                page.set_viewport_size({"width": 560, "height": 800})
                 self.assertEqual(
                     page.locator("#problemList").evaluate(
                         "node => getComputedStyle(node).overflowY"
@@ -1310,7 +1310,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 wait_for_text(page, "#statusBadge", "맞았습니다", timeout=120_000)
                 wait_for_text(page, "#resultSummary", "채점 완료", timeout=120_000)
                 wait_for_text(page, "#sourceHistoryList", "main.py", timeout=120_000)
-                wait_for_text(page, "#sourceHistoryList", "accepted", timeout=120_000)
+                wait_for_text(page, "#sourceHistoryList", "맞았습니다", timeout=120_000)
                 wait_for_text(page, "#sampleCases", "입력")
 
                 page.locator("#cacheManageButton").click()
@@ -1714,7 +1714,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
             "failureDetails": [
                 {
                     "label": "오답",
-                    "target": "case 001",
+                    "target": "테스트케이스 001",
                     "message": "expected 1, got 2",
                     "status": "wrong_answer",
                     "profile": "sample",
@@ -1974,7 +1974,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#filenameInput").fill("main.py")
                 page.locator("#sourceTextInput").fill(source)
                 page.locator("#sampleRunButton").click()
-                wait_for_text(page, "#statusBadge", "Cases 오류")
+                wait_for_text(page, "#statusBadge", "케이스 오류")
                 wait_for_text(page, "#resultSummary", "forced compile failure")
                 self.assertFalse(run_stream_called["value"])
                 self.assert_no_browser_errors()
@@ -2547,7 +2547,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#sourceTextInput").fill(source)
                 page.locator("#sampleRunButton").click()
                 wait_for_text(page, "#statusBadge", "오답")
-                page.get_by_role("button", name="Actual").click()
+                page.get_by_role("button", name="실제 출력").click()
                 wait_for_text(page, "#artifactNotice", "긴 데이터")
                 wait_for_text(page, "#artifactNotice", "생략된 문자")
                 self.assertTrue(

@@ -701,6 +701,7 @@ class DockerRemotePackageScriptContractTest(unittest.TestCase):
 
         self.assertIn("pypy3", dockerfile)
         self.assertIn("COPY alj_core ./alj_core", dockerfile)
+        self.assertIn("COPY alj_launcher ./alj_launcher", dockerfile)
 
     def test_verification_script_checks_pypy_runtime_and_runs_dynamic_pypy_smoke(self) -> None:
         """Docker 검증 스크립트가 PyPy를 고정 문제 없이 실제 Judge 실행으로 검증하는지 확인합니다."""

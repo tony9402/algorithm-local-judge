@@ -630,6 +630,7 @@ class InstallWorkflowContractTest(unittest.TestCase):
         self.assertIn("ALJ_BIN_DIR=%s", workflow)
         self.assertIn("$RUNNER_TEMP", workflow)
         self.assertIn("$GITHUB_ENV", workflow)
+        self.assertIn('cd "$RUNNER_TEMP"', workflow)
         self.assertNotIn("${{ runner.temp }}", workflow)
         self.assertIn("judge --version", workflow)
         self.assertIn("problem-studio --version", workflow)
@@ -643,6 +644,14 @@ class InstallWorkflowContractTest(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         self.assertIn("uv sync --dev --locked", workflow)
         self.assertNotIn("UV_FROZEN", workflow)
+        self.assertIn("repository: tony9402/algorithm-package", workflow)
+        self.assertIn("ref: ca9d816bd8a8fca57a686ec0752c69c7f7ce3c23", workflow)
+        self.assertIn("path: .ci/problem-fixtures/algorithm-package", workflow)
+        self.assertIn(
+            "cp testlib.h .ci/problem-fixtures/algorithm-package/problems/testlib.h",
+            workflow,
+        )
+        self.assertIn("problems/algorithm-package", workflow)
 
     def test_release_checks_install_docs_before_upload(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
