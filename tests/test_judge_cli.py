@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 JUDGE = [sys.executable, "-m", "judge"]
 PROBLEM_PACKAGE_ROOT = ROOT / "problems" / "algorithm-package"
 PROBLEM_SOURCE_ROOT = PROBLEM_PACKAGE_ROOT / "problems"
+TEST_TOOL_COMPILE_TIMEOUT_MIN_MS = "30000"
 ISOLATED_RUNTIME = tempfile.TemporaryDirectory(prefix="alj-unit-cli-runtime-")
 ISOLATED_PROJECT_ROOT = Path(ISOLATED_RUNTIME.name) / "project"
 shutil.copytree(PROBLEM_SOURCE_ROOT / "06", ISOLATED_PROJECT_ROOT / "problems" / "06")
@@ -43,6 +44,7 @@ def run_judge(
     env["ALJ_DATA_HOME"] = str(Path(ISOLATED_RUNTIME.name) / "data")
     env["ALJ_CACHE_HOME"] = str(Path(ISOLATED_RUNTIME.name) / "cache")
     env["ALJ_PYTHON"] = sys.executable
+    env["ALJ_TOOL_COMPILE_TIMEOUT_MIN_MS"] = TEST_TOOL_COMPILE_TIMEOUT_MIN_MS
     if extra_env:
         env.update(extra_env)
     result = subprocess.run(
