@@ -3,7 +3,7 @@
 `judge`는 문제 팩을 설치하고, C++/Python/Java 풀이 코드를 로컬에서 채점하는 도구입니다. CLI와 웹 UI를 모두 제공합니다.
 
 최종 사용자는 저장소 루트의 [개인 설치 및 운영 안내](../INSTALL.md)에서 GitHub clone 후
-세 명령 설치 경로를 먼저 확인하세요. 이 문서는 CLI 상세 사용법과 개발 환경을 설명합니다.
+설치 절차를 먼저 확인하세요. 이 문서는 CLI 상세 사용법과 개발 환경을 설명합니다.
 
 ## 빠른 시작
 
@@ -13,14 +13,12 @@
 git clone --depth 1 https://github.com/tony9402/algorithm-local-judge.git
 cd algorithm-local-judge
 ./install.sh
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-설치가 끝나면 `./.venv/bin/judge setup`으로 언어 도구와 Docker 상태를 진단할 수
-있습니다. 설치·변경 없이 진단만 하려면 `./.venv/bin/judge setup --check-only --verbose`를
-사용합니다. 개발자가 이미 `uv` 환경을 준비한 경우에만 `uv sync`와 `uv run judge`
-경로를 사용합니다.
-
-`uv`가 없다면 [uv 공식 설치 문서](https://docs.astral.sh/uv/)를 참고해 먼저 설치하세요.
+설치가 끝나면 `judge setup`으로 언어 도구와 Docker 상태를 진단할 수 있습니다.
+설치·변경 없이 진단만 하려면 `judge setup --check-only --verbose`를
+사용합니다. `uv`는 소스 개발자에게만 필요한 선택 사항이며 일반 설치에는 필요하지 않습니다.
 
 `problem install`에서 저장소를 생략하면 기본 공식 저장소인 `tony9402/algorithm-package`를 사용합니다.
 
@@ -29,9 +27,9 @@ cd algorithm-local-judge
 채점이 잘 안 되거나 컴파일러가 잡히지 않으면 먼저 진단합니다.
 
 ```bash
-uv run judge doctor
-uv run judge doctor --verbose
-uv run judge doctor --json
+judge doctor
+judge doctor --verbose
+judge doctor --json
 ```
 
 `doctor`는 Python, C++ 컴파일러, Java 컴파일러/런타임, Git, Docker CLI/daemon,
@@ -40,10 +38,10 @@ uv run judge doctor --json
 ## 웹 UI
 
 ```bash
-uv run judge web
-uv run judge web --no-open
-uv run judge web --host 127.0.0.1 --port 8765
-uv run judge web --debug
+judge web
+judge web --no-open
+judge web --host 127.0.0.1 --port 8765
+judge web --debug
 ```
 
 웹 화면 사용 순서:
@@ -74,24 +72,24 @@ uv run judge web --debug
 공식 문제 저장소를 설치합니다.
 
 ```bash
-uv run judge problem install tony9402/algorithm-package
-uv run judge list
+judge problem install tony9402/algorithm-package
+judge list
 ```
 
 테스트 데이터를 만들거나 캐시를 재생성합니다.
 
 ```bash
-uv run judge generate <problem-id> --profile sample
-uv run judge generate <problem-id> --profile hidden --force
+judge generate <problem-id> --profile sample
+judge generate <problem-id> --profile hidden --force
 ```
 
 풀이 코드를 채점합니다.
 
 ```bash
-uv run judge run --problem <problem-id> --profile sample path/to/main.cpp
-uv run judge --problem <problem-id> --profile sample path/to/main.py
-uv run judge --problem <problem-id> --profile sample --language pypy path/to/main.py
-uv run judge --problem <problem-id> --profile sample path/to/Main.java
+judge run --problem <problem-id> --profile sample path/to/main.cpp
+judge --problem <problem-id> --profile sample path/to/main.py
+judge --problem <problem-id> --profile sample --language pypy path/to/main.py
+judge --problem <problem-id> --profile sample path/to/Main.java
 ```
 
 지원 확장자는 `.cpp`, `.cc`, `.cxx`, `.py`, `.java`입니다. PyPy는 `.py` 파일을 사용하며 `--language pypy`로 선택합니다. PyPy 실행 파일은 `ALJ_PYPY`로 지정하거나 PATH의 `pypy3`, `pypy`를 사용합니다.
@@ -101,11 +99,11 @@ uv run judge --problem <problem-id> --profile sample path/to/Main.java
 오답이 나면 결과에 `run-id`와 `case-id`가 표시됩니다. 그 값으로 실패 케이스를 확인합니다.
 
 ```bash
-uv run judge show <run-id> <case-id>
-uv run judge show <run-id> <case-id> --input
-uv run judge show <run-id> <case-id> --expected
-uv run judge show <run-id> <case-id> --actual
-uv run judge diff <run-id> <case-id>
+judge show <run-id> <case-id>
+judge show <run-id> <case-id> --input
+judge show <run-id> <case-id> --expected
+judge show <run-id> <case-id> --actual
+judge diff <run-id> <case-id>
 ```
 
 `show`는 입력, 기대 출력, 실제 출력을 보여주고, `diff`는 기대 출력과 실제 출력의 차이를 보여줍니다.
@@ -115,9 +113,9 @@ uv run judge diff <run-id> <case-id>
 문제 데이터 계획을 채점 전에 검사할 수 있습니다.
 
 ```bash
-uv run judge cases compile <problem-id>
-uv run judge cases compile <problem-id> --profile hidden --expanded --max-preview 5
-uv run judge cases compile --file path/to/cases.yml --json
+judge cases compile <problem-id>
+judge cases compile <problem-id> --profile hidden --expanded --max-preview 5
+judge cases compile --file path/to/cases.yml --json
 ```
 
 `--expanded`는 실제로 펼쳐질 케이스를 보여주고, `--max-preview`는 미리보기 개수를 제한합니다.
@@ -130,20 +128,20 @@ uv run judge cases compile --file path/to/cases.yml --json
 없는 개발 저장소는 사용자가 신뢰한 source archive로 설치될 수 있습니다.
 
 ```bash
-uv run judge problem install
-uv run judge problem install tony9402/algorithm-package
-uv run judge problem install https://github.com/tony9402/algorithm-package
-uv run judge problem install tony9402/algorithm-package --asset basic-1-macos-arm64.aljpack
-uv run judge problem install tony9402/algorithm-package --ref main
+judge problem install
+judge problem install tony9402/algorithm-package
+judge problem install https://github.com/tony9402/algorithm-package
+judge problem install tony9402/algorithm-package
+judge problem install tony9402/algorithm-package --ref main
 ```
 
 로컬 `.aljpack` 파일은 직접 검증하고 설치할 수 있습니다.
 
 ```bash
-uv run judge pack verify path/to/problem-pack.aljpack
-uv run judge pack install path/to/problem-pack.aljpack
-uv run judge pack list
-uv run judge pack remove <pack-id>
+judge pack verify path/to/problem-pack.aljpack
+judge pack install path/to/problem-pack.aljpack
+judge pack list
+judge pack remove <pack-id>
 ```
 
 로컬 파일은 사용자가 직접 선택한 비공식 입력이므로 설치 결과에 서명 미검증
@@ -153,14 +151,14 @@ sidecar를 함께 게시해야 합니다.
 고급 기능으로, 문제 제작자는 source 폴더에서 직접 pack을 만들 수도 있습니다. 일반 풀이자는 보통 Problem Studio에서 pack을 만들거나 이미 배포된 pack을 설치하면 됩니다.
 
 ```bash
-uv run judge pack build path/to/problem --pack-id basic --verify-profile hidden
+judge pack build path/to/problem --pack-id basic --verify-profile hidden
 ```
 
 직접 URL로 `.aljpack`을 설치할 때는 SHA-256 checksum 또는 sidecar 검증이 필요합니다.
 
 ```bash
-uv run judge problem install https://example.com/basic.aljpack --checksum <sha256>
-uv run judge problem install https://example.com/basic.aljpack --checksum-url https://example.com/basic.aljpack.sha256
+judge problem install https://example.com/basic.aljpack --checksum <sha256>
+judge problem install https://example.com/basic.aljpack --checksum-url https://example.com/basic.aljpack.sha256
 ```
 
 `--checksum` 또는 `--checksum-url`을 생략하면 `<url>.sha256` sidecar를 자동으로 찾고, sidecar가 없거나 checksum이 맞지 않으면 설치를 중단합니다.
@@ -168,20 +166,20 @@ uv run judge problem install https://example.com/basic.aljpack --checksum-url ht
 다른 GitHub 저장소의 release pack을 신뢰하려면 allowlist에 추가합니다.
 
 ```bash
-uv run judge pack trust list
-uv run judge pack trust add owner/name
-uv run judge pack trust remove owner/name
+judge pack trust list
+judge pack trust add owner/name
+judge pack trust remove owner/name
 ```
 
 ## 캐시 관리
 
 ```bash
-uv run judge cache status
-uv run judge cache clear --problem <problem-id>
-uv run judge cache clear --problem <problem-id> --profile sample
-uv run judge cache clear --runs
-uv run judge cache clear --all --dry-run
-uv run judge cache clear --all --yes
+judge cache status
+judge cache clear --problem <problem-id>
+judge cache clear --problem <problem-id> --profile sample
+judge cache clear --runs
+judge cache clear --all --dry-run
+judge cache clear --all --yes
 ```
 
 `--dry-run`은 실제 삭제 없이 지울 대상을 보여줍니다. 전체 삭제는 실수를 줄이기 위해 확인을 요구하며, 자동화에서는 `--yes`를 사용합니다.
@@ -191,16 +189,16 @@ uv run judge cache clear --all --yes
 ## 자주 쓰는 명령
 
 ```bash
-uv run judge --help
-uv run judge doctor
-uv run judge problem install tony9402/algorithm-package
-uv run judge list
-uv run judge generate <problem-id> --profile sample
-uv run judge run --problem <problem-id> --profile sample path/to/main.cpp
-uv run judge show <run-id> <case-id>
-uv run judge diff <run-id> <case-id>
-uv run judge cache status
-uv run judge web
+judge --help
+judge doctor
+judge problem install tony9402/algorithm-package
+judge list
+judge generate <problem-id> --profile sample
+judge run --problem <problem-id> --profile sample path/to/main.cpp
+judge show <run-id> <case-id>
+judge diff <run-id> <case-id>
+judge cache status
+judge web
 ```
 
 ## 안전하게 사용하기
@@ -212,8 +210,8 @@ host의 `--allow-remote-run`은 OS 격리를 제공하지 않으므로 권장하
 공식 이미지를 사용하는 launcher를 실행합니다.
 
 ```bash
-uv run judge docker setup
-uv run judge docker web
+judge docker setup
+judge docker web
 ```
 
 이 경로는 host 경로와 Docker socket을 mount하지 않고, 인터넷과 host gateway가 차단된

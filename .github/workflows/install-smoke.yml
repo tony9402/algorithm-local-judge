@@ -1,31 +1,17 @@
-name: Native install contract and clean-OS smoke
+name: macOS and Linux source install smoke
 
 on:
   pull_request:
     paths:
       - README.md
-      - packaging/install-channels.json
+      - INSTALL.md
       - install.sh
-      - install.ps1
-      - scripts/install_local.sh
       - scripts/verify_install_docs.py
       - pyproject.toml
       - uv.lock
-      - tests/test_local_installer.py
       - tests/install/**
       - .github/workflows/install-smoke.yml
   workflow_dispatch:
-    inputs:
-      stable:
-        description: Require published channels and run destructive clean-OS lifecycle smoke
-        required: true
-        type: boolean
-        default: false
-      source:
-        description: Run source checkout installation smoke on macOS, Linux, and Windows
-        required: true
-        type: boolean
-        default: false
 
 permissions: {}
 
@@ -44,27 +30,29 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
+      - run: bash -n install.sh
       - run: python scripts/verify_install_docs.py
       - run: python -m unittest discover -s tests/install -p 'test_*.py' -v
 
   source-install:
-    if: github.event_name == 'workflow_dispatch' && inputs.source
+    needs: contract
     strategy:
       fail-fast: false
       matrix:
         include:
           - runner: ubuntu-latest
-            target: unix
+            platform: Linux
           - runner: macos-15
-            target: unix
-          - runner: windows-2025
-            target: windows
+            platform: macOS
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     permissions:
       contents: read
     env:
       ALJ_DATA_HOME: ${{ runner.temp }}/algorithm-local-judge-data
+      ALJ_INSTALL_DIR: ${{ runner.temp }}/algorithm-local-judge-runtime
+      ALJ_BIN_DIR: ${{ runner.temp }}/algorithm-local-judge-bin
+      ALJ_SHELL_PROFILE: ${{ runner.temp }}/algorithm-local-judge-profile
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -74,30 +62,27 @@ jobs:
         with:
           version: "0.11.12"
           enable-cache: false
-      - name: Install from checkout on Unix
-        if: matrix.target == 'unix'
-        shell: bash
-        run: ./install.sh --skip-checks
-      - name: Install from checkout on Windows
-        if: matrix.target == 'windows'
-        shell: pwsh
-        run: .\install.ps1 -SkipChecks
-      - name: Verify installed launchers on Unix
-        if: matrix.target == 'unix'
-        shell: bash
+      - name: Install from ${{ matrix.platform }} checkout
+        run: |
+          ./install.sh --skip-checks
+          printf '%s\n' "$ALJ_BIN_DIR" >> "$GITHUB_PATH"
+      - name: Verify installed launchers
         run: |
           set -euo pipefail
-          ./.venv/bin/judge --version
-          ./.venv/bin/problem-studio --version
-      - name: Verify installed launchers on Windows
-        if: matrix.target == 'windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          & ".\.venv\Scripts\judge.exe" --version
-          & ".\.venv\Scripts\problem-studio.exe" --version
-      - name: Verify Judge and Problem Studio readiness on Unix
-        if: matrix.target == 'unix'
+          judge --version
+          problem-studio --version
+          test "$(readlink "$ALJ_BIN_DIR/judge")" = "$ALJ_INSTALL_DIR/bin/judge"
+          test "$(readlink "$ALJ_BIN_DIR/problem-studio")" = "$ALJ_INSTALL_DIR/bin/problem-studio"
+          test -f "$ALJ_INSTALL_DIR/.algorithm-local-judge-runtime"
+          grep -F "export PATH=$ALJ_BIN_DIR:\$PATH" "$ALJ_SHELL_PROFILE"
+          module_path="$("$ALJ_INSTALL_DIR/bin/python" -c 'import judge; print(judge.__file__)')"
+          case "$module_path" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "judge was installed in editable mode: $module_path" >&2
+              exit 1
+              ;;
+          esac
+      - name: Verify Judge and Problem Studio readiness
         shell: bash
         run: |
           set -euo pipefail
@@ -130,135 +115,5 @@ jobs:
               wait "$pid" 2>/dev/null || true
               return 1
           }
-          run_server ./.venv/bin/judge 8765
-          run_server ./.venv/bin/problem-studio 8766 "$RUNNER_TEMP/alj-studio-workspace"
-      - name: Verify Judge and Problem Studio readiness on Windows
-        if: matrix.target == 'windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          function Test-Ready([string]$Executable, [int]$Port, [string]$Workspace = "") {
-            $stdoutLog = Join-Path $env:RUNNER_TEMP "alj-$Port.stdout.log"
-            $stderrLog = Join-Path $env:RUNNER_TEMP "alj-$Port.stderr.log"
-            $arguments = @("web", "--no-open", "--port", "$Port")
-            if ($Workspace) { $arguments += @("--workspace", $Workspace) }
-            $process = Start-Process -FilePath $Executable -ArgumentList $arguments -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -PassThru
-            try {
-              for ($attempt = 0; $attempt -lt 60; $attempt++) {
-                try {
-                  $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/readyz" -TimeoutSec 2
-                  if ($response.StatusCode -eq 200) { return }
-                } catch { }
-                if ($process.HasExited) { throw "Web process exited early: $Executable`n$(Get-Content $stdoutLog -Raw)`n$(Get-Content $stderrLog -Raw)" }
-                Start-Sleep -Milliseconds 500
-              }
-              throw "Timed out waiting for $Executable`n$(Get-Content $stdoutLog -Raw)`n$(Get-Content $stderrLog -Raw)"
-            } finally {
-              if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
-            }
-          }
-          Test-Ready ".\.venv\Scripts\judge.exe" 8765
-          Test-Ready ".\.venv\Scripts\problem-studio.exe" 8766 (Join-Path $env:RUNNER_TEMP "alj-studio-workspace")
-
-  stable-gate:
-    if: github.event_name == 'workflow_dispatch' && inputs.stable
-    needs: contract
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.13"
-      - name: Fail closed until every native channel has verified evidence
-        run: python scripts/verify_install_docs.py --stable
-
-  clean-macos:
-    if: github.event_name == 'workflow_dispatch' && inputs.stable
-    needs: stable-gate
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            target: macos-arm64
-          - runner: macos-15-intel
-            target: macos-amd64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.13"
-      - run: >-
-          python tests/install/run_clean_os_contract.py
-          --target ${{ matrix.target }}
-          --attestation install-smoke-${{ matrix.target }}.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: install-smoke-${{ matrix.target }}
-          path: install-smoke-${{ matrix.target }}.json
-          if-no-files-found: error
-          retention-days: 7
-
-  clean-linux:
-    if: github.event_name == 'workflow_dispatch' && inputs.stable
-    needs: stable-gate
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: ubuntu:24.04
-            target: ubuntu-amd64
-          - image: debian:12
-            target: debian-amd64
-          - image: fedora:41
-            target: fedora-amd64
-    runs-on: ubuntu-latest
-    container: ${{ matrix.image }}
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.13"
-      - run: >-
-          python tests/install/run_clean_os_contract.py
-          --target ${{ matrix.target }}
-          --attestation install-smoke-${{ matrix.target }}.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: install-smoke-${{ matrix.target }}
-          path: install-smoke-${{ matrix.target }}.json
-          if-no-files-found: error
-          retention-days: 7
-
-  clean-windows:
-    if: github.event_name == 'workflow_dispatch' && inputs.stable
-    needs: stable-gate
-    runs-on: windows-2025
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.13"
-      - run: >-
-          python tests/install/run_clean_os_contract.py
-          --target windows-amd64
-          --attestation install-smoke-windows-amd64.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: install-smoke-windows-amd64
-          path: install-smoke-windows-amd64.json
-          if-no-files-found: error
-          retention-days: 7
+          run_server judge 8765
+          run_server problem-studio 8766 "$RUNNER_TEMP/alj-studio-workspace"

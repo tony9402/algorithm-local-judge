@@ -16,11 +16,15 @@ ENV_DATA_HOME = "ALJ_DATA_HOME"
 ENV_CACHE_HOME = "ALJ_CACHE_HOME"
 ENV_PACK_HOME = "ALJ_PACK_HOME"
 ENV_SOURCE_HOME = "ALJ_SOURCE_HOME"
+RUNTIME_MARKER = ".algorithm-local-judge-runtime"
 
 
 def repo_root() -> Path:
     if configured := os.environ.get(ENV_PROJECT_ROOT):
         return Path(configured).expanduser().resolve()
+    runtime_root = Path(sys.prefix).resolve()
+    if (runtime_root / RUNTIME_MARKER).is_file():
+        return runtime_root
     return Path(__file__).resolve().parents[1]
 
 
@@ -61,6 +65,8 @@ def user_data_root() -> Path:
         return configured
     if os.name == "nt":
         return (_windows_local_app_data() / APP_NAME).resolve()
+    if platform.system() == "Darwin":
+        return (Path.home() / "Library" / "Application Support" / APP_NAME).resolve()
     base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
     return (base / APP_NAME).expanduser().resolve()
 
@@ -70,6 +76,8 @@ def default_cache_root() -> Path:
         return configured
     if os.name == "nt":
         return (_windows_local_app_data() / APP_NAME / "cache").resolve()
+    if platform.system() == "Darwin":
+        return (Path.home() / "Library" / "Caches" / APP_NAME).resolve()
     base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     return (base / APP_NAME).expanduser().resolve()
 

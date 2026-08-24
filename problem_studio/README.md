@@ -3,7 +3,7 @@
 `problem-studio`는 문제 제작자용 웹 도구입니다. 문제 저장소를 열고, 문제 파일을 편집하고, 테스트 데이터와 솔루션 기대 결과를 검증한 뒤 `.aljpack` 문제 팩을 만듭니다.
 
 최종 사용자는 저장소 루트의 [개인 설치 및 운영 안내](../INSTALL.md)에서 GitHub clone 후
-세 명령 설치 경로를 먼저 확인하세요. 이 문서는 Problem Studio의 workspace·Git·pack 제작
+설치 절차를 먼저 확인하세요. 이 문서는 Problem Studio의 workspace·Git·pack 제작
 상세 사용법을 설명합니다.
 
 명령 이름은 `problem_studio`가 아니라 하이픈을 쓰는 `problem-studio`입니다.
@@ -13,8 +13,7 @@
 문제 저장소를 clone해서 열려면:
 
 ```bash
-uv sync
-uv run problem-studio web --clone owner/repo --branch main --workspace ./workspace
+problem-studio web --clone owner/repo --branch main --workspace ./workspace
 ```
 
 이 명령은 저장소를 `./workspace/problems/{repo명}` 아래에 clone하고, 해당 저장소를 바로 선택해 엽니다. 예를 들어 `owner/algorithm-package`는 `./workspace/problems/algorithm-package`에 받아옵니다.
@@ -24,7 +23,7 @@ uv run problem-studio web --clone owner/repo --branch main --workspace ./workspa
 이미 있는 문제 저장소를 열려면:
 
 ```bash
-uv run problem-studio web --workspace /path/to/algorithm-package
+problem-studio web --workspace /path/to/algorithm-package
 ```
 
 여러 문제 저장소를 한 workspace에서 관리하려면 다음 구조를 사용합니다.
@@ -46,17 +45,15 @@ workspace/
 
 Problem Studio UI의 `저장소` selector에서 작업할 repository를 고르면, 문제 목록과 Git 작업이 그 저장소로 전환됩니다.
 
-브라우저가 자동으로 열리지 않으면 `http://127.0.0.1:8775`로 접속하세요. 이미 설치된 실행 파일을 쓰는 경우에는 `uv run`을 빼고 실행하면 됩니다.
-
-`uv`가 없다면 [uv 공식 설치 문서](https://docs.astral.sh/uv/)를 참고해 먼저 설치하세요.
+브라우저가 자동으로 열리지 않으면 `http://127.0.0.1:8775`로 접속하세요.
 
 ## 실행 옵션
 
 ```bash
-uv run problem-studio web --workspace ./algorithm-package
-uv run problem-studio web --clone owner/repo --branch main --workspace ./workspace
-uv run problem-studio web --workspace ./workspace --repo algorithm-package
-uv run problem-studio web --host 127.0.0.1 --port 8775 --no-open
+problem-studio web --workspace ./algorithm-package
+problem-studio web --clone owner/repo --branch main --workspace ./workspace
+problem-studio web --workspace ./workspace --repo algorithm-package
+problem-studio web --host 127.0.0.1 --port 8775 --no-open
 ```
 
 - `--workspace`: 작업할 문제 저장소 폴더입니다. 기본값은 현재 폴더입니다.
@@ -173,10 +170,10 @@ Git 작업은 항상 현재 선택한 저장소 root에서만 실행됩니다. �
 Problem Studio에서 `.aljpack`을 만든 뒤 실제 채점 도구에 설치해 확인합니다.
 
 ```bash
-uv run judge pack verify path/to/problem-pack.aljpack
-uv run judge pack install path/to/problem-pack.aljpack
-uv run judge list
-uv run judge run --problem <problem-id> --profile sample path/to/main.cpp
+judge pack verify path/to/problem-pack.aljpack
+judge pack install path/to/problem-pack.aljpack
+judge list
+judge run --problem <problem-id> --profile sample path/to/main.cpp
 ```
 
 이 단계까지 통과하면 사용자가 받는 채점 흐름에서도 문제를 실행할 수 있습니다.
@@ -198,7 +195,7 @@ uv run judge run --problem <problem-id> --profile sample path/to/main.cpp
 ## 문제가 생겼을 때
 
 - 브라우저가 열리지 않으면 `http://127.0.0.1:8775`로 직접 접속합니다.
-- 컴파일러나 Java가 없다는 오류가 나면 루트에서 `uv run judge doctor`로 환경을 확인합니다.
+- 컴파일러나 Java가 없다는 오류가 나면 `judge doctor`로 환경을 확인합니다.
 - `testlib.h`가 없다는 경고가 보이면 workspace 상태를 확인하고, 문제 저장소가 공통 `testlib.h`를 참조할 수 있는 구조인지 확인합니다.
 - `cases.yml` 오류는 `Cases 검사` 결과의 위치와 기대 형태를 먼저 봅니다.
 - Pack 빌드가 막히면 `전체 테스트` 결과와 솔루션 기대 결과 검증 결과를 먼저 고칩니다.

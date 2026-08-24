@@ -128,6 +128,48 @@ class CanonicalCoreCompatibilityTest(unittest.TestCase):
         self.assertIs(canonical_install_pack, canonical_install_implementation)
         self.assertIs(legacy_install_pack, canonical_install_implementation)
 
+    def test_default_user_paths_follow_the_host_operating_system(self) -> None:
+        from alj_core.paths import default_cache_root, user_data_root
+
+        with tempfile.TemporaryDirectory(prefix="alj-platform-paths-") as temporary:
+            home = Path(temporary).resolve()
+            with (
+                patch("alj_core.paths.Path.home", return_value=home),
+                patch("alj_core.paths.platform.system", return_value="Darwin"),
+                patch.dict(os.environ, {}, clear=True),
+            ):
+                self.assertEqual(
+                    user_data_root(),
+                    home / "Library" / "Application Support" / "algorithm-local-judge",
+                )
+                self.assertEqual(
+                    default_cache_root(), home / "Library" / "Caches" / "algorithm-local-judge"
+                )
+
+            with (
+                patch("alj_core.paths.Path.home", return_value=home),
+                patch("alj_core.paths.platform.system", return_value="Linux"),
+                patch.dict(os.environ, {}, clear=True),
+            ):
+                self.assertEqual(
+                    user_data_root(), home / ".local" / "share" / "algorithm-local-judge"
+                )
+                self.assertEqual(
+                    default_cache_root(), home / ".cache" / "algorithm-local-judge"
+                )
+
+    def test_user_runtime_marker_becomes_the_project_root(self) -> None:
+        from alj_core.paths import RUNTIME_MARKER, repo_root
+
+        with tempfile.TemporaryDirectory(prefix="alj-user-runtime-") as temporary:
+            runtime = Path(temporary).resolve()
+            (runtime / RUNTIME_MARKER).write_text("runtime\n", encoding="utf-8")
+            with (
+                patch("alj_core.paths.sys.prefix", str(runtime)),
+                patch.dict(os.environ, {}, clear=True),
+            ):
+                self.assertEqual(repo_root(), runtime)
+
     def test_legacy_security_limit_patch_controls_canonical_archive(self) -> None:
         """Legacy limit monkeypatch는 canonical archive 구현이 참조하는 값도 변경해야 합니다."""
         from alj_core.errors import JudgeError
