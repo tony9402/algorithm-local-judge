@@ -19,6 +19,7 @@ DOCKER_IMAGE_ENV = "ALJ_DOCKER_TEST_IMAGE"
 DOCKER_REPOSITORY_ENV = "ALJ_DOCKER_TEST_REPOSITORY"
 DOCKER_PROFILE_ENV = "ALJ_DOCKER_TEST_PROFILE"
 DOCKER_TIMEOUT_ENV = "ALJ_DOCKER_TEST_TIMEOUT"
+DOCKER_GITHUB_TOKEN_ENV = "ALJ_GITHUB_TOKEN"
 
 DEFAULT_IMAGE = "algorithm-local-judge:docker-e2e"
 DEFAULT_REPOSITORY = "tony9402/algorithm-package"
@@ -703,6 +704,9 @@ class DockerRemotePackageScriptContractTest(unittest.TestCase):
         self.assertIn("COPY alj_core ./alj_core", dockerfile)
         self.assertIn("COPY alj_launcher ./alj_launcher", dockerfile)
 
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn(f"{DOCKER_GITHUB_TOKEN_ENV}: ${{{{ github.token }}}}", workflow)
+
     def test_verification_script_checks_pypy_runtime_and_runs_dynamic_pypy_smoke(self) -> None:
         """Docker 검증 스크립트가 PyPy를 고정 문제 없이 실제 Judge 실행으로 검증하는지 확인합니다."""
         script = docker_verification_script()
@@ -779,6 +783,8 @@ class DockerRemotePackageE2ETest(unittest.TestCase):
                     f"{DOCKER_REPOSITORY_ENV}={repository}",
                     "-e",
                     f"{DOCKER_PROFILE_ENV}={profile}",
+                    "-e",
+                    DOCKER_GITHUB_TOKEN_ENV,
                     "-v",
                     f"{volume_name}:/data",
                     image,

@@ -160,6 +160,7 @@ jobs:
       - name: Build image and verify the official package in Docker
         env:
           ALJ_RUN_DOCKER_TESTS: "1"
+          ALJ_GITHUB_TOKEN: ${{ github.token }}
         run: >-
           uv run python scripts/run_with_problems_guard.py --
           uv run python -m unittest tests.e2e.e2e_docker_remote_package -v

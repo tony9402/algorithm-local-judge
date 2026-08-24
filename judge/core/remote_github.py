@@ -21,6 +21,7 @@ from judge.utils.limited_io import copy_limited, ensure_content_length_limit
 
 DEFAULT_OFFICIAL_PACK_REPOSITORY = "tony9402/algorithm-package"
 ENV_CA_BUNDLE = "ALJ_CA_BUNDLE"
+ENV_GITHUB_TOKEN = "ALJ_GITHUB_TOKEN"
 GITHUB_REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 GITHUB_SSH_RE = re.compile(r"^git@github\.com:([^/]+)/(.+)$")
 
@@ -101,13 +102,22 @@ def certificate_failure_message(prefix: str) -> str:
     )
 
 
+def github_request_headers(url: str, *, accept_json: bool = False) -> dict[str, str]:
+    """GitHub 요청 헤더를 만들고 명시적으로 설정된 토큰만 GitHub 호스트에 전달합니다."""
+    headers = {"User-Agent": "algorithm-local-judge"}
+    if accept_json:
+        headers["Accept"] = "application/vnd.github+json"
+    host = (urlparse(url).hostname or "").lower()
+    token = os.environ.get(ENV_GITHUB_TOKEN, "").strip()
+    if token and host in {"api.github.com", "github.com", "www.github.com"}:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def github_json(url: str) -> dict[str, Any]:
     request = Request(
         url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "algorithm-local-judge",
-        },
+        headers=github_request_headers(url, accept_json=True),
     )
     try:
         with urlopen(request, timeout=20, context=https_ssl_context()) as response:
@@ -200,7 +210,7 @@ def download_asset(
     *,
     limit_bytes: int = security_limits.MAX_REMOTE_DOWNLOAD_BYTES,
 ) -> None:
-    request = Request(url, headers={"User-Agent": "algorithm-local-judge"})
+    request = Request(url, headers=github_request_headers(url))
     try:
         with urlopen(request, timeout=60, context=https_ssl_context()) as response:
             ensure_content_length_limit(response.headers, limit_bytes, "remote download")

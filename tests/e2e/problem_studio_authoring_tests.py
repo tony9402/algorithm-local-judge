@@ -740,8 +740,10 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
     def test_authoring_tabs_roving_keyboard_and_path_disclosure(self) -> None:
         """작성 탭 roving keyboard와 절대 경로 축약 disclosure를 검증합니다."""
         with isolated_runtime("alj-problem-studio-tabs-e2e-") as (_directory, workspace):
-            create_problem(workspace, "alpha", "Alpha Tabs", "E2E")
-            with run_app(create_app(workspace)) as server:
+            nested_workspace = workspace / "nested" / "authoring-workspace"
+            nested_workspace.mkdir(parents=True)
+            create_problem(nested_workspace, "alpha", "Alpha Tabs", "E2E")
+            with run_app(create_app(nested_workspace)) as server:
                 page = self.new_page(server.url, width=1366, height=768)
                 page.goto(server.url)
                 wait_for_value(page, "#metadataTitle", "Alpha Tabs")
@@ -793,5 +795,5 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                 self.assertTrue(compact.startswith("~") or compact.startswith("…/"), compact)
                 disclosure.locator("summary").click()
                 disclosure.locator("code").wait_for(state="visible")
-                self.assertIn(str(workspace), disclosure.locator("code").inner_text())
+                self.assertIn(str(nested_workspace), disclosure.locator("code").inner_text())
                 self.assert_no_browser_errors()

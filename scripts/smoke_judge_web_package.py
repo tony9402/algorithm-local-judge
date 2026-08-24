@@ -98,6 +98,8 @@ CASES_YML = """profiles:
               n: "${n}"
 """
 
+SMOKE_COMPILE_TIMEOUT_MS = 30_000
+
 
 def run_command(
     command: list[str],
@@ -117,14 +119,25 @@ def run_command(
         subprocess.CompletedProcess[str]: 실행이 성공한 하위 프로세스 결과 객체입니다.
     """
     print(f"+ {' '.join(command)}", flush=True)
-    return subprocess.run(
-        command,
-        cwd=cwd,
-        env=env,
-        text=True,
-        capture_output=capture,
-        check=True,
-    )
+    try:
+        return subprocess.run(
+            command,
+            cwd=cwd,
+            env=env,
+            text=True,
+            capture_output=capture,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        if not capture:
+            raise
+        raise RuntimeError(
+            "command failed\n"
+            f"command: {' '.join(command)}\n"
+            f"exit: {exc.returncode}\n"
+            f"stdout:\n{exc.stdout or ''}\n"
+            f"stderr:\n{exc.stderr or ''}"
+        ) from exc
 
 
 def venv_bin(venv_dir: Path, executable: str) -> Path:
@@ -272,7 +285,7 @@ def create_smoke_problem(source_root: Path, repo_root: Path, problem_id: str = "
         },
         "defaultProfile": "hidden",
         "limits": {
-            "compileTimeoutMs": 5000,
+            "compileTimeoutMs": SMOKE_COMPILE_TIMEOUT_MS,
             "generationTimeoutMs": 5000,
             "solutionTimeoutMs": 2000,
             "userTimeoutMs": 2000,

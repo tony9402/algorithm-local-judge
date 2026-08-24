@@ -20,6 +20,7 @@ from judge.core.remote import (
     download_asset,
     download_problem_pack_from_github,
     download_problem_pack_from_url,
+    github_json,
     github_repository_from_source,
     install_problem_source_archive,
     install_problem_source_package,
@@ -58,6 +59,43 @@ class ProblemInstallTest(unittest.TestCase):
         """공식 저장소 기본값 알고리즘 패키지 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(official_pack_repository(), "tony9402/algorithm-package")
+
+    def test_github_requests_use_only_the_explicit_alj_token(self) -> None:
+        """GitHub API 인증은 명시적인 ALJ 토큰을 사용하고 다른 호스트로 유출하지 않습니다."""
+
+        class FakeResponse(io.BytesIO):
+            def __init__(self, payload: bytes) -> None:
+                super().__init__(payload)
+                self.headers = {"Content-Length": str(len(payload))}
+
+            def __enter__(self) -> FakeResponse:
+                return self
+
+            def __exit__(self, *args) -> None:
+                self.close()
+
+        requests = []
+
+        def fake_urlopen(request, *, timeout, context):
+            requests.append(request)
+            payload = b'{"default_branch":"main"}'
+            return FakeResponse(payload)
+
+        with (
+            tempfile.TemporaryDirectory(prefix="alj-github-token-test-") as tmp,
+            patch.dict(os.environ, {"ALJ_GITHUB_TOKEN": "test-token"}, clear=True),
+            patch("judge.core.remote_github.urlopen", side_effect=fake_urlopen),
+        ):
+            payload = github_json("https://api.github.com/repos/owner/repository")
+            download_asset(
+                "https://example.com/problem.aljpack",
+                Path(tmp) / "problem.aljpack",
+            )
+
+        self.assertEqual(payload["default_branch"], "main")
+        self.assertEqual(requests[0].get_header("Authorization"), "Bearer test-token")
+        self.assertEqual(requests[0].get_header("Accept"), "application/vnd.github+json")
+        self.assertIsNone(requests[1].get_header("Authorization"))
 
     def test_github_repository_from_source_rejects_non_github_source(self) -> None:
         """GitHub 저장소 소스 거부 비 GitHub 소스 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
