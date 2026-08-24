@@ -154,9 +154,7 @@ class CanonicalCoreCompatibilityTest(unittest.TestCase):
                 self.assertEqual(
                     user_data_root(), home / ".local" / "share" / "algorithm-local-judge"
                 )
-                self.assertEqual(
-                    default_cache_root(), home / ".cache" / "algorithm-local-judge"
-                )
+                self.assertEqual(default_cache_root(), home / ".cache" / "algorithm-local-judge")
 
     def test_user_runtime_marker_becomes_the_project_root(self) -> None:
         from alj_core.paths import RUNTIME_MARKER, repo_root

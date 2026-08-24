@@ -112,16 +112,19 @@ def validate_install_docs(readme: Path, install_guide: Path, installer: Path) ->
         "현재 설치 스크립트는 macOS와 Linux만 지원합니다.",
         "python3 python",
         "uv sync --frozen --no-dev --no-editable",
-        '--python "$PYTHON_BIN"',
+        '--python "$INSTALL_PYTHON"',
         "-m venv",
+        '"$runtime_dir/pyvenv.cfg"',
+        "sys.prefix != sys.base_prefix",
+        "fallback 없이 설치를 중단합니다.",
         'DATA_BASE="${XDG_DATA_HOME:-$HOME/.local/share}"',
         'INSTALL_DIR="$HOME/Library/Application Support/algorithm-local-judge/runtime"',
         'BIN_DIR="$HOME/.local/bin"',
         "ln -s",
         "Added by algorithm-local-judge installer.",
         "judge problem install tony9402/algorithm-package",
-        'ALJ_INSTALL_REPOSITORY:-tony9402/algorithm-local-judge',
-        'ALJ_INSTALL_REF:-main',
+        "ALJ_INSTALL_REPOSITORY:-tony9402/algorithm-local-judge",
+        "ALJ_INSTALL_REF:-main",
         'mktemp -d "${TMPDIR:-/tmp}/alj-bootstrap.XXXXXX"',
         "git clone --quiet --depth 1 --single-branch",
         'bash "$source_dir/install.sh" "${INSTALL_ARGS[@]}"',
@@ -129,7 +132,9 @@ def validate_install_docs(readme: Path, install_guide: Path, installer: Path) ->
         if required not in installer_text:
             raise InstallDocsError(f"install.sh contract is incomplete: {required}")
     if '--editable "$ROOT_DIR"' in installer_text:
-        raise InstallDocsError("install.sh must not depend on the source checkout after installation")
+        raise InstallDocsError(
+            "install.sh must not depend on the source checkout after installation"
+        )
 
 
 def main() -> int:

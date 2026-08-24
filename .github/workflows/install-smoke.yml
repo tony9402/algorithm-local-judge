@@ -1,6 +1,17 @@
 name: macOS and Linux source install smoke
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - INSTALL.md
+      - install.sh
+      - scripts/verify_install_docs.py
+      - pyproject.toml
+      - uv.lock
+      - tests/install/**
+      - .github/workflows/install-smoke.yml
   pull_request:
     paths:
       - README.md
@@ -48,11 +59,6 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
-    env:
-      ALJ_DATA_HOME: ${{ runner.temp }}/algorithm-local-judge-data
-      ALJ_INSTALL_DIR: ${{ runner.temp }}/algorithm-local-judge-runtime
-      ALJ_BIN_DIR: ${{ runner.temp }}/algorithm-local-judge-bin
-      ALJ_SHELL_PROFILE: ${{ runner.temp }}/algorithm-local-judge-profile
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -62,6 +68,13 @@ jobs:
         with:
           version: "0.11.12"
           enable-cache: false
+      - name: Configure isolated user install paths
+        shell: bash
+        run: |
+          printf 'ALJ_DATA_HOME=%s\n' "$RUNNER_TEMP/algorithm-local-judge-data" >> "$GITHUB_ENV"
+          printf 'ALJ_INSTALL_DIR=%s\n' "$RUNNER_TEMP/algorithm-local-judge-runtime" >> "$GITHUB_ENV"
+          printf 'ALJ_BIN_DIR=%s\n' "$RUNNER_TEMP/algorithm-local-judge-bin" >> "$GITHUB_ENV"
+          printf 'ALJ_SHELL_PROFILE=%s\n' "$RUNNER_TEMP/algorithm-local-judge-profile" >> "$GITHUB_ENV"
       - name: Install from ${{ matrix.platform }} checkout
         run: |
           ./install.sh --skip-checks

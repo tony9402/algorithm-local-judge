@@ -185,7 +185,6 @@ for command_name in "${command_names[@]}"; do
         exit 1
     fi
 done
-mkdir -p "$BIN_DIR"
 
 if [[ -z "$PYTHON_BIN" ]]; then
     for candidate in python3 python python3.14 python3.13 python3.12 python3.11; do
@@ -213,15 +212,68 @@ if ! "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,
     exit 1
 fi
 
+resolved_python="$(command -v "$PYTHON_BIN" 2>/dev/null || true)"
+if [[ -n "$resolved_python" ]]; then
+    PYTHON_BIN="$resolved_python"
+fi
+if [[ "$PYTHON_BIN" != /* ]]; then
+    python_parent="$(cd -- "$(dirname -- "$PYTHON_BIN")" && pwd -P)"
+    PYTHON_BIN="$python_parent/$(basename -- "$PYTHON_BIN")"
+fi
+
+python_is_supported() {
+    "$1" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' \
+        >/dev/null 2>&1
+}
+
+python_is_venv() {
+    "$1" -c 'import sys; raise SystemExit(0 if sys.prefix != sys.base_prefix else 1)' \
+        >/dev/null 2>&1
+}
+
+validate_runtime_venv() {
+    local runtime_dir="$1"
+    local label="$2"
+    local runtime_python="$runtime_dir/bin/python"
+
+    if [[ ! -f "$runtime_dir/pyvenv.cfg" || ! -x "$runtime_python" ]]; then
+        echo "${label}이 Python 가상환경이 아닙니다: $runtime_dir" >&2
+        echo "직접 설치 환경은 사용하지 않습니다. 다른 --install-dir을 지정하세요." >&2
+        return 1
+    fi
+    if ! python_is_supported "$runtime_python"; then
+        echo "${label}의 Python이 3.11 미만이므로 설치를 중단합니다: $($runtime_python --version 2>&1)" >&2
+        echo "호환되는 새 경로를 --install-dir로 지정하거나 기존 런타임을 제거한 뒤 다시 실행하세요." >&2
+        return 1
+    fi
+    if ! python_is_venv "$runtime_python"; then
+        echo "${label}이 격리된 Python 가상환경으로 실행되지 않습니다: $runtime_dir" >&2
+        echo "직접 설치 환경은 사용하지 않습니다. 다른 --install-dir을 지정하세요." >&2
+        return 1
+    fi
+}
+
+INSTALL_PYTHON="$PYTHON_BIN"
+if [[ -e "$INSTALL_DIR" ]]; then
+    validate_runtime_venv "$INSTALL_DIR" "기존 사용자 런타임" || exit 1
+    INSTALL_PYTHON="$INSTALL_DIR/bin/python"
+fi
+mkdir -p "$BIN_DIR"
+
 install_with_pip() {
     echo "표준 Python으로 사용자 런타임을 만듭니다: $INSTALL_DIR"
-    if [[ ! -x "$INSTALL_DIR/bin/python" ]]; then
+    if [[ -e "$INSTALL_DIR" && ! -f "$INSTALL_DIR/pyvenv.cfg" ]]; then
+        echo "가상환경이 아닌 설치 경로에는 pip 설치를 진행하지 않습니다: $INSTALL_DIR" >&2
+        return 1
+    fi
+    if [[ ! -f "$INSTALL_DIR/pyvenv.cfg" ]]; then
         if ! "$PYTHON_BIN" -m venv "$INSTALL_DIR"; then
             echo "Python 가상환경을 만들지 못했습니다." >&2
             echo "Ubuntu/Debian은 python3-venv 패키지를 설치한 뒤 다시 실행하세요." >&2
             return 1
         fi
     fi
+    validate_runtime_venv "$INSTALL_DIR" "pip 설치 대상 런타임" || return 1
     if ! "$INSTALL_DIR/bin/python" -m pip --version >/dev/null 2>&1; then
         "$INSTALL_DIR/bin/python" -m ensurepip --upgrade
     fi
@@ -238,14 +290,24 @@ install_with_pip() {
 
 if command -v uv >/dev/null 2>&1; then
     echo "uv 잠금 파일로 사용자 런타임을 설치합니다: $INSTALL_DIR"
-    if ! UV_PROJECT_ENVIRONMENT="$INSTALL_DIR" uv sync --frozen --no-dev --no-editable \
-        --python "$PYTHON_BIN" --project "$ROOT_DIR"; then
+    uv_error_log="$(mktemp "${TMPDIR:-/tmp}/alj-uv-error.XXXXXX")"
+    if UV_PROJECT_ENVIRONMENT="$INSTALL_DIR" uv sync --frozen --no-dev --no-editable \
+        --python "$INSTALL_PYTHON" --project "$ROOT_DIR" 2>&1 | tee "$uv_error_log"; then
+        rm -f -- "$uv_error_log"
+    elif grep -Fq "incompatible with the project's Python requirement" "$uv_error_log"; then
+        rm -f -- "$uv_error_log"
+        echo "Python 버전이 프로젝트 요구사항과 맞지 않아 fallback 없이 설치를 중단합니다." >&2
+        exit 1
+    else
+        rm -f -- "$uv_error_log"
         echo "uv 설치가 실패해 표준 Python 가상환경으로 다시 시도합니다." >&2
         install_with_pip
     fi
 else
     install_with_pip
 fi
+
+validate_runtime_venv "$INSTALL_DIR" "설치된 사용자 런타임" || exit 1
 
 JUDGE="$INSTALL_DIR/bin/judge"
 STUDIO="$INSTALL_DIR/bin/problem-studio"

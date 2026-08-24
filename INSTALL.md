@@ -66,6 +66,10 @@ export PATH="$HOME/.local/bin:$PATH"
 `~/.local/bin`이 PATH에 없으면 `~/.bashrc`, `~/.zshrc` 또는 `~/.profile`에 한 번만
 등록합니다. 설치 명령의 마지막 `export`는 현재 터미널에도 즉시 적용하기 위한 것입니다.
 
+설치 대상은 항상 전용 Python 가상환경이어야 합니다. 기존 런타임의 Python이 3.11 미만이거나
+`pyvenv.cfg`가 없는 직접 설치 환경이면 `uv`와 `pip`를 실행하지 않고 중단합니다. `uv`가
+Python 호환성 오류를 반환해도 `pip` fallback을 시도하지 않습니다.
+
 ```text
 ./install.sh [--python PATH] [--install-dir PATH] [--bin-dir PATH] [--skip-checks]
 ```

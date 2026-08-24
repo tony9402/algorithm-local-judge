@@ -101,6 +101,9 @@ class UnixInstallerTest(unittest.TestCase):
             uv.write_text(
                 "#!/bin/sh\n"
                 'mkdir -p "$TEST_INSTALL_DIR/bin"\n'
+                'printf "home = fake\\n" > "$TEST_INSTALL_DIR/pyvenv.cfg"\n'
+                "printf '#!/bin/sh\\nexit 0\\n' > \"$TEST_INSTALL_DIR/bin/python\"\n"
+                'chmod +x "$TEST_INSTALL_DIR/bin/python"\n'
                 "for name in judge problem-studio; do\n"
                 "  printf '#!/bin/sh\\nexit 0\\n' > \"$TEST_INSTALL_DIR/bin/$name\"\n"
                 '  chmod +x "$TEST_INSTALL_DIR/bin/$name"\n'
@@ -163,6 +166,9 @@ class UnixInstallerTest(unittest.TestCase):
                 "#!/bin/sh\n"
                 'printf \'%s\\n\' "$@" > "$TEST_UV_ARGS"\n'
                 'mkdir -p "$TEST_INSTALL_DIR/bin"\n'
+                'printf "home = fake\\n" > "$TEST_INSTALL_DIR/pyvenv.cfg"\n'
+                "printf '#!/bin/sh\\nexit 0\\n' > \"$TEST_INSTALL_DIR/bin/python\"\n"
+                'chmod +x "$TEST_INSTALL_DIR/bin/python"\n'
                 "for name in judge problem-studio; do\n"
                 "  printf '#!/bin/sh\\nexit 0\\n' > \"$TEST_INSTALL_DIR/bin/$name\"\n"
                 '  chmod +x "$TEST_INSTALL_DIR/bin/$name"\n'
@@ -232,6 +238,275 @@ class UnixInstallerTest(unittest.TestCase):
             self.assertEqual(second.returncode, 0, second.stderr)
             self.assertEqual(profile.read_text(encoding="utf-8").count(path_line), 1)
 
+    def test_existing_python_310_runtime_stops_before_uv_or_pip(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-old-python-runtime-") as tmp:
+            root = Path(tmp)
+            fake_bin = root / "bin"
+            fake_bin.mkdir()
+            (fake_bin / "uname").write_text("#!/bin/sh\necho Linux\n", encoding="utf-8")
+            bootstrap_python = fake_bin / "python-new"
+            bootstrap_python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            uv_called = root / "uv-called"
+            uv = fake_bin / "uv"
+            uv.write_text('#!/bin/sh\ntouch "$TEST_UV_CALLED"\n', encoding="utf-8")
+            for command in (fake_bin / "uname", bootstrap_python, uv):
+                command.chmod(0o755)
+
+            install_dir = root / "runtime"
+            (install_dir / "bin").mkdir(parents=True)
+            (install_dir / "pyvenv.cfg").write_text("home = old\n", encoding="utf-8")
+            runtime_python = install_dir / "bin" / "python"
+            runtime_python.write_text(
+                "#!/bin/sh\n"
+                'if [ "$1" = "--version" ]; then echo "Python 3.10.18"; exit 0; fi\n'
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            runtime_python.chmod(0o755)
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PATH": f"{fake_bin}{os.pathsep}{environment['PATH']}",
+                    "HOME": str(root / "home"),
+                    "TEST_UV_CALLED": str(uv_called),
+                }
+            )
+            command_dir = root / "commands"
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(INSTALLER),
+                    "--python",
+                    str(bootstrap_python),
+                    "--install-dir",
+                    str(install_dir),
+                    "--bin-dir",
+                    str(command_dir),
+                    "--skip-checks",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env=environment,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Python이 3.11 미만", result.stderr)
+            self.assertIn("Python 3.10.18", result.stderr)
+            self.assertFalse(uv_called.exists())
+            self.assertFalse(command_dir.exists())
+
+    def test_selected_python_310_stops_before_uv_or_venv_creation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-old-bootstrap-python-") as tmp:
+            root = Path(tmp)
+            fake_bin = root / "bin"
+            fake_bin.mkdir()
+            (fake_bin / "uname").write_text("#!/bin/sh\necho Linux\n", encoding="utf-8")
+            old_python = fake_bin / "python-old"
+            old_python.write_text(
+                "#!/bin/sh\n"
+                'if [ "$1" = "--version" ]; then echo "Python 3.10.18"; exit 0; fi\n'
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            uv_called = root / "uv-called"
+            uv = fake_bin / "uv"
+            uv.write_text('#!/bin/sh\ntouch "$TEST_UV_CALLED"\n', encoding="utf-8")
+            for command in (fake_bin / "uname", old_python, uv):
+                command.chmod(0o755)
+
+            install_dir = root / "runtime"
+            command_dir = root / "commands"
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PATH": f"{fake_bin}{os.pathsep}{environment['PATH']}",
+                    "HOME": str(root / "home"),
+                    "TEST_UV_CALLED": str(uv_called),
+                }
+            )
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(INSTALLER),
+                    "--python",
+                    str(old_python),
+                    "--install-dir",
+                    str(install_dir),
+                    "--bin-dir",
+                    str(command_dir),
+                    "--skip-checks",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env=environment,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Python 3.11 이상이 필요합니다", result.stderr)
+            self.assertIn("Python 3.10.18", result.stderr)
+            self.assertFalse(uv_called.exists())
+            self.assertFalse(install_dir.exists())
+            self.assertFalse(command_dir.exists())
+
+    def test_existing_direct_python_install_stops_before_uv(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-direct-runtime-") as tmp:
+            root = Path(tmp)
+            fake_bin = root / "bin"
+            fake_bin.mkdir()
+            (fake_bin / "uname").write_text("#!/bin/sh\necho Linux\n", encoding="utf-8")
+            python = fake_bin / "python-new"
+            python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            uv_called = root / "uv-called"
+            uv = fake_bin / "uv"
+            uv.write_text('#!/bin/sh\ntouch "$TEST_UV_CALLED"\n', encoding="utf-8")
+            for command in (fake_bin / "uname", python, uv):
+                command.chmod(0o755)
+
+            install_dir = root / "runtime"
+            (install_dir / "bin").mkdir(parents=True)
+            direct_python = install_dir / "bin" / "python"
+            direct_python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            direct_python.chmod(0o755)
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PATH": f"{fake_bin}{os.pathsep}{environment['PATH']}",
+                    "HOME": str(root / "home"),
+                    "TEST_UV_CALLED": str(uv_called),
+                }
+            )
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(INSTALLER),
+                    "--python",
+                    str(python),
+                    "--install-dir",
+                    str(install_dir),
+                    "--bin-dir",
+                    str(root / "commands"),
+                    "--skip-checks",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env=environment,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Python 가상환경이 아닙니다", result.stderr)
+            self.assertFalse(uv_called.exists())
+
+    def test_uv_python_requirement_error_never_falls_back_to_pip(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-uv-python-error-") as tmp:
+            root = Path(tmp)
+            fake_bin = root / "bin"
+            fake_bin.mkdir()
+            (fake_bin / "uname").write_text("#!/bin/sh\necho Linux\n", encoding="utf-8")
+            fallback_called = root / "fallback-called"
+            python = fake_bin / "python-new"
+            python.write_text(
+                "#!/bin/sh\n"
+                'if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then\n'
+                '  touch "$TEST_FALLBACK_CALLED"\n'
+                "  exit 1\n"
+                "fi\n"
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            uv = fake_bin / "uv"
+            uv.write_text(
+                "#!/bin/sh\n"
+                'echo "error: interpreter is incompatible with the project\'s Python requirement" >&2\n'
+                "exit 2\n",
+                encoding="utf-8",
+            )
+            for command in (fake_bin / "uname", python, uv):
+                command.chmod(0o755)
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PATH": f"{fake_bin}{os.pathsep}{environment['PATH']}",
+                    "HOME": str(root / "home"),
+                    "TEST_FALLBACK_CALLED": str(fallback_called),
+                }
+            )
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(INSTALLER),
+                    "--python",
+                    str(python),
+                    "--install-dir",
+                    str(root / "runtime"),
+                    "--bin-dir",
+                    str(root / "commands"),
+                    "--skip-checks",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env=environment,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("fallback 없이 설치를 중단", result.stderr)
+            self.assertFalse(fallback_called.exists())
+
+    def test_uv_result_without_virtualenv_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-uv-direct-install-") as tmp:
+            root = Path(tmp)
+            fake_bin = root / "bin"
+            fake_bin.mkdir()
+            (fake_bin / "uname").write_text("#!/bin/sh\necho Linux\n", encoding="utf-8")
+            python = fake_bin / "python-new"
+            python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            uv = fake_bin / "uv"
+            uv.write_text(
+                "#!/bin/sh\n"
+                'mkdir -p "$TEST_INSTALL_DIR/bin"\n'
+                "for name in python judge problem-studio; do\n"
+                "  printf '#!/bin/sh\\nexit 0\\n' > \"$TEST_INSTALL_DIR/bin/$name\"\n"
+                '  chmod +x "$TEST_INSTALL_DIR/bin/$name"\n'
+                "done\n",
+                encoding="utf-8",
+            )
+            for command in (fake_bin / "uname", python, uv):
+                command.chmod(0o755)
+            install_dir = root / "runtime"
+            command_dir = root / "commands"
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PATH": f"{fake_bin}{os.pathsep}{environment['PATH']}",
+                    "HOME": str(root / "home"),
+                    "TEST_INSTALL_DIR": str(install_dir),
+                }
+            )
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(INSTALLER),
+                    "--python",
+                    str(python),
+                    "--install-dir",
+                    str(install_dir),
+                    "--bin-dir",
+                    str(command_dir),
+                    "--skip-checks",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env=environment,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Python 가상환경이 아닙니다", result.stderr)
+            self.assertFalse((command_dir / "judge").exists())
+
     def test_piped_installer_bootstraps_the_requested_github_ref(self) -> None:
         with tempfile.TemporaryDirectory(prefix="alj-curl-bootstrap-") as tmp:
             root = Path(tmp)
@@ -240,7 +515,7 @@ class UnixInstallerTest(unittest.TestCase):
             (fake_bin / "uname").write_text("#!/bin/sh\necho Linux\n", encoding="utf-8")
             child_installer = root / "child-install.sh"
             child_installer.write_text(
-                "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$TEST_CHILD_ARGS\"\n",
+                '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$TEST_CHILD_ARGS"\n',
                 encoding="utf-8",
             )
             git = fake_bin / "git"
@@ -348,10 +623,14 @@ class InstallWorkflowContractTest(unittest.TestCase):
         self.assertIn("runner: ubuntu-latest", workflow)
         self.assertIn("runner: macos-15", workflow)
         self.assertIn("runs-on: ${{ matrix.runner }}", workflow)
+        self.assertIn("push:", workflow)
         self.assertIn("./install.sh --skip-checks", workflow)
         self.assertIn("python scripts/verify_install_docs.py", workflow)
-        self.assertIn("ALJ_INSTALL_DIR:", workflow)
-        self.assertIn("ALJ_BIN_DIR:", workflow)
+        self.assertIn("ALJ_INSTALL_DIR=%s", workflow)
+        self.assertIn("ALJ_BIN_DIR=%s", workflow)
+        self.assertIn("$RUNNER_TEMP", workflow)
+        self.assertIn("$GITHUB_ENV", workflow)
+        self.assertNotIn("${{ runner.temp }}", workflow)
         self.assertIn("judge --version", workflow)
         self.assertIn("problem-studio --version", workflow)
         self.assertIn("judge was installed in editable mode", workflow)
@@ -359,6 +638,11 @@ class InstallWorkflowContractTest(unittest.TestCase):
         self.assertNotIn("windows", workflow.lower())
         self.assertNotIn("install.ps1", workflow)
         self.assertNotIn("continue-on-error: true", workflow)
+
+    def test_ci_does_not_mix_uv_frozen_with_locked_flag(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("uv sync --dev --locked", workflow)
+        self.assertNotIn("UV_FROZEN", workflow)
 
     def test_release_checks_install_docs_before_upload(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
