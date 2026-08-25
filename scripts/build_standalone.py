@@ -134,6 +134,7 @@ def nuitka_command(build_dir: Path) -> list[str]:
         "-m",
         "nuitka",
         "--mode=standalone",
+        "--assume-yes-for-downloads",
         "--python-flag=no_docstrings",
         "--python-flag=no_asserts",
         "--include-module=yaml",

@@ -12,6 +12,7 @@ from alj_core.config import effective_tool_compile_timeout_ms
 from judge.cli import main
 from judge.cli_parser import build_parser
 from judge.core.docker_launcher import (
+    COSIGN_VERIFIER_IMAGE,
     DATA_VOLUME,
     INTERNAL_NETWORK,
     ISOLATED_GATEWAY_OPTION,
@@ -53,6 +54,10 @@ def signature_command() -> list[str]:
         "--certificate-oidc-issuer",
         DEFAULT_GITHUB_OIDC_ISSUER,
     ]
+
+
+def containerized_signature_command() -> list[str]:
+    return ["docker", "run", "--rm", COSIGN_VERIFIER_IMAGE, *signature_command()[1:]]
 
 
 def setup_container_command() -> list[str]:
@@ -231,6 +236,30 @@ class DockerLauncherCommandTest(unittest.TestCase):
 
         self.assertEqual(run.call_count, 2)
         cosign.assert_not_called()
+
+    def test_setup_uses_pinned_cosign_image_when_host_cosign_is_missing(self) -> None:
+        results = [
+            completed(),
+            completed(stdout=f"{DIGEST}\n"),
+            completed(),
+            completed(stdout=f"{DATA_VOLUME}\n"),
+            completed(stdout="true\n"),
+            completed(),
+        ]
+        with (
+            patch("judge.core.docker_launcher.ensure_sandbox_preflight", return_value=PRECHECK),
+            patch(
+                "judge.core.docker_launcher.cosign_path",
+                side_effect=JudgeError("Cosign is not installed"),
+            ),
+            patch("judge.core.docker_launcher.subprocess.run", side_effect=results) as run,
+        ):
+            resolved = setup_docker_judge()
+
+        self.assertEqual(resolved, DIGEST)
+        commands = [item.args[0] for item in run.call_args_list]
+        self.assertEqual(commands[2], containerized_signature_command())
+        self.assertIn("@sha256:", COSIGN_VERIFIER_IMAGE)
 
     def test_setup_does_not_fallback_when_docker_preflight_fails(self) -> None:
         with (
@@ -446,6 +475,7 @@ class DockerLauncherCliAndReleaseTest(unittest.TestCase):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
 
+        self.assertIn(COSIGN_VERIFIER_IMAGE, dockerfile)
         self.assertIn("ghcr.io/sigstore/cosign/cosign:v3.0.6@sha256:", dockerfile)
         self.assertIn("ubuntu:24.04@sha256:", dockerfile)
         self.assertIn("COPY --from=cosign-bin /ko-app/cosign /usr/local/bin/cosign", dockerfile)

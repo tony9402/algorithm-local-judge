@@ -23,6 +23,7 @@ class StandaloneBundleTest(unittest.TestCase):
     def test_nuitka_command_includes_both_apps_and_static_roots(self) -> None:
         command = nuitka_command(Path("/tmp/nuitka-output"))
 
+        self.assertIn("--assume-yes-for-downloads", command)
         self.assertIn("--include-package=problem_studio", command)
         self.assertIn("--include-data-dir=judge/web/static=web/static", command)
         self.assertIn(

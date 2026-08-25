@@ -100,7 +100,7 @@ def native_signing(
         target = None
     elif kind == "pkg":
         target = "macos"
-    elif platform.startswith("windows") or kind == "msi":
+    elif kind == "msi":
         target = "windows"
     elif kind == "apt-repository":
         target = "apt"

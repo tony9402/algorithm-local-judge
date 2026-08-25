@@ -15,6 +15,10 @@ OFFICIAL_IMAGE_IDENTITY = (
     "https://github.com/tony9402/algorithm-local-judge/"
     f".github/workflows/release.yml@refs/tags/v{__version__}"
 )
+COSIGN_VERIFIER_IMAGE = (
+    "ghcr.io/sigstore/cosign/cosign:v3.0.6@"
+    "sha256:de9c65609e6bde17e6b48de485ee788407c9502fa08b8f4459f595b21f56cd00"
+)
 OFFICIAL_PROBLEM_REPOSITORY = "tony9402/algorithm-package"
 DATA_VOLUME = "algorithm-local-judge-data"
 INTERNAL_NETWORK = "algorithm-local-judge-internal"
@@ -89,9 +93,13 @@ def _inspect_image_digest() -> str:
 
 
 def _verify_image_signature(digest: str) -> None:
+    try:
+        verifier = [cosign_path()]
+    except JudgeError:
+        verifier = ["docker", "run", "--rm", COSIGN_VERIFIER_IMAGE]
     _run_command(
         [
-            cosign_path(),
+            *verifier,
             "verify",
             digest,
             "--certificate-identity",
@@ -357,6 +365,7 @@ def run_docker_web(port: int = CONTAINER_WEB_PORT) -> None:
 
 
 __all__ = [
+    "COSIGN_VERIFIER_IMAGE",
     "DATA_VOLUME",
     "INTERNAL_NETWORK",
     "MANAGED_LABEL",

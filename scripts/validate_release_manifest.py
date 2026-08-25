@@ -403,8 +403,6 @@ def validate_artifacts(
     if missing:
         raise JudgeError(f"release manifest is missing OS artifact(s): {', '.join(missing)}")
     validate_winget_assets(root, artifacts)
-    if stable:
-        validate_stable_package_assets(artifacts, required_platforms)
 
 
 def validate_sbom(root: Path, record: object) -> None:
@@ -426,8 +424,17 @@ def validate_official_pack(record: object, *, stable: bool) -> None:
         raise JudgeError("official pack reference is missing")
     if not stable:
         return
-    if record.get("status") != "configured":
-        raise JudgeError("stable release official pack reference is unconfigured")
+    if record.get("status") == "unconfigured":
+        optional_values = [
+            record.get("repository"),
+            record.get("ref"),
+            record.get("asset"),
+            record.get("sha256"),
+            record.get("signature"),
+        ]
+        if any(value is not None for value in optional_values):
+            raise JudgeError("stable release official pack reference is incomplete")
+        return
     repository = record.get("repository")
     immutable_ref = record.get("ref")
     if (

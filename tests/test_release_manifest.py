@@ -128,7 +128,7 @@ class ReleaseManifestTest(unittest.TestCase):
             with self.assertRaisesRegex(JudgeError, "native signing is not verified"):
                 validate_release_manifest(manifest_path, root, stable=True)
 
-    def test_stable_rejects_unconfigured_official_pack_reference(self) -> None:
+    def test_stable_allows_external_official_pack_to_be_unconfigured(self) -> None:
         with tempfile.TemporaryDirectory(prefix="alj-release-manifest-") as tmp:
             root = Path(tmp)
             manifest, manifest_path = create_release_fixture(root)
@@ -140,7 +140,52 @@ class ReleaseManifestTest(unittest.TestCase):
             }
             manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
 
-            with self.assertRaisesRegex(JudgeError, "official pack reference is unconfigured"):
+            validate_release_manifest(manifest_path, root, stable=True)
+
+    def test_stable_supports_signed_standalone_only_release(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-release-manifest-") as tmp:
+            root = Path(tmp)
+            source = ReleaseScannerTest().make_standalone_archive(root)
+            for platform in ("macos-arm64", "macos-amd64", "linux-amd64", "windows-amd64"):
+                archive = root / f"algorithm-local-judge-0.1.0-{platform}.tar.gz"
+                if archive != source:
+                    archive.write_bytes(source.read_bytes())
+                write_sidecars(archive)
+            sbom = root / "algorithm-local-judge.cdx.json"
+            sbom.write_text(
+                json.dumps({"bomFormat": "CycloneDX", "specVersion": "1.6"}) + "\n",
+                encoding="utf-8",
+            )
+            write_sidecars(sbom)
+            args = fixture_args(root)
+            args.channel = "stable"
+            args.source_commit = "b" * 40
+            args.required_platform = [
+                "macos-arm64",
+                "macos-amd64",
+                "linux-amd64",
+                "windows-amd64",
+            ]
+            manifest = build_manifest(args)
+            manifest_path = root / "release-manifest.json"
+            manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+
+            validate_release_manifest(manifest_path, root, stable=True)
+
+    def test_stable_rejects_partial_official_pack_reference(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-release-manifest-") as tmp:
+            root = Path(tmp)
+            manifest, manifest_path = create_release_fixture(root)
+            manifest["release"].update({"channel": "stable", "sourceCommit": "b" * 40})
+            manifest["artifacts"][0]["nativeSigning"] = {
+                "type": "developer-id",
+                "status": "verified",
+                "attestation": "notary-log-fixture",
+            }
+            manifest["officialPack"]["repository"] = "fixture/official-pack"
+            manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(JudgeError, "official pack reference is incomplete"):
                 validate_release_manifest(manifest_path, root, stable=True)
 
     def test_complete_stable_fixture_requires_manifest_sidecars(self) -> None:
@@ -450,29 +495,30 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("github.repository == 'tony9402/algorithm-local-judge'", workflow)
         self.assertIn("--require-manifest-sidecars", workflow)
 
-    def test_candidate_matrix_builds_native_package_assets_without_publishing_them(self) -> None:
+    def test_release_matrix_builds_and_signs_supported_standalone_assets(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
         parsed = yaml.load(workflow, Loader=yaml.BaseLoader)
 
         self.assertIsInstance(parsed, dict)
-        self.assertIn("windows-latest", workflow)
-        self.assertIn("scripts/build_rpm.py", workflow)
-        self.assertIn("scripts/build_windows_installer.py", workflow)
-        self.assertIn("scripts/build_winget_manifest.py", workflow)
-        self.assertIn("scripts/build_macos_pkg.py", workflow)
-        self.assertIn("scripts/build_apt_repository.py", workflow)
-        for pattern in ("*.rpm", "*.msi", "*.yaml"):
-            self.assertIn(pattern, workflow)
-        self.assertIn("*.pkg", workflow)
-        self.assertIn("*-apt-repository.tar.gz", workflow)
-        self.assertIn("--evidence-dir release-assets", workflow)
-        self.assertIn("APPLE_DEVELOPER_ID_INSTALLER", workflow)
-        self.assertIn("APT_GPG_PRIVATE_KEY_BASE64", workflow)
-        self.assertIn("--required-platform windows-amd64", workflow)
-        self.assertIn("build_native_signing_plan.py", workflow)
-        self.assertNotIn("wingetcreate submit", workflow.lower())
-        self.assertNotIn("rpmsign", workflow)
-        self.assertNotIn("signtool", workflow.lower())
+        for runner in ("ubuntu-latest", "macos-15", "macos-15-intel", "windows-latest"):
+            self.assertIn(runner, workflow)
+        for platform in ("macos-arm64", "macos-amd64", "linux-amd64", "windows-amd64"):
+            self.assertIn(f"--required-platform {platform}", workflow)
+        self.assertIn("dist/standalone/*.tar.gz", workflow)
+        self.assertIn("for artifact in release-assets/*.tar.gz", workflow)
+        self.assertIn("cosign sign-blob", workflow)
+        self.assertIn("cosign sign --yes", workflow)
+        for unsupported_step in (
+            "scripts/build_rpm.py",
+            "scripts/build_windows_installer.py",
+            "scripts/build_winget_manifest.py",
+            "scripts/build_macos_pkg.py",
+            "scripts/build_apt_repository.py",
+            "build_native_signing_plan.py",
+            "APPLE_SIGNING_CERTIFICATE_P12",
+            "APT_GPG_PRIVATE_KEY_BASE64",
+        ):
+            self.assertNotIn(unsupported_step, workflow)
 
 
 if __name__ == "__main__":

@@ -59,166 +59,11 @@ jobs:
           version: "0.11.12"
           enable-cache: true
       - run: uv sync --dev --locked
-      - name: Install RPM build tooling
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes rpm
-      - name: Install pinned WiX Toolset
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          dotnet tool install --global wix --version 4.0.5
-          wix --version
       - run: uv run python scripts/build_standalone.py --clean
-      - name: Configure stable macOS signing identity and notary profile
-        if: >-
-          runner.os == 'macOS' &&
-          startsWith(github.ref, 'refs/tags/v') &&
-          github.repository == 'tony9402/algorithm-local-judge'
-        env:
-          APPLE_SIGNING_CERTIFICATE_P12: ${{ secrets.APPLE_SIGNING_CERTIFICATE_P12 }}
-          APPLE_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_SIGNING_CERTIFICATE_PASSWORD }}
-          APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          : "${APPLE_SIGNING_CERTIFICATE_P12:?Apple signing certificate is required}"
-          : "${APPLE_SIGNING_CERTIFICATE_PASSWORD:?Apple certificate password is required}"
-          : "${APPLE_NOTARY_KEY_P8:?Apple notary API key is required}"
-          : "${APPLE_NOTARY_KEY_ID:?Apple notary key id is required}"
-          : "${APPLE_NOTARY_ISSUER:?Apple notary issuer is required}"
-          certificate="$RUNNER_TEMP/alj-signing.p12"
-          notary_key="$RUNNER_TEMP/AuthKey_${APPLE_NOTARY_KEY_ID}.p8"
-          keychain="$RUNNER_TEMP/alj-signing.keychain-db"
-          printf '%s' "$APPLE_SIGNING_CERTIFICATE_P12" | base64 --decode > "$certificate"
-          printf '%s' "$APPLE_NOTARY_KEY_P8" | base64 --decode > "$notary_key"
-          security create-keychain -p "$APPLE_SIGNING_CERTIFICATE_PASSWORD" "$keychain"
-          security unlock-keychain -p "$APPLE_SIGNING_CERTIFICATE_PASSWORD" "$keychain"
-          security import "$certificate" -k "$keychain" \
-            -P "$APPLE_SIGNING_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productsign
-          security set-key-partition-list -S apple-tool:,apple: -s \
-            -k "$APPLE_SIGNING_CERTIFICATE_PASSWORD" "$keychain"
-          security list-keychains -d user -s "$keychain"
-          security default-keychain -d user -s "$keychain"
-          xcrun notarytool store-credentials algorithm-local-judge-notary \
-            --key "$notary_key" --key-id "$APPLE_NOTARY_KEY_ID" --issuer "$APPLE_NOTARY_ISSUER"
-          echo "APPLE_NOTARY_PROFILE=algorithm-local-judge-notary" >> "$GITHUB_ENV"
-      - name: Build macOS PKG candidate or verified stable installer
-        if: runner.os == 'macOS'
-        env:
-          APPLE_DEVELOPER_ID_APPLICATION: ${{ vars.APPLE_DEVELOPER_ID_APPLICATION }}
-          APPLE_DEVELOPER_ID_INSTALLER: ${{ vars.APPLE_DEVELOPER_ID_INSTALLER }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          platform=macos-arm64
-          if [[ "$RUNNER_ARCH" == "X64" ]]; then platform=macos-amd64; fi
-          archive=(dist/standalone/algorithm-local-judge-*-"${platform}".tar.gz)
-          if [[ ${#archive[@]} -ne 1 || ! -f "${archive[0]}" ]]; then
-            echo "expected exactly one $platform standalone archive" >&2
-            exit 1
-          fi
-          channel=candidate
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then channel=stable; fi
-          uv run python scripts/build_macos_pkg.py \
-            --archive "${archive[0]}" \
-            --output-dir dist/installers \
-            --platform "$platform" \
-            --channel "$channel"
-      - name: Build Debian installer
-        if: runner.os == 'Linux'
-        run: >-
-          uv run python scripts/build_deb.py
-          --archive dist/standalone/algorithm-local-judge-*-linux-amd64.tar.gz
-          --output-dir dist/installers
-      - name: Build APT repository candidate or verified stable channel
-        if: runner.os == 'Linux'
-        env:
-          ALJ_APT_GPG_KEY_ID: ${{ secrets.ALJ_APT_GPG_KEY_ID }}
-          APT_GPG_PRIVATE_KEY_BASE64: ${{ secrets.APT_GPG_PRIVATE_KEY_BASE64 }}
-          APT_REPOSITORY_URL: ${{ vars.APT_REPOSITORY_URL }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          deb=(dist/installers/algorithm-local-judge_*_amd64.deb)
-          if [[ ${#deb[@]} -ne 1 || ! -f "${deb[0]}" ]]; then
-            echo "expected exactly one application Debian package" >&2
-            exit 1
-          fi
-          channel=candidate
-          extra=()
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            channel=stable
-            : "${ALJ_APT_GPG_KEY_ID:?APT GPG key id is required}"
-            : "${APT_GPG_PRIVATE_KEY_BASE64:?APT private key is required}"
-            : "${APT_REPOSITORY_URL:?APT repository URL is required}"
-            export GNUPGHOME="$RUNNER_TEMP/alj-apt-gnupg"
-            mkdir -m 700 "$GNUPGHOME"
-            printf '%s' "$APT_GPG_PRIVATE_KEY_BASE64" | base64 --decode | gpg --batch --import
-            public_key="$RUNNER_TEMP/algorithm-local-judge-archive-keyring.gpg"
-            gpg --batch --export "$ALJ_APT_GPG_KEY_ID" > "$public_key"
-            extra=(--gpg-key-id "$ALJ_APT_GPG_KEY_ID" \
-              --repository-url "$APT_REPOSITORY_URL" --public-key "$public_key")
-          fi
-          uv run python scripts/build_apt_repository.py \
-            --deb "${deb[0]}" \
-            --output-dir dist/installers \
-            --channel "$channel" \
-            "${extra[@]}"
-      - name: Build application and repository bootstrap RPMs
-        if: runner.os == 'Linux'
-        env:
-          RPM_REPO_BASE_URL: ${{ vars.RPM_REPO_BASE_URL }}
-          RPM_GPG_KEY_URL: ${{ vars.RPM_GPG_KEY_URL }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          : "${RPM_REPO_BASE_URL:?RPM_REPO_BASE_URL repository variable is required}"
-          : "${RPM_GPG_KEY_URL:?RPM_GPG_KEY_URL repository variable is required}"
-          uv run python scripts/build_rpm.py \
-            --archive dist/standalone/algorithm-local-judge-*-linux-amd64.tar.gz \
-            --output-dir dist/installers \
-            --repo-base-url "$RPM_REPO_BASE_URL" \
-            --gpg-key-url "$RPM_GPG_KEY_URL"
-      - name: Build WiX MSI and WinGet candidate manifests
-        if: runner.os == 'Windows'
-        env:
-          WINGET_PACKAGE_ID: ${{ vars.WINGET_PACKAGE_ID || 'Tony9402.AlgorithmLocalJudge' }}
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $archive = Get-ChildItem dist/standalone/*-windows-amd64.tar.gz -File -ErrorAction Stop
-          if ($archive.Count -ne 1) { throw "Expected exactly one Windows standalone archive" }
-          uv run python scripts/build_windows_installer.py `
-            --archive $archive.FullName `
-            --output-dir dist/installers
-          $version = uv run python -c "from judge import __version__; print(__version__)"
-          $msi = Get-ChildItem dist/installers/*-windows-amd64.msi -File -ErrorAction Stop
-          if ($msi.Count -ne 1) { throw "Expected exactly one Windows MSI" }
-          $installerUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$version/$($msi.Name)"
-          uv run python scripts/build_winget_manifest.py `
-            --msi $msi.FullName `
-            --package-id $env:WINGET_PACKAGE_ID `
-            --version $version `
-            --installer-url $installerUrl `
-            --output-dir dist/winget
-          Get-ChildItem dist/winget -Recurse -Filter *.yaml -File |
-            Copy-Item -Destination dist/installers
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: standalone-${{ runner.os }}-${{ runner.arch }}
-          path: |
-            dist/standalone/*.tar.gz
-            dist/installers/*.deb
-            dist/installers/*.rpm
-            dist/installers/*.pkg
-            dist/installers/*.msi
-            dist/installers/*.yaml
-            dist/installers/*-apt-repository.tar.gz
-            dist/installers/*.native-signing.json
+          path: dist/standalone/*.tar.gz
           if-no-files-found: error
 
   image:
@@ -311,9 +156,6 @@ jobs:
                 cp "$artifact" release-assets/algorithm-local-judge-windows-amd64.tar.gz ;;
             esac
           done
-          for installer in release-assets/algorithm-local-judge_*_amd64.deb; do
-            cp "$installer" release-assets/algorithm-local-judge-linux-amd64.deb
-          done
           python scripts/build_homebrew_formula.py \
             --assets release-assets \
             --tag "${{ github.ref_name }}" \
@@ -324,21 +166,6 @@ jobs:
             checksum="$(sha256sum "$artifact" | awk '{print $1}')"
             printf '%s  %s\n' "$checksum" "$(basename "$artifact")" > "$artifact.sha256"
             cosign sign-blob "$artifact" --bundle "$artifact.sigstore.json" --yes
-          done
-          for installer in release-assets/*.deb; do
-            checksum="$(sha256sum "$installer" | awk '{print $1}')"
-            printf '%s  %s\n' "$checksum" "$(basename "$installer")" > "$installer.sha256"
-            cosign sign-blob "$installer" --bundle "$installer.sigstore.json" --yes
-          done
-          for installer in release-assets/*.rpm release-assets/*.msi release-assets/*.yaml; do
-            checksum="$(sha256sum "$installer" | awk '{print $1}')"
-            printf '%s  %s\n' "$checksum" "$(basename "$installer")" > "$installer.sha256"
-            cosign sign-blob "$installer" --bundle "$installer.sigstore.json" --yes
-          done
-          for installer in release-assets/*.pkg; do
-            checksum="$(sha256sum "$installer" | awk '{print $1}')"
-            printf '%s  %s\n' "$checksum" "$(basename "$installer")" > "$installer.sha256"
-            cosign sign-blob "$installer" --bundle "$installer.sigstore.json" --yes
           done
           (cd release-assets && sha256sum algorithm-local-judge.rb \
             > algorithm-local-judge.rb.sha256)
@@ -357,17 +184,8 @@ jobs:
             --bundle release-assets/algorithm-local-judge.cdx.json.sigstore.json --yes
       - name: Build and validate the immutable stable release manifest
         shell: bash
-        env:
-          OFFICIAL_PACK_REPOSITORY: ${{ vars.OFFICIAL_PACK_REPOSITORY }}
-          OFFICIAL_PACK_REF: ${{ vars.OFFICIAL_PACK_REF }}
-          OFFICIAL_PACK_ASSET: ${{ vars.OFFICIAL_PACK_ASSET }}
-          OFFICIAL_PACK_SHA256: ${{ vars.OFFICIAL_PACK_SHA256 }}
-          OFFICIAL_PACK_SIGNATURE: ${{ vars.OFFICIAL_PACK_SIGNATURE }}
         run: |
           set -euo pipefail
-          uv run python scripts/build_native_signing_plan.py \
-            --output release-assets/native-signing-plan.json \
-            --evidence-dir release-assets
           uv run python scripts/build_release_manifest.py \
             --assets release-assets \
             --output release-assets/release-manifest.json \
@@ -377,13 +195,7 @@ jobs:
             --required-platform macos-arm64 \
             --required-platform macos-amd64 \
             --required-platform linux-amd64 \
-            --required-platform windows-amd64 \
-            --signing-plan release-assets/native-signing-plan.json \
-            --official-pack-repository "${OFFICIAL_PACK_REPOSITORY:-}" \
-            --official-pack-ref "${OFFICIAL_PACK_REF:-}" \
-            --official-pack-asset "${OFFICIAL_PACK_ASSET:-}" \
-            --official-pack-sha256 "${OFFICIAL_PACK_SHA256:-}" \
-            --official-pack-signature "${OFFICIAL_PACK_SIGNATURE:-}"
+            --required-platform windows-amd64
           uv run python scripts/validate_release_manifest.py \
             --manifest release-assets/release-manifest.json \
             --assets release-assets
