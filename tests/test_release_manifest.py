@@ -513,6 +513,11 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         parsed = yaml.load(workflow, Loader=yaml.BaseLoader)
 
         self.assertIsInstance(parsed, dict)
+        verify_steps = parsed["jobs"]["verify"]["steps"]
+        e2e_step = next(
+            step for step in verify_steps if "unittest discover tests/e2e" in step.get("run", "")
+        )
+        self.assertEqual(e2e_step["env"]["ALJ_TOOL_COMPILE_TIMEOUT_MIN_MS"], "30000")
         for runner in ("ubuntu-latest", "macos-15", "macos-15-intel", "windows-latest"):
             self.assertIn(runner, workflow)
         for platform in ("macos-arm64", "macos-amd64", "linux-amd64", "windows-amd64"):

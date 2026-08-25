@@ -29,7 +29,10 @@ jobs:
       - run: >-
           uv run python scripts/run_with_problems_guard.py --
           uv run python -m unittest -v
-      - run: >-
+      - name: Browser and CLI E2E with a CI-safe tool compile floor
+        env:
+          ALJ_TOOL_COMPILE_TIMEOUT_MIN_MS: "30000"
+        run: >-
           uv run python scripts/run_with_problems_guard.py --
           uv run python -m unittest discover tests/e2e -p 'e2e_*.py' -v
       - run: >-
