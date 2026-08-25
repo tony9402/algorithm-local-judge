@@ -146,9 +146,7 @@ def web_container_command(port: int) -> list[str]:
         "--tmpfs",
         "/workspace:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
         "--mount",
-        f"type=volume,source={DATA_VOLUME},target=/data,readonly",
-        "--tmpfs",
-        "/data/cache:rw,nosuid,nodev,size=1024m,uid=10001,gid=10001,mode=0700",
+        f"type=volume,source={DATA_VOLUME},target=/data",
         "--tmpfs",
         "/data/jobs:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
         "--publish",
@@ -162,6 +160,7 @@ def web_container_command(port: int) -> list[str]:
         str(port),
         "--no-open",
         "--allow-remote-run",
+        "--allow-remote-write",
     ]
 
 
@@ -490,8 +489,16 @@ class DockerLauncherCommandTest(unittest.TestCase):
         self.assertNotIn("--rm", command)
         self.assertIn("0.0.0.0:9000:9000", command)
         self.assertEqual(
-            command[-6:],
-            ["--host", "0.0.0.0", "--port", "9000", "--no-open", "--allow-remote-run"],
+            command[-7:],
+            [
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "9000",
+                "--no-open",
+                "--allow-remote-run",
+                "--allow-remote-write",
+            ],
         )
         self.assertEqual(state["port"], 9000)
         wait.assert_called_once_with(JUDGE_DOCKER_WEB, 9000)

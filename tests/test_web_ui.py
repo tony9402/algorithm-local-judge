@@ -1592,6 +1592,63 @@ class WebUiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertTrue(config.json()["security"]["remoteRunAllowed"])
 
+    def test_non_local_binding_can_opt_in_to_management_apis(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-web-remote-write-test-") as tmp:
+            tmp_path = Path(tmp)
+            cache = tmp_path / "cache"
+            cache.mkdir()
+            (cache / "stale.txt").write_text("stale", encoding="utf-8")
+            problem_dir = (
+                tmp_path / "data" / "problem-sources" / "owner" / "repo" / "problems" / "alpha"
+            )
+            problem_dir.mkdir(parents=True)
+            (problem_dir / "problem.json").write_text(
+                '{"problemId":"alpha","title":"Alpha","folder":"Graph"}',
+                encoding="utf-8",
+            )
+            env = {
+                **os.environ,
+                "ALJ_CACHE_HOME": str(cache),
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+            }
+            with (
+                patch.dict(os.environ, env, clear=True),
+                patch(
+                    "judge.web.routes.packs.services.download_official_problem_pack",
+                    return_value={"installed": True},
+                ) as download,
+            ):
+                client = TestClient(
+                    create_app(
+                        local_binding=False,
+                        remote_warning=True,
+                        allow_remote_write=True,
+                    )
+                )
+                pack_download = client.post(
+                    "/api/packs/download",
+                    json={"repository": "tony9402/algorithm-package"},
+                )
+                cache_clear = client.post(
+                    "/api/cache/clear",
+                    json={"all_entries": True, "dry_run": False},
+                )
+                folder_delete = client.request(
+                    "DELETE",
+                    "/api/folders",
+                    json={"folder": "Graph", "confirm_delete_problems": True},
+                )
+                config = client.get("/api/config")
+
+        self.assertEqual(pack_download.status_code, 200, pack_download.text)
+        download.assert_called_once_with("tony9402/algorithm-package", None, None)
+        self.assertEqual(cache_clear.status_code, 200, cache_clear.text)
+        self.assertFalse((cache / "stale.txt").exists())
+        self.assertEqual(folder_delete.status_code, 200, folder_delete.text)
+        self.assertEqual(folder_delete.json()["deletedProblems"], ["alpha"])
+        self.assertFalse(problem_dir.exists())
+        self.assertTrue(config.json()["security"]["remoteWriteAllowed"])
+
     def test_source_text_and_upload_size_limits_return_413(self) -> None:
         """소스 텍스트 및 업로드 크기 제한 반환 413 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-limit-test-") as tmp:

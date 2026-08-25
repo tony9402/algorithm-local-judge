@@ -231,6 +231,8 @@ judge docker web restart
 `--port`는 컨테이너 내부 웹 포트와 호스트 공개 포트에 같은 값을 적용합니다. 호스트의 모든
 인터페이스(`0.0.0.0`)에 공개되므로 로컬에서는 `http://127.0.0.1:8765`, 외부에서는
 `http://<호스트-IP>:8765`로 접속합니다. 신뢰할 수 있는 네트워크와 방화벽에서만 사용하세요.
+Docker Judge의 문제 팩·문제 폴더·캐시는 관리형 data volume에 저장되므로 컨테이너를
+재시작해도 유지되며, 웹 화면에서 설치·삭제·캐시 정리를 수행할 수 있습니다.
 
 이 경로는 host 경로와 Docker socket을 mount하지 않고, 관리형 bridge network,
 read-only rootfs, non-root UID, capability/resource 제한을 강제합니다. 웹 포트 공개를 위해

@@ -191,6 +191,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="allow run APIs when binding judge web to a non-local host",
     )
+    web_parser.add_argument(
+        "--allow-remote-write",
+        action="store_true",
+        help="allow management APIs when binding judge web to a non-local host",
+    )
     web_parser.add_argument("--service-runner", help=argparse.SUPPRESS)
 
     studio_parser = add_parser(subparsers, "studio")

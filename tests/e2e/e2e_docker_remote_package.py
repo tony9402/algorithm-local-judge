@@ -9,10 +9,12 @@ import sys
 import textwrap
 import threading
 import unittest
+import urllib.error
+import urllib.request
 import uuid
 from pathlib import Path
 
-from tests.e2e.helpers import ROOT
+from tests.e2e.helpers import ROOT, free_port, wait_for_http
 
 RUN_DOCKER_TESTS_ENV = "ALJ_RUN_DOCKER_TESTS"
 DOCKER_IMAGE_ENV = "ALJ_DOCKER_TEST_IMAGE"
@@ -148,6 +150,29 @@ def run_command(
             f"stderr:\n{result.stderr}"
         )
     return result
+
+
+def request_json(
+    base_url: str,
+    path: str,
+    *,
+    method: str = "GET",
+    payload: dict | None = None,
+) -> tuple[int, dict | list]:
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    request = urllib.request.Request(
+        f"{base_url}{path}",
+        data=data,
+        method=method,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        response = urllib.request.urlopen(request, timeout=10)
+    except urllib.error.HTTPError as exc:
+        raw_body = exc.read()
+        return exc.code, json.loads(raw_body.decode("utf-8"))
+    with response:
+        return response.status, json.loads(response.read().decode("utf-8"))
 
 
 def tail_text(value: str, limit: int = MAX_FAILURE_OUTPUT_CHARS) -> str:
@@ -809,14 +834,16 @@ class DockerRemotePackageScriptContractTest(unittest.TestCase):
 class DockerRemotePackageE2ETest(unittest.TestCase):
     """Docker 이미지와 공식 문제 팩의 최소 호환성 흐름을 실제 컨테이너에서 확인합니다."""
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.image = os.environ.get(DOCKER_IMAGE_ENV, DEFAULT_IMAGE)
+        cls.timeout = docker_timeout_seconds()
+        run_command(["docker", "build", "-t", cls.image, "."], timeout=cls.timeout)
+
     def test_docker_image_checks_official_package_without_generating_problem_data(self) -> None:
         """공식 팩의 문법과 generator/checker 컴파일만 컨테이너에서 확인합니다."""
-        image = os.environ.get(DOCKER_IMAGE_ENV, DEFAULT_IMAGE)
-        timeout = docker_timeout_seconds()
         repository = os.environ.get(DOCKER_REPOSITORY_ENV, DEFAULT_REPOSITORY)
         profile = os.environ.get(DOCKER_PROFILE_ENV, DEFAULT_PROFILE)
-
-        run_command(["docker", "build", "-t", image, "."], timeout=timeout)
 
         volume_name = f"alj-docker-e2e-{uuid.uuid4().hex}"
         try:
@@ -835,12 +862,12 @@ class DockerRemotePackageE2ETest(unittest.TestCase):
                     DOCKER_GITHUB_TOKEN_ENV,
                     "-v",
                     f"{volume_name}:/data",
-                    image,
+                    self.image,
                     "python",
                     "-c",
                     docker_verification_script(),
                 ],
-                timeout=timeout,
+                timeout=self.timeout,
                 check=False,
             )
         finally:
@@ -889,6 +916,137 @@ class DockerRemotePackageE2ETest(unittest.TestCase):
         self.assertEqual(summary.get("pypy", {}).get("pythonDefaultStatus"), "accepted")
         self.assertTrue(summary.get("pypy", {}).get("problemId"))
         self.assertTrue((summary.get("pypy", {}).get("source") or "").endswith(".py"))
+
+    def test_docker_web_management_is_allowed_and_persists_in_the_data_volume(self) -> None:
+        volume_name = f"alj-docker-web-e2e-{uuid.uuid4().hex}"
+        container_name = f"alj-docker-web-e2e-{uuid.uuid4().hex}"
+        port = free_port()
+        base_url = f"http://127.0.0.1:{port}"
+        problem_dir = "/data/problem-sources/owner/repo/problems/docker-delete"
+        seed_script = (
+            f"mkdir -p {problem_dir} /data/cache "
+            f"&& printf '%s' '{json.dumps({'problemId': 'docker-delete', 'title': 'Docker Delete', 'folder': 'Docker'})}' "
+            f"> {problem_dir}/problem.json "
+            "&& printf '%s' stale > /data/cache/stale.txt"
+        )
+        start_command = [
+            "docker",
+            "run",
+            "--detach",
+            "--name",
+            container_name,
+            "--user",
+            "10001:10001",
+            "--read-only",
+            "--tmpfs",
+            "/tmp:rw,noexec,nosuid,nodev,size=256m",
+            "--mount",
+            f"type=volume,source={volume_name},target=/data",
+            "--publish",
+            f"127.0.0.1:{port}:8765",
+            self.image,
+            "judge",
+            "web",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8765",
+            "--no-open",
+            "--allow-remote-run",
+            "--allow-remote-write",
+        ]
+        try:
+            run_command(
+                ["docker", "volume", "create", volume_name],
+                timeout=self.timeout,
+            )
+            run_command(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--mount",
+                    f"type=volume,source={volume_name},target=/data",
+                    self.image,
+                    "/bin/sh",
+                    "-c",
+                    seed_script,
+                ],
+                timeout=self.timeout,
+            )
+            run_command(start_command, timeout=self.timeout)
+            wait_for_http(f"{base_url}/healthz", timeout=20)
+
+            config_status, config = request_json(base_url, "/api/config")
+            cache_status, cache_result = request_json(
+                base_url,
+                "/api/cache/clear",
+                method="POST",
+                payload={"all_entries": True, "dry_run": False},
+            )
+            delete_status, delete_result = request_json(
+                base_url,
+                "/api/folders",
+                method="DELETE",
+                payload={"folder": "Docker", "confirm_delete_problems": True},
+            )
+
+            self.assertEqual(config_status, 200, config)
+            self.assertTrue(config["security"]["remoteWriteAllowed"])
+            self.assertEqual(cache_status, 200, cache_result)
+            self.assertEqual(delete_status, 200, delete_result)
+            self.assertEqual(delete_result["deletedProblems"], ["docker-delete"])
+            run_command(
+                ["docker", "exec", container_name, "test", "!", "-e", "/data/cache/stale.txt"],
+                timeout=self.timeout,
+            )
+            run_command(
+                ["docker", "exec", container_name, "test", "!", "-d", problem_dir],
+                timeout=self.timeout,
+            )
+            run_command(
+                [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "/bin/sh",
+                    "-c",
+                    "mkdir -p /data/cache && printf '%s' persisted > /data/cache/persisted.txt",
+                ],
+                timeout=self.timeout,
+            )
+            run_command(["docker", "rm", "--force", container_name], timeout=self.timeout)
+            run_command(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--network",
+                    "none",
+                    "--mount",
+                    f"type=volume,source={volume_name},target=/data,readonly",
+                    self.image,
+                    "test",
+                    "-f",
+                    "/data/cache/persisted.txt",
+                ],
+                timeout=self.timeout,
+            )
+        finally:
+            subprocess.run(
+                ["docker", "rm", "--force", container_name],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            subprocess.run(
+                ["docker", "volume", "rm", "-f", volume_name],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
 
 
 if __name__ == "__main__":

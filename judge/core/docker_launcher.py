@@ -410,9 +410,7 @@ def _web_run_command(
                 "--tmpfs",
                 "/workspace:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
                 "--mount",
-                f"type=volume,source={DATA_VOLUME},target=/data,readonly",
-                "--tmpfs",
-                "/data/cache:rw,nosuid,nodev,size=1024m,uid=10001,gid=10001,mode=0700",
+                f"type=volume,source={DATA_VOLUME},target=/data",
                 "--tmpfs",
                 "/data/jobs:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
             ]
@@ -430,7 +428,7 @@ def _web_run_command(
         command.extend(["--workspace", "/workspace"])
     command.extend(["--host", "0.0.0.0", "--port", str(port), "--no-open"])
     if spec is JUDGE_DOCKER_WEB:
-        command.append("--allow-remote-run")
+        command.extend(["--allow-remote-run", "--allow-remote-write"])
     else:
         command.append("--allow-remote-write")
     return command

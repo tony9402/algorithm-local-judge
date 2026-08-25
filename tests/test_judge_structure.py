@@ -119,6 +119,13 @@ class JudgeStructureTest(unittest.TestCase):
             args = parser.parse_args(normalize_argv(["web", action]))
             self.assertEqual(args.web_action, action)
 
+    def test_web_parser_accepts_explicit_remote_management_opt_in(self) -> None:
+        args = build_parser().parse_args(
+            normalize_argv(["web", "--host", "0.0.0.0", "--allow-remote-write"])
+        )
+
+        self.assertTrue(args.allow_remote_write)
+
     def test_local_web_status_dispatches_without_starting_a_server(self) -> None:
         with patch(
             "judge.commands.web.web_service_status",

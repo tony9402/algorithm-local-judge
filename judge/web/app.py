@@ -39,6 +39,7 @@ def create_app(
     local_binding: bool = True,
     remote_warning: bool = False,
     allow_remote_run: bool = False,
+    allow_remote_write: bool = False,
     job_history_path: Path | str | None = None,
     submission_history_root: Path | str | None = None,
     legacy_source_history_root: Path | str | None = None,
@@ -49,6 +50,7 @@ def create_app(
         local_binding (bool): 애플리케이션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
         remote_warning (bool): 애플리케이션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
         allow_remote_run (bool): 애플리케이션 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        allow_remote_write (bool): 비로컬 바인딩에서 관리 API를 허용할지 결정합니다.
         job_history_path (Path | str | None): 재시작 복원용 작업 이력 파일 경로입니다.
 
     Returns:
@@ -59,6 +61,7 @@ def create_app(
     app.state.local_binding = local_binding
     app.state.remote_warning = remote_warning
     app.state.allow_remote_run = allow_remote_run
+    app.state.allow_remote_write = allow_remote_write
     app.state.jobs = BackgroundJobStore(
         max_running_jobs=4,
         persistence_path=job_history_path,

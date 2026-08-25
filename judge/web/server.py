@@ -36,6 +36,7 @@ def run_server(
     open_browser: bool = False,
     debug: bool = False,
     allow_remote_run: bool = False,
+    allow_remote_write: bool = False,
 ) -> None:
     """서버 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
@@ -45,6 +46,7 @@ def run_server(
         open_browser (bool): 서버 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
         debug (bool): 서버 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
         allow_remote_run (bool): 서버 흐름에서 해당 조건을 적용할지 결정하는 플래그입니다.
+        allow_remote_write (bool): 비로컬 바인딩에서 관리 API를 허용할지 결정합니다.
     """
     sandbox_mode, docker = ensure_sandbox_preflight()
     if docker["sandboxReady"]:
@@ -64,6 +66,8 @@ def run_server(
         print(f"warning: binding to non-local host {host}; use only on trusted networks")
         if allow_remote_run:
             print("warning: remote run APIs are explicitly enabled")
+        if allow_remote_write:
+            print("warning: remote management APIs are explicitly enabled")
     if debug:
         os.environ["ALJ_WEB_DEBUG"] = "1"
     print(f"Local judge UI running at {url}")
@@ -75,6 +79,7 @@ def run_server(
             local_binding=local_binding,
             remote_warning=not local_binding,
             allow_remote_run=allow_remote_run,
+            allow_remote_write=allow_remote_write,
             job_history_path=default_job_history_path("judge"),
         ),
         host=host,

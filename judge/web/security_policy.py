@@ -27,6 +27,12 @@ def remote_run_allowed(request: Request) -> bool:
     return bool(getattr(request.app.state, "allow_remote_run", False))
 
 
+def remote_write_allowed(request: Request) -> bool:
+    if bool(getattr(request.app.state, "local_binding", True)):
+        return True
+    return bool(getattr(request.app.state, "allow_remote_write", False))
+
+
 def ensure_remote_run_allowed(request: Request) -> None:
     """웹 요청이 제출 코드 실행을 허용하는 보안 정책을 만족하는지 확인합니다.
 
@@ -47,7 +53,7 @@ def ensure_local_web_action_allowed(request: Request, action: str) -> None:
         request (Request): FastAPI 요청 객체입니다. 앱 상태, 작업 큐, 보안 정책 판단에 사용합니다.
         action (str): 로컬 웹 action allowed을 계산하거나 검증할 때 필요한 action 입력입니다.
     """
-    if not bool(getattr(request.app.state, "local_binding", True)):
+    if not remote_write_allowed(request):
         raise SecurityPolicyError(
             f"{action} is disabled because judge web is bound to a non-local host"
         )
@@ -58,6 +64,7 @@ def web_security_status(request: Request) -> dict[str, bool]:
         "localBinding": bool(getattr(request.app.state, "local_binding", True)),
         "remoteWarning": bool(getattr(request.app.state, "remote_warning", False)),
         "remoteRunAllowed": remote_run_allowed(request),
+        "remoteWriteAllowed": remote_write_allowed(request),
     }
 
 
@@ -67,5 +74,6 @@ __all__ = [
     "ensure_local_web_action_allowed",
     "is_local_binding",
     "remote_run_allowed",
+    "remote_write_allowed",
     "web_security_status",
 ]

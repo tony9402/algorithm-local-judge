@@ -28,6 +28,8 @@ def _child_args(args: argparse.Namespace) -> list[str]:
         command.append("--debug")
     if args.allow_remote_run:
         command.append("--allow-remote-run")
+    if args.allow_remote_write:
+        command.append("--allow-remote-write")
     return command
 
 
@@ -64,10 +66,24 @@ def handle(args: argparse.Namespace) -> int:
     requested_port = args.port
     port = requested_port if requested_port is not None else DEFAULT_JUDGE_WEB_PORT
     if getattr(args, "service_runner", None):
-        run_server(args.host, port, False, args.debug, args.allow_remote_run)
+        run_server(
+            args.host,
+            port,
+            False,
+            args.debug,
+            args.allow_remote_run,
+            args.allow_remote_write,
+        )
         return 0
     if action is None:
-        run_server(args.host, port, args.open, args.debug, args.allow_remote_run)
+        run_server(
+            args.host,
+            port,
+            args.open,
+            args.debug,
+            args.allow_remote_run,
+            args.allow_remote_write,
+        )
         return 0
     if action == "status":
         _print_status(web_service_status(JUDGE_WEB_SERVICE))
