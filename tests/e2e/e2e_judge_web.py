@@ -1031,8 +1031,8 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 self.assertEqual(captured, {"problemId": "alpha", "folder": "Dynamic"})
                 self.assert_no_browser_errors()
 
-    def test_problem_folder_create_collapse_and_safe_delete_in_browser(self) -> None:
-        """폴더 생성·접기와 문제를 미분류로 옮기는 안전 삭제를 검증합니다."""
+    def test_problem_folder_create_collapse_rename_and_delete_in_browser(self) -> None:
+        """폴더 생성·접기·이름 변경과 폴더 내 문제 삭제를 검증합니다."""
         problems = [
             {
                 "problemId": "alpha",
@@ -1110,23 +1110,19 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 folder = body["folder"]
                 delete_requests.append(body)
                 if folder == "Error":
-                    route.fulfill(status=500, json={"detail": "simulated folder move failure"})
+                    route.fulfill(status=500, json={"detail": "simulated folder delete failure"})
                     return
                 folders[:] = [item for item in folders if item["folder"] != folder]
-                moved_problem_ids = []
-                for problem in problems:
-                    if problem["folder"] == folder:
-                        problem["folder"] = ""
-                        moved_problem_ids.append(problem["problemId"])
-                for item in folders:
-                    if item["folder"] == "":
-                        item["problemCount"] += len(moved_problem_ids)
+                deleted_problem_ids = [
+                    problem["problemId"] for problem in problems if problem["folder"] == folder
+                ]
+                problems[:] = [problem for problem in problems if problem["folder"] != folder]
                 route.fulfill(
                     json={
                         "deleted": True,
                         "folder": folder,
-                        "movedProblems": moved_problem_ids,
-                        "deletedProblems": [],
+                        "movedProblems": [],
+                        "deletedProblems": deleted_problem_ids,
                         "folders": folders,
                     }
                 )
@@ -1204,30 +1200,31 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 ).click()
                 page.locator('[data-folder-delete="Algorithms"]').click()
                 page.wait_for_function(
-                    """() => document.querySelector(
-                        '.problem-folder-group[data-folder=""] [data-problem-id="beta"]'
-                    )"""
+                    """() => !document.querySelector('[data-problem-id="beta"]')"""
                 )
                 self.assertTrue(
-                    any("문제는 삭제하지 않고 미분류로 옮깁니다" in text for text in dialogs)
+                    any(
+                        "문제 디렉터리와 내부 파일이 삭제되며 되돌릴 수 없습니다" in text
+                        for text in dialogs
+                    )
                 )
                 self.assertEqual(
                     delete_requests,
                     [
-                        {"folder": "Empty", "mode": "move_to_uncategorized"},
-                        {"folder": "Algorithms", "mode": "move_to_uncategorized"},
+                        {"folder": "Empty", "confirm_delete_problems": False},
+                        {"folder": "Algorithms", "confirm_delete_problems": True},
                     ],
                 )
-                self.assertIn("beta", {problem["problemId"] for problem in problems})
+                self.assertNotIn("beta", {problem["problemId"] for problem in problems})
 
                 page.locator(
                     '.problem-folder-group[data-folder="Error"] .folder-menu-trigger'
                 ).click()
                 page.locator('[data-folder-delete="Error"]').click()
-                wait_for_text(page, "#resultSummary", "simulated folder move failure")
+                wait_for_text(page, "#resultSummary", "simulated folder delete failure")
                 self.assertEqual(
                     delete_requests[-1],
-                    {"folder": "Error", "mode": "move_to_uncategorized"},
+                    {"folder": "Error", "confirm_delete_problems": True},
                 )
                 self.assertEqual(
                     page.locator('[data-problem-id="gamma"]').get_attribute("data-problem-id"),

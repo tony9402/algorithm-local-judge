@@ -49,6 +49,8 @@ class JudgeProblemPickerUiContractTest(unittest.TestCase):
         self.assertIn("data-folder-rename=", problems)
         self.assertIn("data-folder-delete=", problems)
         self.assertIn("async function renameProblemFolder(folder)", problems)
+        self.assertIn("confirm_delete_problems: problems.length > 0", problems)
+        self.assertNotIn('mode: "move_to_uncategorized"', problems)
         self.assertIn('method: "PATCH"', problems)
         self.assertIn("app.renameProblemFolder(renameFolder)", events)
         self.assertIn(".folder-actions-popover", layout)

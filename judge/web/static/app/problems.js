@@ -695,20 +695,23 @@ async function deleteProblemFolder(folder) {
   if (problems.length) {
     const names = problems.map((problem) => problem.problemId).join(", ");
     const confirmed = window.confirm(
-      `${problemFolderLabel(folder)} 폴더를 삭제합니다.\n`
-      + `폴더 내 문제는 삭제하지 않고 미분류로 옮깁니다.\n`
-      + `옮겨질 문제: ${names}`
+      `${problemFolderLabel(folder)} 폴더와 문제 ${problems.length}개를 모두 삭제합니다.\n`
+      + "문제 디렉터리와 내부 파일이 삭제되며 되돌릴 수 없습니다.\n"
+      + `삭제될 문제: ${names}`
     );
     if (!confirmed) return;
   }
   const result = await app.api("/api/folders", {
     method: "DELETE",
-    body: JSON.stringify({ folder, mode: "move_to_uncategorized" }),
+    body: JSON.stringify({
+      folder,
+      confirm_delete_problems: problems.length > 0,
+    }),
   });
   state.folders = result.folders || [];
   await app.refresh();
-  const movedCount = result.movedProblems?.length || 0;
-  const suffix = movedCount ? ` 문제 ${movedCount}개는 미분류로 옮겼습니다.` : "";
+  const deletedCount = result.deletedProblems?.length || 0;
+  const suffix = deletedCount ? ` 문제 ${deletedCount}개를 삭제했습니다.` : "";
   app.showToast(`${problemFolderLabel(folder)} 폴더를 삭제했습니다.${suffix}`);
 }
 
