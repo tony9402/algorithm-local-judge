@@ -6,7 +6,13 @@ import argparse
 from pathlib import Path
 
 from judge.core.errors import JudgeError
-from scripts.validate_release_manifest import validate_release_manifest
+
+try:
+    from scripts.validate_release_manifest import validate_release_manifest
+except ModuleNotFoundError as exc:
+    if exc.name != "scripts":
+        raise
+    from validate_release_manifest import validate_release_manifest
 
 
 def main() -> int:

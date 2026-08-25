@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -484,6 +486,17 @@ class ReleaseManifestTest(unittest.TestCase):
 
 
 class ReleaseWorkflowContractTest(unittest.TestCase):
+    def test_release_validation_scripts_support_direct_execution(self) -> None:
+        for script in ("validate_release_manifest.py", "smoke_release_availability.py"):
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / script), "--help"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_stable_gate_precedes_publish_and_post_publish_smoke_follows(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
         gate = workflow.index("validate_release_manifest.py")

@@ -18,7 +18,13 @@ import yaml
 
 from judge.core.errors import JudgeError
 from judge.core.pack_signatures import verify_sigstore_bundle
-from scripts.scan_release_artifact import scan_standalone_archive
+
+try:
+    from scripts.scan_release_artifact import scan_standalone_archive
+except ModuleNotFoundError as exc:
+    if exc.name != "scripts":
+        raise
+    from scan_release_artifact import scan_standalone_archive
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
