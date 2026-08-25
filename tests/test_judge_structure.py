@@ -5,8 +5,9 @@ from __future__ import annotations
 import contextlib
 import io
 import unittest
+from unittest.mock import patch
 
-from judge.cli import COMMAND_HANDLERS, build_parser, normalize_argv
+from judge.cli import COMMAND_HANDLERS, build_parser, main, normalize_argv
 from judge.core.errors import JudgeError
 from judge.core.paths import normalized_arch, normalized_os, validate_safe_id
 from judge.utils.text import format_size
@@ -114,9 +115,18 @@ class JudgeStructureTest(unittest.TestCase):
     def test_web_parser_accepts_background_lifecycle_actions(self) -> None:
         parser = build_parser()
 
-        for action in ("start", "stop", "restart"):
+        for action in ("start", "stop", "restart", "status"):
             args = parser.parse_args(normalize_argv(["web", action]))
             self.assertEqual(args.web_action, action)
+
+    def test_local_web_status_dispatches_without_starting_a_server(self) -> None:
+        with patch(
+            "judge.commands.web.web_service_status",
+            return_value={"status": "not-running"},
+        ) as status:
+            self.assertEqual(main(["web", "status"]), 0)
+
+        status.assert_called_once()
 
     def test_validate_safe_id_rejects_path_escape(self) -> None:
         """검증 안전 식별자 거부 경로 경로 이탈 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""

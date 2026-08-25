@@ -5,12 +5,14 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from alj_core.studio_cli_options import DEFAULT_STUDIO_WEB_PORT
 from alj_core.web_service import (
     WebServiceSpec,
     has_saved_web_service,
     restart_web_service,
     start_web_service,
     stop_web_service,
+    web_service_status,
 )
 from problem_studio.core.repositories import clone_problem_repository
 from problem_studio.web.server import run_server
@@ -39,11 +41,28 @@ def _child_args(
     ]
     if active_repository:
         command.extend(["--repo", active_repository])
+    if args.allow_remote_write:
+        command.append("--allow-remote-write")
     return command
 
 
 def _print_started(state: dict) -> None:
     print(f"Problem Studio web을 백그라운드에서 시작했습니다 (PID {state['pid']}).")
+    print(f"URL: {state['url']}")
+    print(f"로그: {state['logPath']}")
+
+
+def _print_status(state: dict) -> None:
+    if state["status"] != "running":
+        print("Problem Studio web은 실행 중이 아닙니다.")
+        if state.get("unrelatedPid"):
+            print(
+                f"PID {state['unrelatedPid']}의 다른 프로세스는 "
+                "Problem Studio web으로 취급하지 않습니다."
+            )
+        return
+    health = "정상" if state["healthy"] else "응답 없음"
+    print(f"Problem Studio web이 실행 중입니다 (PID {state['pid']}, {health}).")
     print(f"URL: {state['url']}")
     print(f"로그: {state['logPath']}")
 
@@ -58,6 +77,11 @@ def handle(args: argparse.Namespace) -> int:
         int: 명령 성공 여부를 나타내는 프로세스 종료 코드입니다.
     """
     action = getattr(args, "web_action", None)
+    requested_port = args.port
+    port = requested_port if requested_port is not None else DEFAULT_STUDIO_WEB_PORT
+    if action == "status":
+        _print_status(web_service_status(PROBLEM_STUDIO_WEB_SERVICE))
+        return 0
     if action == "stop":
         result = stop_web_service(PROBLEM_STUDIO_WEB_SERVICE)
         if result["status"] == "stopped":
@@ -75,27 +99,43 @@ def handle(args: argparse.Namespace) -> int:
         active_repository = summary["name"]
     workspace = Path(args.workspace).expanduser().resolve()
     if getattr(args, "service_runner", None):
-        run_server(workspace, args.host, args.port, False, active_repository)
+        run_server(
+            workspace,
+            args.host,
+            port,
+            False,
+            active_repository,
+            args.allow_remote_write,
+        )
         return 0
     if action is None:
-        run_server(workspace, args.host, args.port, args.open, active_repository)
+        run_server(
+            workspace,
+            args.host,
+            port,
+            args.open,
+            active_repository,
+            args.allow_remote_write,
+        )
         return 0
 
+    args.port = port
     service_args = _child_args(workspace, args, active_repository)
     if action == "restart":
         state = restart_web_service(
             PROBLEM_STUDIO_WEB_SERVICE,
             child_args=service_args,
             host=args.host,
-            port=args.port,
+            port=port,
             open_browser=args.open,
+            port_override=requested_port,
         )
     else:
         state = start_web_service(
             PROBLEM_STUDIO_WEB_SERVICE,
             child_args=service_args,
             host=args.host,
-            port=args.port,
+            port=port,
             open_browser=args.open,
         )
     _print_started(state)

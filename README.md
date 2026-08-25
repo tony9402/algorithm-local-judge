@@ -77,11 +77,25 @@ Docker Engine 28 이상을 실행한 뒤, 위 설치를 완료하고 다음 명�
 
 ```bash
 judge docker setup
-judge docker web
+judge docker web start --port 8765
+judge docker web status
+judge docker web stop
+judge docker web restart
 ```
 
-브라우저에서 `http://127.0.0.1:8765`로 접속합니다. 공식 이미지는 실행 전에 서명을
-검증하며, 채점 컨테이너는 외부 통신이 차단된 상태로 실행됩니다.
+`--port`는 컨테이너 웹 서버와 호스트 공개 포트에 같은 값을 적용합니다. 위 예시는
+`0.0.0.0:8765`로 공개되므로 로컬에서는 `http://127.0.0.1:8765`, 외부에서는
+`http://<호스트-IP>:8765`로 접속합니다. 신뢰할 수 있는 네트워크와 방화벽에서만
+외부 공개하세요. 공식 이미지는 실행 전에 서명을 검증하며 컨테이너의 외부 통신은 차단됩니다.
+
+Problem Studio도 Docker에서 같은 방식으로 실행할 수 있습니다.
+
+```bash
+problem-studio docker web start --workspace /path/to/algorithm-package --port 8775
+problem-studio docker web status
+problem-studio docker web stop
+problem-studio docker web restart
+```
 
 ## 문제 설치와 실행
 
@@ -92,6 +106,7 @@ checkout의 `problems/`에 포함되어 있지 않습니다.
 judge problem install tony9402/algorithm-package
 judge list
 judge web start
+judge web status
 ```
 
 웹 브라우저에서 `http://127.0.0.1:8765`로 접속합니다. CLI로 바로 채점할 수도 있습니다.
@@ -111,6 +126,7 @@ judge run --problem <problem-id> --profile sample path/to/main.py
 
 ```bash
 problem-studio web start
+problem-studio web status
 problem-studio web stop
 problem-studio web restart
 ```

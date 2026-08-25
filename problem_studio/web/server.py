@@ -34,6 +34,7 @@ def run_server(
     port: int,
     open_browser: bool = False,
     active_repository: str | None = None,
+    allow_remote_write: bool = False,
 ) -> None:
     """서버 실행에 필요한 입력을 준비하고 외부 프로세스나 서비스 호출을 수행합니다.
 
@@ -46,21 +47,24 @@ def run_server(
     """
     url = f"http://{host}:{port}"
     local_binding = is_local_binding(host)
+    workspace_access_enabled = local_binding or allow_remote_write
     if not local_binding:
         print(f"warning: binding to non-local host {host}; use only on trusted networks")
+        if allow_remote_write:
+            print("warning: remote workspace read/write access is explicitly enabled")
     print(f"Problem Studio running at {url}")
     print(f"Workspace: {Path(workspace).expanduser().resolve()}")
     print("Press Ctrl+C to stop.")
     if open_browser:
         open_browser_later(url)
-    git_write_enabled = local_binding
+    git_write_enabled = workspace_access_enabled
     uvicorn.run(
         create_app(
             workspace,
             active_repository=active_repository,
-            local_binding=local_binding,
+            local_binding=workspace_access_enabled,
             git_write_enabled=git_write_enabled,
-            workspace_write_enabled=local_binding,
+            workspace_write_enabled=workspace_access_enabled,
             workspace_warning=not local_binding,
             job_history_path=default_job_history_path("problem-studio"),
         ),

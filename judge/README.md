@@ -39,6 +39,7 @@ judge doctor --json
 
 ```bash
 judge web start
+judge web status
 judge web stop
 judge web restart
 judge web start --no-open
@@ -221,8 +222,15 @@ host의 `--allow-remote-run`은 OS 격리를 제공하지 않으므로 권장하
 
 ```bash
 judge docker setup
-judge docker web
+judge docker web start --port 8765
+judge docker web status
+judge docker web stop
+judge docker web restart
 ```
+
+`--port`는 컨테이너 내부 웹 포트와 호스트 공개 포트에 같은 값을 적용합니다. 호스트의 모든
+인터페이스(`0.0.0.0`)에 공개되므로 로컬에서는 `http://127.0.0.1:8765`, 외부에서는
+`http://<호스트-IP>:8765`로 접속합니다. 신뢰할 수 있는 네트워크와 방화벽에서만 사용하세요.
 
 이 경로는 host 경로와 Docker socket을 mount하지 않고, 인터넷과 host gateway가 차단된
 internal network, read-only rootfs, non-root UID, capability/resource 제한을 강제합니다.

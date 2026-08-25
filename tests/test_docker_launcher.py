@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -16,15 +17,24 @@ from judge.core.docker_launcher import (
     DATA_VOLUME,
     INTERNAL_NETWORK,
     ISOLATED_GATEWAY_OPTION,
+    JUDGE_DOCKER_WEB,
     MANAGED_LABEL,
     MANAGED_LABEL_KEY,
     OFFICIAL_IMAGE,
     OFFICIAL_IMAGE_IDENTITY,
     OFFICIAL_IMAGE_REPOSITORY,
     OFFICIAL_PROBLEM_REPOSITORY,
+    PORT_LABEL_KEY,
+    SERVICE_LABEL_KEY,
     SETUP_MARKER,
+    WORKSPACE_LABEL_KEY,
+    docker_web_status,
+    restart_docker_web,
     run_docker_web,
     setup_docker_judge,
+    start_docker_studio_web,
+    start_docker_web,
+    stop_docker_web,
 )
 from judge.core.errors import JudgeError
 from judge.core.pack_signatures import DEFAULT_GITHUB_OIDC_ISSUER
@@ -108,6 +118,12 @@ def web_container_command(port: int) -> list[str]:
         "--rm",
         "--name",
         "algorithm-local-judge-web",
+        "--label",
+        MANAGED_LABEL,
+        "--label",
+        f"{SERVICE_LABEL_KEY}=judge-web",
+        "--label",
+        f"{PORT_LABEL_KEY}={port}",
         "--network",
         INTERNAL_NETWORK,
         "--user",
@@ -115,8 +131,6 @@ def web_container_command(port: int) -> list[str]:
         "--read-only",
         "--tmpfs",
         "/tmp:rw,noexec,nosuid,nodev,size=256m",
-        "--tmpfs",
-        "/workspace:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
         "--cap-drop",
         "ALL",
         "--security-opt",
@@ -129,6 +143,8 @@ def web_container_command(port: int) -> list[str]:
         "2g",
         "--cpus",
         "2.0",
+        "--tmpfs",
+        "/workspace:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
         "--mount",
         f"type=volume,source={DATA_VOLUME},target=/data,readonly",
         "--tmpfs",
@@ -136,14 +152,14 @@ def web_container_command(port: int) -> list[str]:
         "--tmpfs",
         "/data/jobs:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
         "--publish",
-        f"127.0.0.1:{port}:8765",
+        f"0.0.0.0:{port}:{port}",
         DIGEST,
         "judge",
         "web",
         "--host",
         "0.0.0.0",
         "--port",
-        "8765",
+        str(port),
         "--no-open",
         "--allow-remote-run",
     ]
@@ -307,8 +323,9 @@ class DockerLauncherCommandTest(unittest.TestCase):
 
         default_branch.assert_not_called()
 
-    def test_web_exactly_uses_internal_hardened_loopback_container(self) -> None:
+    def test_web_uses_internal_hardened_container_and_publishes_requested_port(self) -> None:
         results = [
+            completed(returncode=1, stderr="No such object"),
             completed(stdout=f"{DIGEST}\n"),
             completed(),
             completed(stdout="true\n"),
@@ -328,6 +345,7 @@ class DockerLauncherCommandTest(unittest.TestCase):
         self.assertEqual(
             commands,
             [
+                ["docker", "container", "inspect", "algorithm-local-judge-web"],
                 [
                     "docker",
                     "image",
@@ -377,6 +395,7 @@ class DockerLauncherCommandTest(unittest.TestCase):
 
     def test_web_refuses_existing_non_internal_network(self) -> None:
         results = [
+            completed(returncode=1, stderr="No such object"),
             completed(stdout=f"{DIGEST}\n"),
             completed(),
             completed(stdout="true\n"),
@@ -391,10 +410,11 @@ class DockerLauncherCommandTest(unittest.TestCase):
         ):
             run_docker_web()
 
-        self.assertEqual(run.call_count, 5)
+        self.assertEqual(run.call_count, 6)
 
     def test_web_stops_before_volume_or_network_when_signature_is_invalid(self) -> None:
         results = [
+            completed(returncode=1, stderr="No such object"),
             completed(stdout=f"{DIGEST}\n"),
             completed(returncode=1, stderr="no matching signatures"),
         ]
@@ -406,10 +426,11 @@ class DockerLauncherCommandTest(unittest.TestCase):
         ):
             run_docker_web()
 
-        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_count, 3)
 
     def test_web_does_not_fallback_when_data_volume_is_missing(self) -> None:
         results = [
+            completed(returncode=1, stderr="No such object"),
             completed(stdout=f"{DIGEST}\n"),
             completed(),
             completed(returncode=1, stderr="volume not found"),
@@ -422,10 +443,11 @@ class DockerLauncherCommandTest(unittest.TestCase):
         ):
             run_docker_web()
 
-        self.assertEqual(run.call_count, 3)
+        self.assertEqual(run.call_count, 4)
 
     def test_web_rejects_incomplete_setup_marker(self) -> None:
         results = [
+            completed(returncode=1, stderr="No such object"),
             completed(stdout=f"{DIGEST}\n"),
             completed(),
             completed(stdout="true\n"),
@@ -439,7 +461,7 @@ class DockerLauncherCommandTest(unittest.TestCase):
         ):
             run_docker_web()
 
-        self.assertEqual(run.call_count, 4)
+        self.assertEqual(run.call_count, 5)
 
     def test_web_rejects_invalid_host_port_before_docker_access(self) -> None:
         with (
@@ -450,6 +472,133 @@ class DockerLauncherCommandTest(unittest.TestCase):
 
         preflight.assert_not_called()
 
+    def test_background_start_is_detached_and_waits_for_requested_port(self) -> None:
+        with (
+            patch("judge.core.docker_launcher._container_state", return_value=None),
+            patch("judge.core.docker_launcher._ensure_launcher_preflight"),
+            patch("judge.core.docker_launcher.verify_local_official_image", return_value=DIGEST),
+            patch("judge.core.docker_launcher._prepare_web_service"),
+            patch("judge.core.docker_launcher._wait_for_web_service") as wait,
+            patch(
+                "judge.core.docker_launcher._run_command",
+                return_value=completed(stdout="container-id\n"),
+            ) as run,
+        ):
+            state = start_docker_web(9000)
+
+        command = run.call_args.args[0]
+        self.assertIn("--detach", command)
+        self.assertNotIn("--rm", command)
+        self.assertIn("0.0.0.0:9000:9000", command)
+        self.assertEqual(
+            command[-6:],
+            ["--host", "0.0.0.0", "--port", "9000", "--no-open", "--allow-remote-run"],
+        )
+        self.assertEqual(state["port"], 9000)
+        wait.assert_called_once_with(JUDGE_DOCKER_WEB, 9000)
+
+    def test_stop_only_targets_a_running_managed_container(self) -> None:
+        state = {
+            "status": "running",
+            "running": True,
+            "container": JUDGE_DOCKER_WEB.container_name,
+            "port": 8765,
+            "url": "http://127.0.0.1:8765",
+            "publishedAddress": "0.0.0.0:8765",
+            "workspace": None,
+        }
+        with (
+            patch("judge.core.docker_launcher._container_state", return_value=state),
+            patch("judge.core.docker_launcher._run_command", return_value=completed()) as run,
+        ):
+            stopped = stop_docker_web()
+
+        self.assertEqual(stopped["status"], "stopped")
+        run.assert_called_once_with(
+            ["docker", "stop", "--time", "10", JUDGE_DOCKER_WEB.container_name],
+            "Docker Judge web container stop",
+        )
+
+    def test_restart_reuses_saved_port_unless_overridden(self) -> None:
+        state = {
+            "status": "exited",
+            "running": False,
+            "container": JUDGE_DOCKER_WEB.container_name,
+            "port": 9123,
+            "url": "http://127.0.0.1:9123",
+            "publishedAddress": "0.0.0.0:9123",
+            "workspace": None,
+        }
+        with (
+            patch("judge.core.docker_launcher._container_state", side_effect=[state, None]),
+            patch("judge.core.docker_launcher._ensure_launcher_preflight"),
+            patch("judge.core.docker_launcher.verify_local_official_image", return_value=DIGEST),
+            patch("judge.core.docker_launcher._prepare_web_service"),
+            patch("judge.core.docker_launcher._wait_for_web_service"),
+            patch(
+                "judge.core.docker_launcher._run_command",
+                side_effect=[completed(), completed(stdout="new-id\n")],
+            ) as run,
+        ):
+            restarted = restart_docker_web()
+
+        self.assertEqual(restarted["port"], 9123)
+        self.assertIn("0.0.0.0:9123:9123", run.call_args_list[-1].args[0])
+
+    def test_status_reports_health_without_mutating_the_container(self) -> None:
+        state = {
+            "status": "running",
+            "running": True,
+            "container": JUDGE_DOCKER_WEB.container_name,
+            "port": 8765,
+            "url": "http://127.0.0.1:8765",
+            "publishedAddress": "0.0.0.0:8765",
+            "workspace": None,
+        }
+        with (
+            patch("judge.core.docker_launcher._container_state", return_value=state),
+            patch("judge.core.docker_launcher._health_matches", return_value=True) as health,
+        ):
+            result = docker_web_status()
+
+        self.assertTrue(result["healthy"])
+        health.assert_called_once_with(JUDGE_DOCKER_WEB, 8765)
+
+    def test_status_refuses_legacy_same_name_container_with_migration_guidance(self) -> None:
+        inspection = completed(stdout='[{"Config":{"Labels":{}},"State":{"Running":true}}]')
+        with (
+            patch("judge.core.docker_launcher._run_command", return_value=inspection),
+            self.assertRaisesRegex(JudgeError, "legacy or unrelated container"),
+        ):
+            docker_web_status()
+
+    def test_problem_studio_mounts_workspace_and_publishes_same_port(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-docker-studio-") as directory:
+            workspace = Path(directory).resolve()
+            with (
+                patch("judge.core.docker_launcher._container_state", return_value=None),
+                patch("judge.core.docker_launcher._ensure_launcher_preflight"),
+                patch(
+                    "judge.core.docker_launcher.verify_local_official_image",
+                    return_value=DIGEST,
+                ),
+                patch("judge.core.docker_launcher._prepare_web_service"),
+                patch("judge.core.docker_launcher._wait_for_web_service"),
+                patch(
+                    "judge.core.docker_launcher._run_command",
+                    return_value=completed(stdout="studio-id\n"),
+                ) as run,
+            ):
+                state = start_docker_studio_web(workspace, 9775)
+
+        command = run.call_args.args[0]
+        self.assertIn(f"{WORKSPACE_LABEL_KEY}={workspace}", command)
+        self.assertIn(f"type=bind,source={workspace},target=/workspace", command)
+        self.assertIn("0.0.0.0:9775:9775", command)
+        self.assertIn("problem-studio", command)
+        self.assertIn("--allow-remote-write", command)
+        self.assertEqual(state["workspace"], str(workspace))
+
 
 class DockerLauncherCliAndReleaseTest(unittest.TestCase):
     def test_parser_exposes_setup_and_web_commands(self) -> None:
@@ -459,6 +608,11 @@ class DockerLauncherCliAndReleaseTest(unittest.TestCase):
 
         self.assertEqual((setup.command, setup.docker_command), ("docker", "setup"))
         self.assertEqual((web.command, web.docker_command, web.port), ("docker", "web", 9876))
+        for action in ("start", "stop", "restart", "status"):
+            parsed = parser.parse_args(["docker", "web", action])
+            self.assertEqual(parsed.docker_web_action, action)
+            studio = parser.parse_args(["docker", "studio", action])
+            self.assertEqual(studio.docker_web_action, action)
 
     def test_dispatch_calls_docker_launcher_services(self) -> None:
         with (
@@ -470,6 +624,32 @@ class DockerLauncherCliAndReleaseTest(unittest.TestCase):
 
         setup.assert_called_once_with()
         web.assert_called_once_with(9876)
+
+    def test_dispatch_calls_background_lifecycle_services(self) -> None:
+        running = {
+            "status": "running",
+            "running": True,
+            "healthy": True,
+            "container": JUDGE_DOCKER_WEB.container_name,
+            "url": "http://127.0.0.1:9876",
+            "publishedAddress": "0.0.0.0:9876",
+        }
+        stopped = {**running, "status": "stopped", "running": False, "healthy": False}
+        with (
+            patch("judge.commands.docker.start_docker_web", return_value=running) as start,
+            patch("judge.commands.docker.restart_docker_web", return_value=running) as restart,
+            patch("judge.commands.docker.stop_docker_web", return_value=stopped) as stop,
+            patch("judge.commands.docker.docker_web_status", return_value=running) as status,
+        ):
+            self.assertEqual(main(["docker", "web", "start", "--port", "9876"]), 0)
+            self.assertEqual(main(["docker", "web", "restart"]), 0)
+            self.assertEqual(main(["docker", "web", "status"]), 0)
+            self.assertEqual(main(["docker", "web", "stop"]), 0)
+
+        start.assert_called_once_with(9876)
+        restart.assert_called_once_with(None)
+        status.assert_called_once_with(JUDGE_DOCKER_WEB)
+        stop.assert_called_once_with()
 
     def test_dockerfile_pins_cosign_and_non_root_user(self) -> None:
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")

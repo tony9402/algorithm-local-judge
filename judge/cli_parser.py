@@ -60,7 +60,22 @@ def build_parser() -> argparse.ArgumentParser:
     docker_sub = docker_parser.add_subparsers(dest="docker_command", required=True)
     docker_sub.add_parser("setup", allow_abbrev=False)
     docker_web = docker_sub.add_parser("web", allow_abbrev=False)
-    docker_web.add_argument("--port", type=int, default=8765)
+    docker_web.add_argument(
+        "docker_web_action",
+        nargs="?",
+        choices=["start", "stop", "restart", "status"],
+        help="run in the background, stop, restart, or inspect the Docker web container",
+    )
+    docker_web.add_argument("--port", type=int)
+    docker_studio = docker_sub.add_parser("studio", allow_abbrev=False)
+    docker_studio.add_argument(
+        "docker_web_action",
+        nargs="?",
+        choices=["start", "stop", "restart", "status"],
+        help="run in the background, stop, restart, or inspect the Docker Studio container",
+    )
+    docker_studio.add_argument("--workspace")
+    docker_studio.add_argument("--port", type=int)
 
     setup_parser = add_parser(subparsers, "setup")
     setup_parser.add_argument(
@@ -162,11 +177,11 @@ def build_parser() -> argparse.ArgumentParser:
     web_parser.add_argument(
         "web_action",
         nargs="?",
-        choices=["start", "stop", "restart"],
-        help="run in the background, stop it, or restart it; omit for foreground mode",
+        choices=["start", "stop", "restart", "status"],
+        help="run in the background, stop, restart, or inspect it; omit for foreground mode",
     )
     web_parser.add_argument("--host", default="127.0.0.1")
-    web_parser.add_argument("--port", type=int, default=8765)
+    web_parser.add_argument("--port", type=int)
     web_open = web_parser.add_mutually_exclusive_group()
     web_open.add_argument("--open", dest="open", action="store_true", default=True)
     web_open.add_argument("--no-open", dest="open", action="store_false")

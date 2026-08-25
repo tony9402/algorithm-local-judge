@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import ProxyHandler, build_opener
 
 from judge import __version__
 from judge.core.docker_runtime import ensure_sandbox_preflight
@@ -24,18 +31,58 @@ DATA_VOLUME = "algorithm-local-judge-data"
 INTERNAL_NETWORK = "algorithm-local-judge-internal"
 SETUP_CONTAINER = "algorithm-local-judge-setup"
 WEB_CONTAINER = "algorithm-local-judge-web"
+STUDIO_WEB_CONTAINER = "algorithm-local-judge-problem-studio-web"
 MANAGED_LABEL_KEY = "io.algorithm-local-judge.managed"
 MANAGED_LABEL = f"{MANAGED_LABEL_KEY}=true"
+SERVICE_LABEL_KEY = "io.algorithm-local-judge.service"
+PORT_LABEL_KEY = "io.algorithm-local-judge.port"
+WORKSPACE_LABEL_KEY = "io.algorithm-local-judge.workspace"
 CONTAINER_USER = "10001:10001"
 CONTAINER_WEB_PORT = 8765
 COMMAND_TIMEOUT_SECONDS = 300
+WEB_START_TIMEOUT_SECONDS = 20.0
 SETUP_MARKER = "/data/.alj-docker-setup-complete"
 MINIMUM_DOCKER_ENGINE_MAJOR = 28
 ISOLATED_GATEWAY_OPTION = "com.docker.network.bridge.gateway_mode_ipv4=isolated"
 
 
+@dataclass(frozen=True)
+class DockerWebSpec:
+    service: str
+    display_name: str
+    container_name: str
+    command: str
+    health_app: str
+    default_port: int
+    requires_problem_pack: bool
+    requires_workspace: bool = False
+
+
+JUDGE_DOCKER_WEB = DockerWebSpec(
+    service="judge-web",
+    display_name="Docker Judge web",
+    container_name=WEB_CONTAINER,
+    command="judge",
+    health_app="judge",
+    default_port=8765,
+    requires_problem_pack=True,
+)
+STUDIO_DOCKER_WEB = DockerWebSpec(
+    service="problem-studio-web",
+    display_name="Docker Problem Studio web",
+    container_name=STUDIO_WEB_CONTAINER,
+    command="problem-studio",
+    health_app="problem_studio",
+    default_port=8775,
+    requires_problem_pack=False,
+    requires_workspace=True,
+)
+
+
 def _command_error(result: subprocess.CompletedProcess[str]) -> str:
-    detail = (result.stderr or result.stdout or "unknown error").strip()
+    detail = (result.stderr or result.stdout or "").strip()
+    if not detail:
+        return f"command exited with status {result.returncode}; see output above"
     if len(detail) > 2000:
         return f"{detail[:2000]}..."
     return detail
@@ -131,7 +178,7 @@ def _ensure_launcher_preflight() -> None:
     if major < MINIMUM_DOCKER_ENGINE_MAJOR:
         raise JudgeError(
             f"Docker Engine {MINIMUM_DOCKER_ENGINE_MAJOR}+ is required for isolated gateway "
-            f"and loopback publishing protections; found {version}"
+            f"protections; found {version}"
         )
 
 
@@ -201,7 +248,7 @@ def setup_docker_judge() -> str:
     _ensure_data_volume()
     print(f"Installing the official problem pack into Docker volume {DATA_VOLUME}...")
     _run_command(_setup_run_command(digest), "problem pack setup", capture_output=False)
-    print("Docker Judge setup complete. Start it with `judge docker web`.")
+    print("Docker Judge setup complete. Start it with `judge docker web start`.")
     return digest
 
 
@@ -298,13 +345,33 @@ def _validate_host_port(port: int) -> None:
         raise JudgeError("Docker web port must be between 1 and 65535")
 
 
-def _web_run_command(digest: str, port: int) -> list[str]:
-    return [
+def _workspace_path(workspace: str | Path | None) -> Path:
+    resolved = Path("." if workspace is None else workspace).expanduser().resolve()
+    if not resolved.is_dir():
+        raise JudgeError(f"Problem Studio workspace directory not found: {resolved}")
+    return resolved
+
+
+def _web_run_command(
+    digest: str,
+    port: int,
+    *,
+    spec: DockerWebSpec = JUDGE_DOCKER_WEB,
+    detached: bool = False,
+    workspace: Path | None = None,
+) -> list[str]:
+    command = [
         "docker",
         "run",
-        "--rm",
+        *(["--detach"] if detached else ["--rm"]),
         "--name",
-        WEB_CONTAINER,
+        spec.container_name,
+        "--label",
+        MANAGED_LABEL,
+        "--label",
+        f"{SERVICE_LABEL_KEY}={spec.service}",
+        "--label",
+        f"{PORT_LABEL_KEY}={port}",
         "--network",
         INTERNAL_NETWORK,
         "--user",
@@ -312,8 +379,6 @@ def _web_run_command(digest: str, port: int) -> list[str]:
         "--read-only",
         "--tmpfs",
         "/tmp:rw,noexec,nosuid,nodev,size=256m",
-        "--tmpfs",
-        "/workspace:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
         "--cap-drop",
         "ALL",
         "--security-opt",
@@ -326,56 +391,338 @@ def _web_run_command(digest: str, port: int) -> list[str]:
         "2g",
         "--cpus",
         "2.0",
-        "--mount",
-        f"type=volume,source={DATA_VOLUME},target=/data,readonly",
-        "--tmpfs",
-        "/data/cache:rw,nosuid,nodev,size=1024m,uid=10001,gid=10001,mode=0700",
-        "--tmpfs",
-        "/data/jobs:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
-        "--publish",
-        f"127.0.0.1:{port}:{CONTAINER_WEB_PORT}",
-        digest,
-        "judge",
-        "web",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        str(CONTAINER_WEB_PORT),
-        "--no-open",
-        "--allow-remote-run",
     ]
+    if spec.requires_workspace:
+        if workspace is None:
+            raise JudgeError("Problem Studio Docker web requires a workspace")
+        command.extend(
+            [
+                "--label",
+                f"{WORKSPACE_LABEL_KEY}={workspace}",
+                "--mount",
+                f"type=bind,source={workspace},target=/workspace",
+                "--mount",
+                f"type=volume,source={DATA_VOLUME},target=/data",
+            ]
+        )
+    else:
+        command.extend(
+            [
+                "--tmpfs",
+                "/workspace:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=0700",
+                "--mount",
+                f"type=volume,source={DATA_VOLUME},target=/data,readonly",
+                "--tmpfs",
+                "/data/cache:rw,nosuid,nodev,size=1024m,uid=10001,gid=10001,mode=0700",
+                "--tmpfs",
+                "/data/jobs:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
+            ]
+        )
+    command.extend(
+        [
+            "--publish",
+            f"0.0.0.0:{port}:{port}",
+            digest,
+            spec.command,
+            "web",
+        ]
+    )
+    if spec.requires_workspace:
+        command.extend(["--workspace", "/workspace"])
+    command.extend(["--host", "0.0.0.0", "--port", str(port), "--no-open"])
+    if spec is JUDGE_DOCKER_WEB:
+        command.append("--allow-remote-run")
+    else:
+        command.append("--allow-remote-write")
+    return command
+
+
+def _ensure_or_create_data_volume() -> None:
+    _run_command(
+        ["docker", "volume", "create", "--label", MANAGED_LABEL, DATA_VOLUME],
+        "data volume creation",
+    )
+    _ensure_data_volume()
+
+
+def _prepare_web_service(spec: DockerWebSpec, digest: str) -> None:
+    if spec.requires_problem_pack:
+        _ensure_data_volume()
+        _ensure_setup_marker(digest)
+    else:
+        _ensure_or_create_data_volume()
+    _ensure_internal_network()
+
+
+def _container_state(spec: DockerWebSpec) -> dict[str, Any] | None:
+    result = _run_command(
+        ["docker", "container", "inspect", spec.container_name],
+        f"{spec.display_name} status inspection",
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = _command_error(result).lower()
+        if "no such" in detail or "not found" in detail:
+            return None
+        raise JudgeError(f"{spec.display_name} status inspection failed: {_command_error(result)}")
+    try:
+        payload = json.loads(result.stdout)
+        container = payload[0]
+        labels = container["Config"]["Labels"] or {}
+        docker_state = container["State"]
+    except (IndexError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise JudgeError(f"{spec.display_name} returned invalid inspection data") from exc
+    if labels.get(MANAGED_LABEL_KEY) != "true" or labels.get(SERVICE_LABEL_KEY) != spec.service:
+        raise JudgeError(
+            f"refusing to manage container {spec.container_name}: managed labels do not match. "
+            "A legacy or unrelated container is using this name; stop it manually, then remove "
+            "it if it remains before retrying"
+        )
+    try:
+        port = int(labels[PORT_LABEL_KEY])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise JudgeError(f"{spec.display_name} has an invalid saved port") from exc
+    _validate_host_port(port)
+    workspace = labels.get(WORKSPACE_LABEL_KEY)
+    if spec.requires_workspace and (not isinstance(workspace, str) or not workspace):
+        raise JudgeError(f"{spec.display_name} has an invalid saved workspace")
+    running = bool(docker_state.get("Running"))
+    status = "running" if running else str(docker_state.get("Status") or "stopped")
+    return {
+        "status": status,
+        "running": running,
+        "container": spec.container_name,
+        "port": port,
+        "url": f"http://127.0.0.1:{port}",
+        "publishedAddress": f"0.0.0.0:{port}",
+        "workspace": workspace,
+    }
+
+
+def _health_matches(spec: DockerWebSpec, port: int) -> bool:
+    opener = build_opener(ProxyHandler({}))
+    try:
+        with opener.open(f"http://127.0.0.1:{port}/healthz", timeout=0.5) as response:
+            if response.status != 200:
+                return False
+            payload = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, OSError, TimeoutError, json.JSONDecodeError):
+        return False
+    return isinstance(payload, dict) and payload.get("app") == spec.health_app
+
+
+def _wait_for_web_service(spec: DockerWebSpec, port: int) -> None:
+    deadline = time.monotonic() + WEB_START_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        if _health_matches(spec, port):
+            return
+        state = _container_state(spec)
+        if state is None or not state["running"]:
+            logs = _run_command(
+                ["docker", "logs", "--tail", "100", spec.container_name],
+                f"{spec.display_name} logs",
+                check=False,
+            )
+            detail = (logs.stderr or logs.stdout).strip()
+            raise JudgeError(
+                f"{spec.display_name} exited before becoming ready"
+                + (f": {detail}" if detail else "")
+            )
+        time.sleep(0.2)
+    raise JudgeError(
+        f"{spec.display_name} did not become ready within {WEB_START_TIMEOUT_SECONDS:g} seconds"
+    )
+
+
+def docker_web_status(spec: DockerWebSpec = JUDGE_DOCKER_WEB) -> dict[str, Any]:
+    state = _container_state(spec)
+    if state is None:
+        return {"status": "not-running", "running": False, "container": spec.container_name}
+    state["healthy"] = state["running"] and _health_matches(spec, int(state["port"]))
+    return state
+
+
+def _remove_stopped_container(spec: DockerWebSpec, state: dict[str, Any] | None) -> None:
+    if state is None:
+        return
+    if state["running"]:
+        raise JudgeError(
+            f"{spec.display_name} is already running at {state['url']} "
+            f"(container {spec.container_name})"
+        )
+    _run_command(["docker", "rm", spec.container_name], f"{spec.display_name} container removal")
+
+
+def _start_web_service(
+    spec: DockerWebSpec,
+    *,
+    port: int,
+    workspace: str | Path | None = None,
+    detached: bool,
+) -> dict[str, Any] | None:
+    _validate_host_port(port)
+    resolved_workspace = _workspace_path(workspace) if spec.requires_workspace else None
+    existing = _container_state(spec)
+    _remove_stopped_container(spec, existing)
+    _ensure_launcher_preflight()
+    digest = verify_local_official_image()
+    _prepare_web_service(spec, digest)
+    print(f"{spec.display_name} starting at http://127.0.0.1:{port}")
+    print(f"Published on all host interfaces: 0.0.0.0:{port}")
+    result = _run_command(
+        _web_run_command(
+            digest,
+            port,
+            spec=spec,
+            detached=detached,
+            workspace=resolved_workspace,
+        ),
+        f"{spec.display_name} container",
+        capture_output=detached,
+        timeout=COMMAND_TIMEOUT_SECONDS if detached else None,
+    )
+    if not detached:
+        return None
+    _wait_for_web_service(spec, port)
+    return {
+        "status": "running",
+        "running": True,
+        "healthy": True,
+        "container": spec.container_name,
+        "containerId": result.stdout.strip(),
+        "port": port,
+        "url": f"http://127.0.0.1:{port}",
+        "publishedAddress": f"0.0.0.0:{port}",
+        "workspace": str(resolved_workspace) if resolved_workspace else None,
+    }
+
+
+def _stop_web_service(spec: DockerWebSpec) -> dict[str, Any]:
+    state = _container_state(spec)
+    if state is None:
+        return {"status": "not-running", "running": False, "container": spec.container_name}
+    if not state["running"]:
+        return state
+    _run_command(
+        ["docker", "stop", "--time", "10", spec.container_name],
+        f"{spec.display_name} container stop",
+    )
+    return {**state, "status": "stopped", "running": False, "healthy": False}
+
+
+def _restart_web_service(
+    spec: DockerWebSpec,
+    *,
+    port: int | None,
+    workspace: str | Path | None = None,
+) -> dict[str, Any]:
+    state = _container_state(spec)
+    resolved_port = (
+        port if port is not None else (int(state["port"]) if state else spec.default_port)
+    )
+    resolved_workspace: str | Path | None = workspace
+    if spec.requires_workspace and resolved_workspace is None and state is not None:
+        resolved_workspace = state.get("workspace")
+    _validate_host_port(resolved_port)
+    if spec.requires_workspace:
+        resolved_workspace = _workspace_path(resolved_workspace)
+    if state is not None:
+        if state["running"]:
+            _run_command(
+                ["docker", "stop", "--time", "10", spec.container_name],
+                f"{spec.display_name} container stop",
+            )
+        _run_command(
+            ["docker", "rm", spec.container_name],
+            f"{spec.display_name} container removal",
+        )
+    started = _start_web_service(
+        spec,
+        port=resolved_port,
+        workspace=resolved_workspace,
+        detached=True,
+    )
+    assert started is not None
+    return started
 
 
 def run_docker_web(port: int = CONTAINER_WEB_PORT) -> None:
-    """외부 egress가 없는 hardened 컨테이너에서 loopback 전용 웹 UI를 실행합니다."""
-    _validate_host_port(port)
-    _ensure_launcher_preflight()
-    digest = verify_local_official_image()
-    _ensure_data_volume()
-    _ensure_setup_marker(digest)
-    _ensure_internal_network()
-    print(f"Docker Judge UI starting at http://127.0.0.1:{port}")
-    print("The web container uses an internal network with external egress disabled.")
-    _run_command(
-        _web_run_command(digest, port),
-        "web container",
-        capture_output=False,
-        timeout=None,
+    """외부 egress가 없는 hardened 컨테이너에서 Judge UI를 전면 실행합니다."""
+    _start_web_service(JUDGE_DOCKER_WEB, port=port, detached=False)
+
+
+def start_docker_web(port: int = CONTAINER_WEB_PORT) -> dict[str, Any]:
+    started = _start_web_service(JUDGE_DOCKER_WEB, port=port, detached=True)
+    assert started is not None
+    return started
+
+
+def stop_docker_web() -> dict[str, Any]:
+    return _stop_web_service(JUDGE_DOCKER_WEB)
+
+
+def restart_docker_web(port: int | None = None) -> dict[str, Any]:
+    return _restart_web_service(JUDGE_DOCKER_WEB, port=port)
+
+
+def run_docker_studio_web(workspace: str | Path, port: int = 8775) -> None:
+    _start_web_service(
+        STUDIO_DOCKER_WEB,
+        port=port,
+        workspace=workspace,
+        detached=False,
     )
+
+
+def start_docker_studio_web(workspace: str | Path, port: int = 8775) -> dict[str, Any]:
+    started = _start_web_service(
+        STUDIO_DOCKER_WEB,
+        port=port,
+        workspace=workspace,
+        detached=True,
+    )
+    assert started is not None
+    return started
+
+
+def stop_docker_studio_web() -> dict[str, Any]:
+    return _stop_web_service(STUDIO_DOCKER_WEB)
+
+
+def restart_docker_studio_web(
+    workspace: str | Path | None = None,
+    port: int | None = None,
+) -> dict[str, Any]:
+    return _restart_web_service(STUDIO_DOCKER_WEB, port=port, workspace=workspace)
 
 
 __all__ = [
     "COSIGN_VERIFIER_IMAGE",
     "DATA_VOLUME",
+    "DockerWebSpec",
     "INTERNAL_NETWORK",
+    "JUDGE_DOCKER_WEB",
     "MANAGED_LABEL",
     "MANAGED_LABEL_KEY",
     "OFFICIAL_IMAGE",
     "OFFICIAL_IMAGE_IDENTITY",
     "OFFICIAL_IMAGE_REPOSITORY",
     "OFFICIAL_PROBLEM_REPOSITORY",
+    "PORT_LABEL_KEY",
+    "SERVICE_LABEL_KEY",
+    "STUDIO_DOCKER_WEB",
+    "STUDIO_WEB_CONTAINER",
+    "WORKSPACE_LABEL_KEY",
+    "docker_web_status",
     "pull_and_verify_official_image",
+    "restart_docker_studio_web",
+    "restart_docker_web",
     "run_docker_web",
+    "run_docker_studio_web",
     "setup_docker_judge",
+    "start_docker_studio_web",
+    "start_docker_web",
+    "stop_docker_studio_web",
+    "stop_docker_web",
     "verify_local_official_image",
 ]

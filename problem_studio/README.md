@@ -54,6 +54,7 @@ problem-studio web start --workspace ./algorithm-package
 problem-studio web start --clone owner/repo --branch main --workspace ./workspace
 problem-studio web start --workspace ./workspace --repo algorithm-package
 problem-studio web start --host 127.0.0.1 --port 8775 --no-open
+problem-studio web status
 problem-studio web stop
 problem-studio web restart
 ```
@@ -69,6 +70,24 @@ problem-studio web restart
 - `--repo-name`: clone 대상 local directory 이름을 직접 지정합니다.
 - `--host`, `--port`: 서버 주소를 바꿉니다. 기본 주소는 `127.0.0.1:8775`입니다.
 - `--no-open`: 브라우저 자동 실행을 끕니다.
+
+## Docker 실행
+
+서명된 공식 이미지를 먼저 준비한 뒤 Problem Studio를 백그라운드 컨테이너로 실행할 수
+있습니다. `--workspace`의 호스트 디렉터리가 컨테이너 `/workspace`에 연결됩니다.
+
+```bash
+judge docker setup
+problem-studio docker web start --workspace /path/to/algorithm-package --port 8775
+problem-studio docker web status
+problem-studio docker web restart
+problem-studio docker web stop
+```
+
+`--port`는 컨테이너 웹 포트와 호스트 공개 포트에 같은 값을 적용합니다. 포트는
+`0.0.0.0`에 공개되므로 `http://<호스트-IP>:8775`로도 접속할 수 있습니다. Docker의
+Problem Studio는 연결된 작업공간을 읽고 쓸 수 있으므로 신뢰할 수 있는 네트워크와
+방화벽에서만 실행하세요. 동작 인자를 생략한 `problem-studio docker web`은 전면 실행입니다.
 
 ## 기본 작업 흐름
 

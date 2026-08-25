@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from alj_core.studio_cli_options import DEFAULT_STUDIO_WEB_PORT
 from judge.core.errors import JudgeError
 
 
@@ -39,7 +40,9 @@ def studio_argv(args: argparse.Namespace) -> list[str]:
         value = getattr(args, attribute, None)
         if value:
             command.extend([option, str(value)])
-    command.extend(["--port", str(args.port)])
+    command.extend(["--port", str(args.port or DEFAULT_STUDIO_WEB_PORT)])
+    if getattr(args, "allow_remote_write", False):
+        command.append("--allow-remote-write")
     command.append("--open" if args.open else "--no-open")
     return command
 

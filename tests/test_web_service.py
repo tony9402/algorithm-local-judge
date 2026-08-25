@@ -12,9 +12,11 @@ from unittest.mock import Mock, patch
 from alj_core.errors import JudgeError
 from alj_core.web_service import (
     WebServiceSpec,
+    restart_web_service,
     service_state_path,
     start_web_service,
     stop_web_service,
+    web_service_status,
 )
 
 
@@ -98,6 +100,43 @@ class WebServiceSafetyTest(unittest.TestCase):
         process.terminate.assert_called_once_with()
         process.wait.assert_called_once_with(timeout=2)
         self.assertFalse(service_state_path(self.spec).exists())
+
+    def test_status_reports_owned_running_process_and_health(self) -> None:
+        self.write_state()
+        with (
+            patch("alj_core.web_service._process_is_alive", return_value=True),
+            patch("alj_core.web_service._process_matches_state", return_value=True),
+            patch("alj_core.web_service._health_matches", return_value=True) as health,
+        ):
+            result = web_service_status(self.spec)
+
+        self.assertEqual(result["status"], "running")
+        self.assertTrue(result["healthy"])
+        self.assertEqual(result["pid"], 4242)
+        health.assert_called_once_with("http://127.0.0.1:8765", "judge")
+
+    def test_restart_explicit_port_overrides_saved_port_and_child_argument(self) -> None:
+        self.write_state()
+        started = {"status": "running", "pid": 4343}
+        with (
+            patch("alj_core.web_service._stop_locked"),
+            patch("alj_core.web_service._start_locked", return_value=started) as start,
+        ):
+            result = restart_web_service(
+                self.spec,
+                child_args=["--host", "127.0.0.1", "--port", "9000", "--no-open"],
+                host="127.0.0.1",
+                port=9000,
+                open_browser=False,
+                port_override=9000,
+            )
+
+        self.assertEqual(result, started)
+        self.assertEqual(start.call_args.kwargs["port"], 9000)
+        self.assertEqual(
+            start.call_args.kwargs["child_args"],
+            ["--host", "127.0.0.1", "--port", "9000", "--no-open"],
+        )
 
 
 if __name__ == "__main__":

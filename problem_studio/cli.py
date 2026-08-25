@@ -10,6 +10,7 @@ from pathlib import Path
 from alj_core.errors import JudgeError
 from alj_core.studio_cli_options import add_web_arguments
 from alj_core.version import __version__
+from problem_studio.commands.docker import handle as handle_docker
 from problem_studio.commands.web import handle as handle_web
 
 
@@ -25,6 +26,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     web_parser = subparsers.add_parser("web", allow_abbrev=False)
     add_web_arguments(web_parser)
+
+    docker_parser = subparsers.add_parser("docker", allow_abbrev=False)
+    docker_sub = docker_parser.add_subparsers(dest="docker_command", required=True)
+    docker_web = docker_sub.add_parser("web", allow_abbrev=False)
+    docker_web.add_argument(
+        "docker_web_action",
+        nargs="?",
+        choices=["start", "stop", "restart", "status"],
+        help="run in the background, stop, restart, or inspect the Docker web container",
+    )
+    docker_web.add_argument("--workspace")
+    docker_web.add_argument("--port", type=int)
 
     return parser
 
@@ -42,6 +55,8 @@ def dispatch(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     if args.command == "web":
         args.workspace = Path(args.workspace)
         return handle_web(args)
+    if args.command == "docker":
+        return handle_docker(args)
     raise JudgeError(f"unknown command: {args.command}")
 
 

@@ -17,6 +17,7 @@ from judge.cli import main as judge_main
 from judge.commands import studio
 from problem_studio.cli import build_parser as build_problem_studio_parser
 from problem_studio.cli import main as problem_studio_main
+from problem_studio.commands import docker as studio_docker
 
 
 class StudioCliTest(unittest.TestCase):
@@ -103,15 +104,73 @@ class StudioCliTest(unittest.TestCase):
             "host",
             "port",
             "open",
+            "allow_remote_write",
         ]:
             self.assertEqual(getattr(judge_args, name), getattr(legacy_args, name))
 
     def test_problem_studio_parser_accepts_background_lifecycle_actions(self) -> None:
         parser = build_problem_studio_parser()
 
-        for action in ("start", "stop", "restart"):
+        for action in ("start", "stop", "restart", "status"):
             args = parser.parse_args(["web", action])
             self.assertEqual(args.web_action, action)
+
+    def test_problem_studio_parser_accepts_docker_web_lifecycle_and_port(self) -> None:
+        parser = build_problem_studio_parser()
+
+        for action in ("start", "stop", "restart", "status"):
+            args = parser.parse_args(
+                ["docker", "web", action, "--workspace", "workspace", "--port", "9775"]
+            )
+            self.assertEqual(args.command, "docker")
+            self.assertEqual(args.docker_command, "web")
+            self.assertEqual(args.docker_web_action, action)
+            self.assertEqual(args.workspace, "workspace")
+            self.assertEqual(args.port, 9775)
+
+    def test_problem_studio_dispatches_docker_web_command(self) -> None:
+        with mock.patch("problem_studio.cli.handle_docker", return_value=0) as handle:
+            self.assertEqual(
+                problem_studio_main(
+                    ["docker", "web", "start", "--workspace", "workspace", "--port", "9775"]
+                ),
+                0,
+            )
+
+        args = handle.call_args.args[0]
+        self.assertEqual(args.docker_web_action, "start")
+        self.assertEqual(args.workspace, "workspace")
+        self.assertEqual(args.port, 9775)
+
+    def test_problem_studio_docker_command_delegates_to_installed_judge(self) -> None:
+        args = build_problem_studio_parser().parse_args(
+            ["docker", "web", "restart", "--workspace", "workspace", "--port", "9775"]
+        )
+        completed = mock.Mock(returncode=19)
+        with (
+            mock.patch.object(
+                studio_docker,
+                "resolve_judge_executable",
+                return_value=Path("/opt/alj/judge"),
+            ),
+            mock.patch.object(studio_docker.subprocess, "run", return_value=completed) as run,
+        ):
+            result = studio_docker.handle(args)
+
+        self.assertEqual(result, 19)
+        run.assert_called_once_with(
+            [
+                "/opt/alj/judge",
+                "docker",
+                "studio",
+                "restart",
+                "--workspace",
+                "workspace",
+                "--port",
+                "9775",
+            ],
+            check=False,
+        )
 
     def test_cli_versions_use_the_shared_package_version(self) -> None:
         for cli_main in [judge_main, problem_studio_main]:
