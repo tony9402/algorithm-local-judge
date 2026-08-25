@@ -10,6 +10,7 @@ from judge.core.problem_folders import (
     create_problem_folder,
     delete_problem_folder,
     list_problem_folders,
+    rename_problem_folder,
     update_problem_folder,
 )
 from judge.web import services
@@ -17,6 +18,7 @@ from judge.web.routes.common import etag_matches, to_http_error
 from judge.web.schemas import (
     ProblemFolderCreateRequest,
     ProblemFolderDeleteRequest,
+    ProblemFolderRenameRequest,
     ProblemFolderUpdateRequest,
 )
 from judge.web.security_policy import ensure_local_web_action_allowed, ensure_remote_run_allowed
@@ -50,6 +52,15 @@ def api_problem_folder_create(request: Request, body: ProblemFolderCreateRequest
     try:
         ensure_local_web_action_allowed(request, "problem folder create")
         return create_problem_folder(body.folder)
+    except Exception as exc:
+        raise to_http_error(exc) from exc
+
+
+@router.patch("/folders")
+def api_problem_folder_rename(request: Request, body: ProblemFolderRenameRequest) -> dict:
+    try:
+        ensure_local_web_action_allowed(request, "problem folder rename")
+        return rename_problem_folder(body.folder, body.new_folder)
     except Exception as exc:
         raise to_http_error(exc) from exc
 

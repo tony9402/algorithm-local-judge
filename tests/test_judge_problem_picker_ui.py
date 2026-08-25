@@ -39,6 +39,20 @@ class JudgeProblemPickerUiContractTest(unittest.TestCase):
         self.assertIn('id="problemFolderMoveSelect"', page)
         self.assertIn('id="problemFolderMoveConfirmButton"', page)
 
+    def test_folder_management_is_hidden_behind_ellipsis_menu(self) -> None:
+        problems = (ROOT / "judge/web/static/app/problems.js").read_text(encoding="utf-8")
+        events = (ROOT / "judge/web/static/app/events.js").read_text(encoding="utf-8")
+        layout = (ROOT / "judge/web/static/styles/layout.css").read_text(encoding="utf-8")
+
+        self.assertIn('class="folder-menu-trigger"', problems)
+        self.assertIn('class="folder-actions-popover hidden"', problems)
+        self.assertIn("data-folder-rename=", problems)
+        self.assertIn("data-folder-delete=", problems)
+        self.assertIn("async function renameProblemFolder(folder)", problems)
+        self.assertIn('method: "PATCH"', problems)
+        self.assertIn("app.renameProblemFolder(renameFolder)", events)
+        self.assertIn(".folder-actions-popover", layout)
+
     def test_picker_styles_bound_the_list_and_mobile_touch_targets(self) -> None:
         layout = (ROOT / "judge/web/static/styles/layout.css").read_text(encoding="utf-8")
         modal_styles = (ROOT / "judge/web/static/styles/modals.css").read_text(encoding="utf-8")

@@ -4,6 +4,15 @@
 
 const app = window.AljApp;
 const { state } = app;
+
+function closeFolderActionMenus(exceptButton = null) {
+  for (const button of document.querySelectorAll("[data-folder-menu]")) {
+    if (button === exceptButton) continue;
+    button.setAttribute("aria-expanded", "false");
+    button.nextElementSibling?.classList.add("hidden");
+  }
+}
+
 /**
  * events 이벤트를 DOM 요소와 핸들러에 연결합니다.
  */
@@ -99,15 +108,33 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const folderMenuButton = target.closest("[data-folder-menu]");
+    if (folderMenuButton instanceof HTMLButtonElement) {
+      event.preventDefault();
+      const willOpen = folderMenuButton.getAttribute("aria-expanded") !== "true";
+      closeFolderActionMenus(folderMenuButton);
+      folderMenuButton.setAttribute("aria-expanded", String(willOpen));
+      folderMenuButton.nextElementSibling?.classList.toggle("hidden", !willOpen);
+      return;
+    }
+    if (!target.closest(".folder-actions-menu")) closeFolderActionMenus();
     const toggleFolder = target.closest("[data-folder-toggle]")?.getAttribute("data-folder-toggle");
     if (toggleFolder !== null && toggleFolder !== undefined) {
       event.preventDefault();
       app.toggleFolderCollapsed(toggleFolder);
       return;
     }
+    const renameFolder = target.closest("[data-folder-rename]")?.getAttribute("data-folder-rename");
+    if (renameFolder) {
+      event.preventDefault();
+      closeFolderActionMenus();
+      void app.withErrors(() => app.renameProblemFolder(renameFolder));
+      return;
+    }
     const deleteFolder = target.closest("[data-folder-delete]")?.getAttribute("data-folder-delete");
     if (deleteFolder) {
       event.preventDefault();
+      closeFolderActionMenus();
       void app.withErrors(() => app.deleteProblemFolder(deleteFolder));
       return;
     }
@@ -121,6 +148,13 @@ function bindEvents() {
       app.closeModals();
       void app.withErrors(() => app.loadWrongCase(artifactRunId, caseArtifact));
     }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const openButton = document.querySelector('[data-folder-menu][aria-expanded="true"]');
+    if (!(openButton instanceof HTMLButtonElement)) return;
+    closeFolderActionMenus();
+    openButton.focus();
   });
   app.on("cachePreviewButton", "click", () => app.withErrors(() => app.cacheClear(true, { all_entries: true })));
   app.on("cacheClearRunsButton", "click", () => app.withErrors(() => app.cacheClear(false, { runs: true })));

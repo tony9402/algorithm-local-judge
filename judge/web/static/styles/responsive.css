@@ -14,7 +14,8 @@
   #packRetryButton,
   #packJobsButton,
   .jobs-panel button,
-  .folder-delete,
+  .folder-menu-trigger,
+  .folder-actions-popover button,
   .problem-folder-move-action,
   .problem-picker-list .list-item {
     min-height: 44px;

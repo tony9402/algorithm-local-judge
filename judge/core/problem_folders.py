@@ -169,10 +169,11 @@ def _restore_file_snapshot(path: Path, existed: bool, content: bytes) -> None:
         path.unlink(missing_ok=True)
 
 
-def _move_folder_problems_to_uncategorized(
-    folder: str,
+def _rewrite_problem_folder_assignments(
+    source_folder: str,
+    target_folder: str,
     targets: list[dict[str, Any]],
-) -> dict[str, Any]:
+) -> list[str]:
     snapshots: list[tuple[Path, bytes, dict[str, Any], str]] = []
     for item in targets:
         problem_id = item["problemId"]
@@ -181,21 +182,23 @@ def _move_folder_problems_to_uncategorized(
             raise SecurityPolicyError(
                 f"problem folder cannot be changed for {problem_id} because metadata is not editable"
             )
-        if normalize_problem_folder(metadata.get("folder")) != folder:
-            raise JudgeError(f"problem folder changed while deleting folder: {problem_id}")
+        if normalize_problem_folder(metadata.get("folder")) != source_folder:
+            raise JudgeError(f"problem folder changed while updating folder: {problem_id}")
         snapshots.append((metadata_path, metadata_path.read_bytes(), metadata, problem_id))
 
     registry_path = problem_folder_registry_path()
     registry_existed = registry_path.exists()
     registry_content = registry_path.read_bytes() if registry_existed else b""
-    moved_problem_ids: list[str] = []
+    updated_problem_ids: list[str] = []
     try:
         for metadata_path, _content, metadata, problem_id in snapshots:
             updated_metadata = dict(metadata)
-            updated_metadata["folder"] = ""
+            updated_metadata["folder"] = target_folder
             _write_problem_folder_metadata(metadata_path, updated_metadata)
-            moved_problem_ids.append(problem_id)
-        folders = [item for item in read_problem_folder_registry() if item != folder]
+            updated_problem_ids.append(problem_id)
+        folders = [item for item in read_problem_folder_registry() if item != source_folder]
+        if target_folder and target_folder not in folders:
+            folders.append(target_folder)
         write_problem_folder_registry(folders)
     except Exception as exc:
         restore_errors = []
@@ -213,6 +216,14 @@ def _move_folder_problems_to_uncategorized(
             raise JudgeError(f"failed to restore problem folder metadata: {details}") from exc
         raise
 
+    return updated_problem_ids
+
+
+def _move_folder_problems_to_uncategorized(
+    folder: str,
+    targets: list[dict[str, Any]],
+) -> dict[str, Any]:
+    moved_problem_ids = _rewrite_problem_folder_assignments(folder, "", targets)
     return {
         "deleted": True,
         "requiresConfirmation": False,
@@ -220,6 +231,40 @@ def _move_folder_problems_to_uncategorized(
         "movedProblems": moved_problem_ids,
         "deletedProblems": [],
         "warning": "",
+        "folders": list_problem_folders(),
+    }
+
+
+def rename_problem_folder(folder: str | None, new_folder: str | None) -> dict[str, Any]:
+    source = normalize_problem_folder(folder)
+    target = normalize_problem_folder(new_folder)
+    if not source:
+        raise JudgeError("default folder cannot be renamed")
+    if not target:
+        raise JudgeError("new problem folder name is required")
+    known_folders = {normalize_problem_folder(item["folder"]) for item in list_problem_folders()}
+    if source not in known_folders:
+        raise JudgeError(f"problem folder not found: {source}")
+    if source == target:
+        return {
+            "renamed": False,
+            "folder": source,
+            "newFolder": target,
+            "renamedProblems": [],
+            "folders": list_problem_folders(),
+        }
+    if target in known_folders:
+        raise JudgeError(f"problem folder already exists: {target}")
+    renamed_problem_ids = _rewrite_problem_folder_assignments(
+        source,
+        target,
+        problems_in_folder(source),
+    )
+    return {
+        "renamed": True,
+        "folder": source,
+        "newFolder": target,
+        "renamedProblems": renamed_problem_ids,
         "folders": list_problem_folders(),
     }
 

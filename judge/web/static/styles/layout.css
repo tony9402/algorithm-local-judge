@@ -183,9 +183,52 @@
   flex-shrink: 0;
 }
 
-.folder-delete {
+.folder-actions-menu {
+  position: relative;
+}
+
+.folder-menu-trigger {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.folder-menu-trigger:hover,
+.folder-menu-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--control-hover);
+}
+
+.folder-menu-trigger:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.folder-actions-popover {
+  position: absolute;
+  z-index: 25;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  min-width: 112px;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.folder-actions-popover button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.folder-actions-popover button.danger {
   min-height: 44px;
-  padding: 0 8px;
   color: var(--bad);
 }
 

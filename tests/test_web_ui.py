@@ -487,6 +487,83 @@ class WebUiTest(unittest.TestCase):
                 self.assertFalse(source_problem.exists())
                 self.assertEqual(client.get("/api/problems").json(), [])
 
+    def test_problem_folder_rename_updates_every_problem_metadata(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-web-folder-rename-test-") as tmp:
+            tmp_path = Path(tmp)
+            project = tmp_path / "project"
+            project.mkdir()
+            problem_root = tmp_path / "data" / "problem-sources" / "owner" / "repo" / "problems"
+            metadata_paths = []
+            for problem_id in ("alpha", "beta"):
+                metadata_path = problem_root / problem_id / "problem.json"
+                metadata_path.parent.mkdir(parents=True)
+                metadata_path.write_text(
+                    json.dumps(
+                        {"problemId": problem_id, "title": problem_id.title(), "folder": "Graph"}
+                    ),
+                    encoding="utf-8",
+                )
+                metadata_paths.append(metadata_path)
+            env = {
+                **os.environ,
+                "ALJ_PROJECT_ROOT": str(project),
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+                "ALJ_CACHE_HOME": str(tmp_path / "cache"),
+            }
+            with patch.dict(os.environ, env, clear=True):
+                client = TestClient(create_app())
+                client.post("/api/folders", json={"folder": "Graph"})
+                response = client.patch(
+                    "/api/folders",
+                    json={"folder": "Graph", "new_folder": "Algorithms"},
+                )
+
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertTrue(response.json()["renamed"])
+                self.assertEqual(response.json()["renamedProblems"], ["alpha", "beta"])
+                self.assertEqual(
+                    {item["folder"] for item in response.json()["folders"]},
+                    {"", "Algorithms"},
+                )
+                for metadata_path in metadata_paths:
+                    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                    self.assertEqual(metadata["folder"], "Algorithms")
+
+                client.post("/api/folders", json={"folder": "Existing"})
+                collision = client.patch(
+                    "/api/folders",
+                    json={"folder": "Algorithms", "new_folder": "Existing"},
+                )
+                self.assertEqual(collision.status_code, 400, collision.text)
+                self.assertIn("already exists", collision.text)
+
+                registry_path = problem_folders.problem_folder_registry_path()
+                original_registry = registry_path.read_bytes()
+                original_metadata = [path.read_bytes() for path in metadata_paths]
+                real_writer = problem_folders._write_problem_folder_metadata
+                write_count = 0
+
+                def fail_second_rename_write(metadata_path, metadata):
+                    nonlocal write_count
+                    write_count += 1
+                    if write_count == 2:
+                        raise OSError("simulated rename metadata failure")
+                    real_writer(metadata_path, metadata)
+
+                with patch.object(
+                    problem_folders,
+                    "_write_problem_folder_metadata",
+                    side_effect=fail_second_rename_write,
+                ):
+                    failed_rename = client.patch(
+                        "/api/folders",
+                        json={"folder": "Algorithms", "new_folder": "Renamed"},
+                    )
+
+                self.assertEqual(failed_rename.status_code, 500, failed_rename.text)
+                self.assertEqual([path.read_bytes() for path in metadata_paths], original_metadata)
+                self.assertEqual(registry_path.read_bytes(), original_registry)
+
     def test_problem_folder_safe_delete_moves_problems_without_deleting_directories(self) -> None:
         """안전 폴더 삭제는 문제를 미분류로 옮기고 directory를 보존합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-folder-safe-delete-test-") as tmp:

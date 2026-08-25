@@ -60,6 +60,13 @@ class ProblemFolderCreateRequest(BaseModel):
     folder: str = Field(min_length=1)
 
 
+class ProblemFolderRenameRequest(BaseModel):
+    """API에서 주고받는 문제 폴더 rename 요청 필드를 검증하는 스키마입니다."""
+
+    folder: str = Field(min_length=1)
+    new_folder: str = Field(min_length=1)
+
+
 class ProblemFolderDeleteRequest(BaseModel):
     """API에서 주고받는 문제 폴더 delete 요청 필드를 검증하는 스키마입니다."""
 

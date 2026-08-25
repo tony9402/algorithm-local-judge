@@ -63,6 +63,13 @@ function rememberCollapsedFolders(values) {
   }
 }
 
+function renameCollapsedFolder(sourceFolder, targetFolder) {
+  const collapsed = collapsedFolders();
+  if (!collapsed.delete(sourceFolder)) return;
+  collapsed.add(targetFolder);
+  rememberCollapsedFolders(collapsed);
+}
+
 function toggleFolderCollapsed(folder) {
   const list = app.optional("problemList");
   const currentToggle = problemFolderToggle(folder);
@@ -366,7 +373,7 @@ function createProblemFolderGroup(folder, problems, { picker = false } = {}) {
       </div>
     `;
   } else {
-    const canDelete = Boolean(folder);
+    const canManage = Boolean(folder);
     group.innerHTML = `
       <div class="problem-folder-header">
         <button class="folder-toggle" type="button" data-folder-toggle="${app.escapeHtml(folder)}" aria-expanded="${String(!collapsed)}" aria-label="${app.escapeHtml(problemFolderLabel(folder))}, ${problems.length}개 문제, ${collapsed ? "열기" : "접기"}">
@@ -376,8 +383,14 @@ function createProblemFolderGroup(folder, problems, { picker = false } = {}) {
         <div class="folder-header-actions">
           <small>${problems.length}</small>
           ${
-            canDelete
-              ? `<button class="folder-delete" type="button" data-folder-delete="${app.escapeHtml(folder)}" aria-label="${app.escapeHtml(problemFolderLabel(folder))} 삭제">삭제</button>`
+            canManage
+              ? `<div class="folder-actions-menu">
+                  <button class="folder-menu-trigger" type="button" data-folder-menu="${app.escapeHtml(folder)}" aria-label="${app.escapeHtml(problemFolderLabel(folder))} 폴더 메뉴" aria-haspopup="menu" aria-expanded="false" title="폴더 메뉴">⋯</button>
+                  <div class="folder-actions-popover hidden" role="menu">
+                    <button type="button" role="menuitem" data-folder-rename="${app.escapeHtml(folder)}">이름 수정</button>
+                    <button class="danger" type="button" role="menuitem" data-folder-delete="${app.escapeHtml(folder)}">삭제</button>
+                  </div>
+                </div>`
               : ""
           }
         </div>
@@ -651,6 +664,32 @@ async function createProblemFolderFromInput() {
   app.showToast(`폴더 생성: ${problemFolderLabel(result.folder)}`);
 }
 
+async function renameProblemFolder(folder) {
+  const input = window.prompt("새 폴더 이름을 입력하세요.", folder);
+  if (input === null) return;
+  const newFolder = input.trim();
+  if (!newFolder) throw new Error("새 폴더 이름을 입력하세요.");
+  if (newFolder === folder) {
+    app.showToast("폴더 이름이 변경되지 않았습니다.");
+    return;
+  }
+  const result = await app.api("/api/folders", {
+    method: "PATCH",
+    body: JSON.stringify({ folder, new_folder: newFolder }),
+  });
+  state.folders = result.folders || state.folders;
+  state.problems = state.problems.map((problem) =>
+    problemFolder(problem) === folder ? { ...problem, folder: result.newFolder } : problem
+  );
+  renameCollapsedFolder(folder, result.newFolder);
+  renderProblems(state.problems);
+  const renamedCount = result.renamedProblems?.length || 0;
+  app.showToast(
+    `${problemFolderLabel(folder)} 폴더를 ${problemFolderLabel(result.newFolder)}(으)로 변경했습니다.`
+      + ` 문제 ${renamedCount}개에 적용했습니다.`
+  );
+}
+
 async function deleteProblemFolder(folder) {
   const problems = state.problems.filter((problem) => problemFolder(problem) === folder);
   if (problems.length) {
@@ -685,6 +724,7 @@ Object.assign(app, {
   rememberProblemId,
   problemFolderLabel,
   problemSupportsProfile,
+  renameProblemFolder,
   renderProblemSelection,
   renderRunProfiles,
   renderProblems,

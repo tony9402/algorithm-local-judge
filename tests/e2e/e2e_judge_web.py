@@ -1069,6 +1069,7 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
         ]
         dialogs: list[str] = []
         delete_requests: list[dict] = []
+        rename_requests: list[dict] = []
 
         def folders_route(route):
             """브라우저 폴더 관리 테스트용 폴더 API 응답을 제공합니다."""
@@ -1081,6 +1082,29 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 folder = body["folder"]
                 folders.append({"folder": folder, "label": folder, "problemCount": 0})
                 route.fulfill(json={"folder": folder, "folders": folders})
+                return
+            if request.method == "PATCH":
+                folder = body["folder"]
+                new_folder = body["new_folder"]
+                rename_requests.append(body)
+                renamed_problem_ids = []
+                for item in folders:
+                    if item["folder"] == folder:
+                        item["folder"] = new_folder
+                        item["label"] = new_folder
+                for problem in problems:
+                    if problem["folder"] == folder:
+                        problem["folder"] = new_folder
+                        renamed_problem_ids.append(problem["problemId"])
+                route.fulfill(
+                    json={
+                        "renamed": True,
+                        "folder": folder,
+                        "newFolder": new_folder,
+                        "renamedProblems": renamed_problem_ids,
+                        "folders": folders,
+                    }
+                )
                 return
             if request.method == "DELETE":
                 folder = body["folder"]
@@ -1120,7 +1144,12 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                         json={"profile": "sample", "caseCount": 0, "label": "folder", "cases": []}
                     ),
                 )
-                page.on("dialog", lambda dialog: (dialogs.append(dialog.message), dialog.accept()))
+
+                def handle_dialog(dialog):
+                    dialogs.append(dialog.message)
+                    dialog.accept("Algorithms" if dialog.type == "prompt" else None)
+
+                page.on("dialog", handle_dialog)
                 page.goto(server.url)
                 page.locator("#sampleRunButton").wait_for(state="visible")
 
@@ -1143,13 +1172,37 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     ).evaluate("node => node.classList.contains('hidden')")
                 )
 
+                page.locator(
+                    '.problem-folder-group[data-folder="Empty"] .folder-menu-trigger'
+                ).click()
                 page.locator('[data-folder-delete="Empty"]').click()
                 page.wait_for_function(
                     "() => !document.querySelector('[data-folder-delete=\"Empty\"]')"
                 )
                 self.assertEqual(dialogs, [])
 
-                page.locator('[data-folder-delete="Graph"]').click()
+                page.locator(
+                    '.problem-folder-group[data-folder="Graph"] .folder-menu-trigger'
+                ).click()
+                page.locator('[data-folder-rename="Graph"]').click()
+                page.wait_for_function(
+                    "() => document.querySelector('[data-folder-toggle=\"Algorithms\"]')"
+                )
+                self.assertEqual(
+                    rename_requests,
+                    [{"folder": "Graph", "new_folder": "Algorithms"}],
+                )
+                self.assertEqual(
+                    next(problem for problem in problems if problem["problemId"] == "beta")[
+                        "folder"
+                    ],
+                    "Algorithms",
+                )
+
+                page.locator(
+                    '.problem-folder-group[data-folder="Algorithms"] .folder-menu-trigger'
+                ).click()
+                page.locator('[data-folder-delete="Algorithms"]').click()
                 page.wait_for_function(
                     """() => document.querySelector(
                         '.problem-folder-group[data-folder=""] [data-problem-id="beta"]'
@@ -1162,11 +1215,14 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                     delete_requests,
                     [
                         {"folder": "Empty", "mode": "move_to_uncategorized"},
-                        {"folder": "Graph", "mode": "move_to_uncategorized"},
+                        {"folder": "Algorithms", "mode": "move_to_uncategorized"},
                     ],
                 )
                 self.assertIn("beta", {problem["problemId"] for problem in problems})
 
+                page.locator(
+                    '.problem-folder-group[data-folder="Error"] .folder-menu-trigger'
+                ).click()
                 page.locator('[data-folder-delete="Error"]').click()
                 wait_for_text(page, "#resultSummary", "simulated folder move failure")
                 self.assertEqual(
