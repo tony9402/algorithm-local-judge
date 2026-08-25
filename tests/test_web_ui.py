@@ -20,6 +20,7 @@ from judge.core.errors import JudgeError
 from judge.web import services
 from judge.web.app import create_app
 from judge.web.service_common import language_from_filename
+from tests.fixture_project import copy_problem_fixture
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_INNER_HTML_SAFE_MARKERS = (
@@ -989,8 +990,10 @@ class WebUiTest(unittest.TestCase):
     def test_run_pasted_python_submission(self) -> None:
         """실행 붙여넣은 Python 제출 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
+            project_root = copy_problem_fixture(Path(tmp) / "project")
             env = {
                 **os.environ,
+                "ALJ_PROJECT_ROOT": str(project_root),
                 "ALJ_CACHE_HOME": str(Path(tmp) / "cache"),
                 "ALJ_DATA_HOME": str(Path(tmp) / "data"),
                 "ALJ_PYTHON": sys.executable,
@@ -1200,8 +1203,10 @@ class WebUiTest(unittest.TestCase):
     def test_run_uploaded_python_submission_streams_progress(self) -> None:
         """실행 업로드된 Python 제출 스트리밍 진행 상황 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
+            project_root = copy_problem_fixture(Path(tmp) / "project")
             env = {
                 **os.environ,
+                "ALJ_PROJECT_ROOT": str(project_root),
                 "ALJ_CACHE_HOME": str(Path(tmp) / "cache"),
                 "ALJ_DATA_HOME": str(Path(tmp) / "data"),
                 "ALJ_PYTHON": sys.executable,
@@ -1231,8 +1236,10 @@ class WebUiTest(unittest.TestCase):
     def test_run_pasted_python_submission_streams_progress(self) -> None:
         """실행 붙여넣은 Python 제출 스트리밍 진행 상황 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
+            project_root = copy_problem_fixture(Path(tmp) / "project")
             env = {
                 **os.environ,
+                "ALJ_PROJECT_ROOT": str(project_root),
                 "ALJ_CACHE_HOME": str(Path(tmp) / "cache"),
                 "ALJ_DATA_HOME": str(Path(tmp) / "data"),
                 "ALJ_PYTHON": sys.executable,
@@ -1260,8 +1267,10 @@ class WebUiTest(unittest.TestCase):
     def test_sample_cases_endpoint_returns_visible_io(self) -> None:
         """샘플 케이스 엔드포인트 반환 표시 입출력 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
+            project_root = copy_problem_fixture(Path(tmp) / "project")
             env = {
                 **os.environ,
+                "ALJ_PROJECT_ROOT": str(project_root),
                 "ALJ_CACHE_HOME": str(Path(tmp) / "cache"),
                 "ALJ_DATA_HOME": str(Path(tmp) / "data"),
                 "ALJ_PYTHON": sys.executable,
@@ -1283,8 +1292,10 @@ class WebUiTest(unittest.TestCase):
     def test_sample_cases_endpoint_reuses_cached_data(self) -> None:
         """샘플 케이스 엔드포인트 재사용 캐시된 데이터 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
+            project_root = copy_problem_fixture(Path(tmp) / "project")
             env = {
                 **os.environ,
+                "ALJ_PROJECT_ROOT": str(project_root),
                 "ALJ_CACHE_HOME": str(Path(tmp) / "cache"),
                 "ALJ_DATA_HOME": str(Path(tmp) / "data"),
                 "ALJ_PYTHON": sys.executable,
@@ -1584,8 +1595,10 @@ class WebUiTest(unittest.TestCase):
     def test_generate_streams_progress(self) -> None:
         """생성 스트리밍 진행 상황 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
+            project_root = copy_problem_fixture(Path(tmp) / "project")
             env = {
                 **os.environ,
+                "ALJ_PROJECT_ROOT": str(project_root),
                 "ALJ_CACHE_HOME": str(Path(tmp) / "cache"),
                 "ALJ_DATA_HOME": str(Path(tmp) / "data"),
                 "ALJ_PYTHON": sys.executable,
@@ -1611,12 +1624,18 @@ class WebUiTest(unittest.TestCase):
 
     def test_cases_compile_endpoint(self) -> None:
         """케이스 컴파일 엔드포인트 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
-        client = TestClient(create_app())
-
-        response = client.post(
-            "/api/cases/compile",
-            json={"problem_id": "06", "profile": "sample"},
-        )
+        with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
+            project_root = copy_problem_fixture(Path(tmp) / "project")
+            with patch.dict(
+                os.environ,
+                {**os.environ, "ALJ_PROJECT_ROOT": str(project_root)},
+                clear=True,
+            ):
+                client = TestClient(create_app())
+                response = client.post(
+                    "/api/cases/compile",
+                    json={"problem_id": "06", "profile": "sample"},
+                )
 
         self.assertEqual(response.status_code, 200, response.text)
         result = response.json()
