@@ -940,6 +940,8 @@ class DockerRemotePackageE2ETest(unittest.TestCase):
             "--read-only",
             "--tmpfs",
             "/tmp:rw,noexec,nosuid,nodev,size=256m",
+            "--tmpfs",
+            "/home/alj/.sigstore:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
             "--mount",
             f"type=volume,source={volume_name},target=/data",
             "--publish",
@@ -976,6 +978,10 @@ class DockerRemotePackageE2ETest(unittest.TestCase):
             )
             run_command(start_command, timeout=self.timeout)
             wait_for_http(f"{base_url}/healthz", timeout=20)
+            run_command(
+                ["docker", "exec", container_name, "cosign", "initialize"],
+                timeout=self.timeout,
+            )
 
             config_status, config = request_json(base_url, "/api/config")
             cache_status, cache_result = request_json(

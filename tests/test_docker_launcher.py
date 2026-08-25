@@ -131,6 +131,8 @@ def web_container_command(port: int) -> list[str]:
         "--read-only",
         "--tmpfs",
         "/tmp:rw,noexec,nosuid,nodev,size=256m",
+        "--tmpfs",
+        "/home/alj/.sigstore:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700",
         "--cap-drop",
         "ALL",
         "--security-opt",
