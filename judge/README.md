@@ -232,8 +232,9 @@ judge docker web restart
 인터페이스(`0.0.0.0`)에 공개되므로 로컬에서는 `http://127.0.0.1:8765`, 외부에서는
 `http://<호스트-IP>:8765`로 접속합니다. 신뢰할 수 있는 네트워크와 방화벽에서만 사용하세요.
 
-이 경로는 host 경로와 Docker socket을 mount하지 않고, 인터넷과 host gateway가 차단된
-internal network, read-only rootfs, non-root UID, capability/resource 제한을 강제합니다.
+이 경로는 host 경로와 Docker socket을 mount하지 않고, 관리형 bridge network,
+read-only rootfs, non-root UID, capability/resource 제한을 강제합니다. 웹 포트 공개를 위해
+컨테이너의 outbound network도 열리므로 필요한 경우 host 방화벽 정책을 함께 적용하세요.
 단, 현재 제출 프로세스와 web control plane은 하나의 container/UID를 공유하므로
 다중 사용자 시험 서버용 보안 경계는 아닙니다.
 

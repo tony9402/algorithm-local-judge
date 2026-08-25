@@ -28,7 +28,7 @@ COSIGN_VERIFIER_IMAGE = (
 )
 OFFICIAL_PROBLEM_REPOSITORY = "tony9402/algorithm-package"
 DATA_VOLUME = "algorithm-local-judge-data"
-INTERNAL_NETWORK = "algorithm-local-judge-internal"
+WEB_NETWORK = "algorithm-local-judge-web-network"
 SETUP_CONTAINER = "algorithm-local-judge-setup"
 WEB_CONTAINER = "algorithm-local-judge-web"
 STUDIO_WEB_CONTAINER = "algorithm-local-judge-problem-studio-web"
@@ -43,7 +43,7 @@ COMMAND_TIMEOUT_SECONDS = 300
 WEB_START_TIMEOUT_SECONDS = 20.0
 SETUP_MARKER = "/data/.alj-docker-setup-complete"
 MINIMUM_DOCKER_ENGINE_MAJOR = 28
-ISOLATED_GATEWAY_OPTION = "com.docker.network.bridge.gateway_mode_ipv4=isolated"
+NAT_GATEWAY_OPTION = "com.docker.network.bridge.gateway_mode_ipv4=nat"
 
 
 @dataclass(frozen=True)
@@ -301,7 +301,7 @@ def _ensure_setup_marker(digest: str) -> None:
     )
 
 
-def _ensure_internal_network() -> None:
+def _ensure_web_network() -> None:
     result = _run_command(
         [
             "docker",
@@ -310,9 +310,9 @@ def _ensure_internal_network() -> None:
             "--format",
             f'{{{{.Internal}}}} {{{{.Driver}}}} {{{{index .Labels "{MANAGED_LABEL_KEY}"}}}} '
             '{{index .Options "com.docker.network.bridge.gateway_mode_ipv4"}}',
-            INTERNAL_NETWORK,
+            WEB_NETWORK,
         ],
-        "internal network inspection",
+        "web network inspection",
         check=False,
     )
     if result.returncode != 0:
@@ -323,20 +323,19 @@ def _ensure_internal_network() -> None:
                 "create",
                 "--driver",
                 "bridge",
-                "--internal",
                 "--opt",
-                ISOLATED_GATEWAY_OPTION,
+                NAT_GATEWAY_OPTION,
                 "--label",
                 MANAGED_LABEL,
-                INTERNAL_NETWORK,
+                WEB_NETWORK,
             ],
-            "internal network creation",
+            "web network creation",
         )
         return
-    if result.stdout.strip() != "true bridge true isolated":
+    if result.stdout.strip() != "false bridge true nat":
         raise JudgeError(
-            f"refusing to use Docker network {INTERNAL_NETWORK}: "
-            "expected a managed internal bridge network"
+            f"refusing to use Docker network {WEB_NETWORK}: "
+            "expected a managed bridge network with NAT port publishing"
         )
 
 
@@ -373,7 +372,7 @@ def _web_run_command(
         "--label",
         f"{PORT_LABEL_KEY}={port}",
         "--network",
-        INTERNAL_NETWORK,
+        WEB_NETWORK,
         "--user",
         CONTAINER_USER,
         "--read-only",
@@ -451,7 +450,7 @@ def _prepare_web_service(spec: DockerWebSpec, digest: str) -> None:
         _ensure_setup_marker(digest)
     else:
         _ensure_or_create_data_volume()
-    _ensure_internal_network()
+    _ensure_web_network()
 
 
 def _container_state(spec: DockerWebSpec) -> dict[str, Any] | None:
@@ -583,7 +582,15 @@ def _start_web_service(
     )
     if not detached:
         return None
-    _wait_for_web_service(spec, port)
+    try:
+        _wait_for_web_service(spec, port)
+    except JudgeError:
+        _run_command(
+            ["docker", "rm", "--force", spec.container_name],
+            f"{spec.display_name} failed-start cleanup",
+            check=False,
+        )
+        raise
     return {
         "status": "running",
         "running": True,
@@ -647,7 +654,7 @@ def _restart_web_service(
 
 
 def run_docker_web(port: int = CONTAINER_WEB_PORT) -> None:
-    """외부 egress가 없는 hardened 컨테이너에서 Judge UI를 전면 실행합니다."""
+    """관리형 bridge network의 hardened 컨테이너에서 Judge UI를 전면 실행합니다."""
     _start_web_service(JUDGE_DOCKER_WEB, port=port, detached=False)
 
 
@@ -700,10 +707,10 @@ __all__ = [
     "COSIGN_VERIFIER_IMAGE",
     "DATA_VOLUME",
     "DockerWebSpec",
-    "INTERNAL_NETWORK",
     "JUDGE_DOCKER_WEB",
     "MANAGED_LABEL",
     "MANAGED_LABEL_KEY",
+    "NAT_GATEWAY_OPTION",
     "OFFICIAL_IMAGE",
     "OFFICIAL_IMAGE_IDENTITY",
     "OFFICIAL_IMAGE_REPOSITORY",
@@ -713,6 +720,7 @@ __all__ = [
     "STUDIO_DOCKER_WEB",
     "STUDIO_WEB_CONTAINER",
     "WORKSPACE_LABEL_KEY",
+    "WEB_NETWORK",
     "docker_web_status",
     "pull_and_verify_official_image",
     "restart_docker_studio_web",

@@ -15,11 +15,10 @@ from judge.cli_parser import build_parser
 from judge.core.docker_launcher import (
     COSIGN_VERIFIER_IMAGE,
     DATA_VOLUME,
-    INTERNAL_NETWORK,
-    ISOLATED_GATEWAY_OPTION,
     JUDGE_DOCKER_WEB,
     MANAGED_LABEL,
     MANAGED_LABEL_KEY,
+    NAT_GATEWAY_OPTION,
     OFFICIAL_IMAGE,
     OFFICIAL_IMAGE_IDENTITY,
     OFFICIAL_IMAGE_REPOSITORY,
@@ -27,6 +26,7 @@ from judge.core.docker_launcher import (
     PORT_LABEL_KEY,
     SERVICE_LABEL_KEY,
     SETUP_MARKER,
+    WEB_NETWORK,
     WORKSPACE_LABEL_KEY,
     docker_web_status,
     restart_docker_web,
@@ -125,7 +125,7 @@ def web_container_command(port: int) -> list[str]:
         "--label",
         f"{PORT_LABEL_KEY}={port}",
         "--network",
-        INTERNAL_NETWORK,
+        WEB_NETWORK,
         "--user",
         "10001:10001",
         "--read-only",
@@ -323,7 +323,7 @@ class DockerLauncherCommandTest(unittest.TestCase):
 
         default_branch.assert_not_called()
 
-    def test_web_uses_internal_hardened_container_and_publishes_requested_port(self) -> None:
+    def test_web_uses_managed_bridge_and_publishes_requested_port(self) -> None:
         results = [
             completed(returncode=1, stderr="No such object"),
             completed(stdout=f"{DIGEST}\n"),
@@ -331,7 +331,7 @@ class DockerLauncherCommandTest(unittest.TestCase):
             completed(stdout="true\n"),
             completed(),
             completed(returncode=1, stderr="network not found"),
-            completed(stdout=f"{INTERNAL_NETWORK}\n"),
+            completed(stdout=f"{WEB_NETWORK}\n"),
             completed(),
         ]
         with (
@@ -372,7 +372,7 @@ class DockerLauncherCommandTest(unittest.TestCase):
                     f"{{{{.Internal}}}} {{{{.Driver}}}} "
                     f'{{{{index .Labels "{MANAGED_LABEL_KEY}"}}}} '
                     '{{index .Options "com.docker.network.bridge.gateway_mode_ipv4"}}',
-                    INTERNAL_NETWORK,
+                    WEB_NETWORK,
                 ],
                 [
                     "docker",
@@ -380,12 +380,11 @@ class DockerLauncherCommandTest(unittest.TestCase):
                     "create",
                     "--driver",
                     "bridge",
-                    "--internal",
                     "--opt",
-                    ISOLATED_GATEWAY_OPTION,
+                    NAT_GATEWAY_OPTION,
                     "--label",
                     MANAGED_LABEL,
-                    INTERNAL_NETWORK,
+                    WEB_NETWORK,
                 ],
                 web_container_command(9876),
             ],
@@ -393,20 +392,20 @@ class DockerLauncherCommandTest(unittest.TestCase):
         self.assertFalse(run.call_args_list[-1].kwargs["capture_output"])
         self.assertIsNone(run.call_args_list[-1].kwargs["timeout"])
 
-    def test_web_refuses_existing_non_internal_network(self) -> None:
+    def test_web_refuses_existing_network_without_nat_publishing(self) -> None:
         results = [
             completed(returncode=1, stderr="No such object"),
             completed(stdout=f"{DIGEST}\n"),
             completed(),
             completed(stdout="true\n"),
             completed(),
-            completed(stdout="false bridge true isolated\n"),
+            completed(stdout="true bridge true isolated\n"),
         ]
         with (
             patch("judge.core.docker_launcher.ensure_sandbox_preflight", return_value=PRECHECK),
             patch("judge.core.docker_launcher.cosign_path", return_value="/usr/bin/cosign"),
             patch("judge.core.docker_launcher.subprocess.run", side_effect=results) as run,
-            self.assertRaisesRegex(JudgeError, "expected a managed internal bridge network"),
+            self.assertRaisesRegex(JudgeError, "bridge network with NAT port publishing"),
         ):
             run_docker_web()
 
@@ -496,6 +495,30 @@ class DockerLauncherCommandTest(unittest.TestCase):
         )
         self.assertEqual(state["port"], 9000)
         wait.assert_called_once_with(JUDGE_DOCKER_WEB, 9000)
+
+    def test_background_start_removes_container_when_health_check_fails(self) -> None:
+        with (
+            patch("judge.core.docker_launcher._container_state", return_value=None),
+            patch("judge.core.docker_launcher._ensure_launcher_preflight"),
+            patch("judge.core.docker_launcher.verify_local_official_image", return_value=DIGEST),
+            patch("judge.core.docker_launcher._prepare_web_service"),
+            patch(
+                "judge.core.docker_launcher._wait_for_web_service",
+                side_effect=JudgeError("health check failed"),
+            ),
+            patch(
+                "judge.core.docker_launcher._run_command",
+                side_effect=[completed(stdout="container-id\n"), completed()],
+            ) as run,
+            self.assertRaisesRegex(JudgeError, "health check failed"),
+        ):
+            start_docker_web(9000)
+
+        run.assert_called_with(
+            ["docker", "rm", "--force", JUDGE_DOCKER_WEB.container_name],
+            "Docker Judge web failed-start cleanup",
+            check=False,
+        )
 
     def test_stop_only_targets_a_running_managed_container(self) -> None:
         state = {
