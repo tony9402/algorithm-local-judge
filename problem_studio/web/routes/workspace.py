@@ -4,13 +4,21 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from problem_studio.core.workspace import link_testlib, resolve_workspace
+from alj_core.errors import JudgeError
+from commons.job_queue import ACTIVE_STATUSES
+from problem_studio.core.workspace import (
+    link_testlib,
+    remove_generated_problem_packs,
+    resolve_workspace,
+)
 from problem_studio.web.routes.common import (
+    job_matches_active_repository,
+    jobs_from_request,
     route_result,
     workspace_from_request,
     workspace_status_from_request,
 )
-from problem_studio.web.schemas import WorkspaceOpenRequest
+from problem_studio.web.schemas import GeneratedPackRemoveRequest, WorkspaceOpenRequest
 from problem_studio.web.security_policy import (
     ensure_local_web_action_allowed,
     ensure_local_write_allowed,
@@ -73,5 +81,31 @@ def api_testlib_link(request: Request) -> dict:
     def operation() -> dict:
         ensure_local_write_allowed(request, "testlib linking")
         return link_testlib(workspace_from_request(request))
+
+    return route_result(operation)
+
+
+@router.delete("/packs")
+def api_workspace_generated_packs_remove(
+    request: Request,
+    body: GeneratedPackRemoveRequest,
+) -> dict:
+    """현재 작업공간에서 생성된 모든 문제 팩 산출물을 제거합니다."""
+
+    def operation() -> dict:
+        ensure_local_write_allowed(request, "generated pack removal")
+        active_pack_jobs = [
+            job
+            for job in jobs_from_request(request).list()
+            if job.kind in {"pack-build", "workspace-pack-build"}
+            and job.status in ACTIVE_STATUSES
+            and job_matches_active_repository(request, job)
+        ]
+        if active_pack_jobs:
+            raise JudgeError("팩 빌드가 진행 중일 때는 생성된 문제 팩을 제거할 수 없습니다.")
+        return remove_generated_problem_packs(
+            workspace_from_request(request),
+            body.confirm_phrase,
+        )
 
     return route_result(operation)

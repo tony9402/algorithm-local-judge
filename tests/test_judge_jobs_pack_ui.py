@@ -29,7 +29,7 @@ class JudgeJobsPackUiContractTest(unittest.TestCase):
         self.assertNotIn("openJobs(true)", run_queued_body)
         self.assertIn("onQueued(job)", run_queued_body)
 
-    def test_pack_default_advanced_progress_and_fail_closed_contract(self) -> None:
+    def test_pack_default_advanced_progress_and_source_fallback_contract(self) -> None:
         page = (ROOT / "judge/web/static/index.html").read_text(encoding="utf-8")
         packs = (ROOT / "judge/web/static/app/packs.js").read_text(encoding="utf-8")
         service = (ROOT / "judge/web/service_uploads.py").read_text(encoding="utf-8")
@@ -41,7 +41,9 @@ class JudgeJobsPackUiContractTest(unittest.TestCase):
         self.assertIn("verifyOfficialInstall", packs)
         self.assertIn("checksumVerified !== true", packs)
         self.assertIn("signatureVerified !== true", packs)
-        self.assertIn("require_pack=True", service)
+        self.assertIn("default_install =", service)
+        self.assertIn("require_pack=not default_install", service)
+        self.assertIn("const allowSourceFallback = !advanced || Boolean(ref);", packs)
 
 
 if __name__ == "__main__":

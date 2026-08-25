@@ -169,6 +169,22 @@ class JudgePackInstallE2ETest(unittest.TestCase):
             self.assertNotEqual(generated.returncode, 0)
             self.assertIn("problem metadata not found", generated.stderr.lower())
 
+    def test_pack_remove_all_removes_every_installed_pack(self) -> None:
+        with isolated_runtime("alj-judge-pack-remove-all-e2e-") as (_directory, runtime):
+            for pack_id, problem_id in (("first", "remove-first"), ("second", "remove-second")):
+                archive = create_runnable_minimal_pack(
+                    runtime / f"{pack_id}.aljpack",
+                    pack_id=pack_id,
+                    problem_id=problem_id,
+                )
+                run_judge_cli(runtime, "pack", "install", str(archive), check=True)
+
+            removed = run_judge_cli(runtime, "pack", "remove-all", "--confirm", check=True)
+            self.assertIn("Removed problem packs: 2", removed.stdout)
+            self.assertIn("Preserved submissions", removed.stdout)
+            listed = run_judge_cli(runtime, "pack", "list", check=True)
+            self.assertIn("No problem packs installed", listed.stdout)
+
     def test_pack_install_rejects_unsafe_tar_member(self) -> None:
         """패키지 설치 거부 안전하지 않은 tar 멤버 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with isolated_runtime("alj-judge-unsafe-pack-e2e-") as (_directory, runtime):

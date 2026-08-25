@@ -260,3 +260,33 @@ export async function buildPack() {
   }
   return startPackBuildOnce();
 }
+
+export async function removeGeneratedPacks() {
+  const confirmation = window.prompt(
+    `현재 문제 작업공간의 ${PACK_OUTPUT_DIR}에 생성된 모든 .aljpack 파일을 제거합니다.\n`
+      + `문제 소스와 Git 저장소는 유지됩니다.\n`
+      + `계속하려면 "모두 제거"를 입력하세요.`,
+    ""
+  );
+  if (confirmation === null) return;
+  if (confirmation !== "모두 제거") {
+    throw new Error("확인 문구가 일치하지 않아 생성된 문제 팩을 제거하지 않았습니다.");
+  }
+  const result = await api("/api/workspace/packs", {
+    method: "DELETE",
+    body: JSON.stringify({ confirm_phrase: confirmation }),
+  });
+  for (const problem of state.problems || []) {
+    persistProblemLastResult(
+      { lastPackResult: null },
+      problem.problemId,
+      state.activeRepository || null
+    );
+  }
+  state.lastPackResult = null;
+  updateBuildPanel();
+  showResult(
+    `생성된 문제 팩 ${result.removedPackCount || 0}개를 제거했습니다. 문제 소스는 유지됩니다.`,
+    "summary success"
+  );
+}

@@ -96,8 +96,9 @@ def validate_install_docs(readme: Path, install_guide: Path, installer: Path) ->
         "judge problem install tony9402/algorithm-package",
         "git pull --ff-only",
         "git worktree add",
-        'rm -rf "$HOME/Library/Application Support/algorithm-local-judge/runtime"',
-        'rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/algorithm-local-judge/runtime"',
+        "./uninstall.sh --dry-run",
+        "./uninstall.sh --install-dir PATH --bin-dir PATH",
+        "uninstall.sh | bash -s -- --yes",
         "~/Library/Caches/algorithm-local-judge",
         "ALJ_DATA_HOME",
     ):

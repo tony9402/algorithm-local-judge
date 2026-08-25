@@ -936,6 +936,56 @@ class WebUiTest(unittest.TestCase):
                 '{"status":"accepted"}\n',
             )
 
+    def test_all_pack_removal_requires_phrase_and_preserves_submission_history(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-web-pack-remove-all-") as tmp:
+            tmp_path = Path(tmp)
+            pack_root = tmp_path / "packs"
+            for pack_id, problems in (("basic", ["01", "02"]), ("extra", ["03"])):
+                pack_dir = pack_root / pack_id
+                pack_dir.mkdir(parents=True)
+                (pack_dir / "pack.json").write_text(
+                    json.dumps({"packId": pack_id, "version": "1", "problems": problems}),
+                    encoding="utf-8",
+                )
+            submissions = tmp_path / "submissions"
+            submissions.mkdir()
+            submission_marker = submissions / "preserved.json"
+            submission_marker.write_text('{"status":"accepted"}\n', encoding="utf-8")
+            env = {
+                **os.environ,
+                "ALJ_PACK_HOME": str(pack_root),
+                "ALJ_DATA_HOME": str(tmp_path / "data"),
+                "ALJ_CACHE_HOME": str(tmp_path / "cache"),
+            }
+
+            with patch.dict(os.environ, env, clear=True):
+                client = TestClient(
+                    create_app(
+                        submission_history_root=submissions,
+                        legacy_source_history_root=tmp_path / "legacy-sources",
+                    )
+                )
+                rejected = client.request(
+                    "DELETE",
+                    "/api/packs",
+                    json={"confirm_phrase": "wrong"},
+                )
+                self.assertEqual(rejected.status_code, 400, rejected.text)
+                self.assertTrue((pack_root / "basic").is_dir())
+
+                removed = client.request(
+                    "DELETE",
+                    "/api/packs",
+                    json={"confirm_phrase": "모두 제거"},
+                )
+
+            self.assertEqual(removed.status_code, 200, removed.text)
+            self.assertEqual(removed.json()["removedPackCount"], 2)
+            self.assertEqual(removed.json()["removedProblemCount"], 3)
+            self.assertFalse((pack_root / "basic").exists())
+            self.assertFalse((pack_root / "extra").exists())
+            self.assertTrue(submission_marker.is_file())
+
     def test_run_pasted_python_submission(self) -> None:
         """실행 붙여넣은 Python 제출 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with tempfile.TemporaryDirectory(prefix="alj-web-test-") as tmp:
@@ -1735,6 +1785,29 @@ class WebUiTest(unittest.TestCase):
                 "tony9402/algorithm-package",
                 "basic-1-macos-arm64.aljpack",
                 "main",
+            )
+
+    def test_default_pack_download_allows_only_implicit_official_source_fallback(self) -> None:
+        """기본 설치만 release 부재 시 공식 source fallback을 허용합니다."""
+        with patch("judge.web.service_uploads.download_problem_pack_from_github") as download:
+            download.return_value = {
+                "installType": "source",
+                "repository": "tony9402/algorithm-package",
+                "ref": "main",
+            }
+
+            result = services.download_official_problem_pack()
+
+            self.assertEqual(result["installType"], "source")
+            download.assert_called_once_with(None, None, None, require_pack=False)
+
+            download.reset_mock()
+            services.download_official_problem_pack("tony9402/algorithm-package")
+            download.assert_called_once_with(
+                "tony9402/algorithm-package",
+                None,
+                None,
+                require_pack=True,
             )
 
 

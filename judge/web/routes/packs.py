@@ -8,7 +8,12 @@ from fastapi import APIRouter, File, Request, UploadFile
 
 from judge.web import services
 from judge.web.routes.common import enqueue_background_job, jobs_from_request, to_http_error
-from judge.web.schemas import PackDownloadRequest, PackInstallRequest, PackRemoveRequest
+from judge.web.schemas import (
+    PackDownloadRequest,
+    PackInstallRequest,
+    PackRemoveAllRequest,
+    PackRemoveRequest,
+)
 from judge.web.security_policy import ensure_local_web_action_allowed
 
 router = APIRouter(prefix="/api/packs", tags=["packs"])
@@ -23,6 +28,16 @@ def api_packs() -> list[dict]:
     """
     try:
         return services.list_packs()
+    except Exception as exc:
+        raise to_http_error(exc) from exc
+
+
+@router.delete("")
+def api_pack_remove_all(http_request: Request, request: PackRemoveAllRequest) -> dict:
+    """명시적 확인을 받은 뒤 설치된 모든 문제 팩을 제거합니다."""
+    try:
+        ensure_local_web_action_allowed(http_request, "all pack removal")
+        return services.remove_all_problem_packs(request.confirm_phrase)
     except Exception as exc:
         raise to_http_error(exc) from exc
 

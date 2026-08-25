@@ -92,12 +92,14 @@ judge doctor --verbose
 ```bash
 judge problem install tony9402/algorithm-package
 judge list
-judge web
-problem-studio web
+judge web start
+problem-studio web start
 ```
 
 Judge와 Problem Studio는 기본적으로 loopback 주소에만 바인딩합니다. 브라우저가 자동으로
 열리지 않으면 각각 `http://127.0.0.1:8765`, `http://127.0.0.1:8775`로 접속하세요.
+백그라운드 서버는 각각 `judge web stop`, `problem-studio web stop`으로 종료하고
+`restart`로 마지막 시작 설정을 유지한 채 다시 시작합니다. 시작 명령에 로그 경로가 표시됩니다.
 
 ## 제출 언어 도구체인
 
@@ -140,25 +142,28 @@ curl -fsSL https://raw.githubusercontent.com/tony9402/algorithm-local-judge/<tag
 
 ## 제거와 데이터 보존
 
-먼저 `judge doctor --verbose`로 경로를 확인하고 명령 링크와 현재 OS의 런타임만 삭제합니다.
+clone한 저장소에서는 제거 대상을 확인한 뒤 스크립트를 실행합니다.
 
 ```bash
-rm -f "$HOME/.local/bin/judge" "$HOME/.local/bin/problem-studio"
+./uninstall.sh --dry-run
+./uninstall.sh
 ```
 
-macOS 런타임:
+저장소가 없다면 공식 스크립트를 바로 실행할 수 있습니다.
 
 ```bash
-rm -rf "$HOME/Library/Application Support/algorithm-local-judge/runtime"
+curl -fsSL https://raw.githubusercontent.com/tony9402/algorithm-local-judge/main/uninstall.sh | bash -s -- --yes
 ```
 
-Linux 런타임:
+설치할 때 사용자 경로를 지정했다면 같은 경로를 전달합니다.
 
 ```bash
-rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/algorithm-local-judge/runtime"
+./uninstall.sh --install-dir PATH --bin-dir PATH
 ```
 
-문제 팩과 제출 기록은 런타임과 분리되어 삭제되지 않습니다. 기본 데이터/캐시 경로는
+스크립트는 installer marker와 명령 링크 대상을 검증한 후 Judge, Problem Studio와 전용
+Python 런타임만 제거합니다. 문제 팩과 제출 기록은 런타임과 분리되어 삭제되지 않습니다.
+기본 데이터/캐시 경로는
 macOS에서 `~/Library/Application Support/algorithm-local-judge`와
 `~/Library/Caches/algorithm-local-judge`, Linux에서 XDG data/cache 경로입니다.
 `ALJ_DATA_HOME`과 `ALJ_CACHE_HOME`을 지정했다면 해당 경로가 우선합니다. 데이터 경로를
@@ -173,7 +178,7 @@ macOS에서 `~/Library/Application Support/algorithm-local-judge`와
 - 컴파일러 `missing`: `judge doctor --verbose`에 표시된 도구체인을 설치합니다.
 - `judge: command not found`: `export PATH="$HOME/.local/bin:$PATH"`를 실행하거나 새
   터미널을 엽니다.
-- 웹이 열리지 않음: `judge web --no-open`으로 실행하고 로그를 확인합니다.
+- 웹이 열리지 않음: `judge web start --no-open`의 출력에 표시된 로그를 확인합니다.
 
 ## 개발·CI 검증
 

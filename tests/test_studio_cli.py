@@ -94,6 +94,7 @@ class StudioCliTest(unittest.TestCase):
         legacy_args = build_problem_studio_parser().parse_args(["web"])
 
         for name in [
+            "web_action",
             "workspace",
             "clone",
             "branch",
@@ -104,6 +105,13 @@ class StudioCliTest(unittest.TestCase):
             "open",
         ]:
             self.assertEqual(getattr(judge_args, name), getattr(legacy_args, name))
+
+    def test_problem_studio_parser_accepts_background_lifecycle_actions(self) -> None:
+        parser = build_problem_studio_parser()
+
+        for action in ("start", "stop", "restart"):
+            args = parser.parse_args(["web", action])
+            self.assertEqual(args.web_action, action)
 
     def test_cli_versions_use_the_shared_package_version(self) -> None:
         for cli_main in [judge_main, problem_studio_main]:

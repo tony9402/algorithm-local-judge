@@ -10,6 +10,7 @@ from judge.web.service_catalog import (
     list_packs,
     list_problems,
     problem_profiles,
+    remove_all_problem_packs,
     remove_problem_pack,
 )
 from judge.web.service_common import (
@@ -123,6 +124,7 @@ __all__ = [
     "list_source_history",
     "preview_artifact_text",
     "problem_profiles",
+    "remove_all_problem_packs",
     "remove_problem_pack",
     "run_problem",
     "run_problem_source",

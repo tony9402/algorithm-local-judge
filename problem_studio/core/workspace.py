@@ -14,6 +14,8 @@ from alj_core.problem_discovery import problem_sort_key
 from alj_core.utils.fs import write_json
 
 DELETE_CONFIRM_PHRASE = "확인했습니다"
+REMOVE_ALL_PACKS_CONFIRM_PHRASE = "모두 제거"
+GENERATED_PACK_OUTPUT_DIR = Path("dist/packs")
 
 
 def resolve_workspace(path: Path | str | None = None) -> Path:
@@ -59,6 +61,39 @@ def discover_workspace_problem_ids(workspace: Path) -> list[str]:
         {path.parent.name for path in root.glob("*/problem.json")},
         key=problem_sort_key,
     )
+
+
+def remove_generated_problem_packs(
+    workspace: Path,
+    confirm_phrase: str,
+) -> dict[str, Any]:
+    """현재 작업공간에서 생성한 ``.aljpack`` 산출물만 모두 제거합니다."""
+    if confirm_phrase != REMOVE_ALL_PACKS_CONFIRM_PHRASE:
+        raise JudgeError(
+            f'생성된 문제 팩을 모두 제거하려면 "{REMOVE_ALL_PACKS_CONFIRM_PHRASE}"를 입력하세요.'
+        )
+    workspace = workspace.resolve()
+    output_dir = ensure_inside(workspace / GENERATED_PACK_OUTPUT_DIR, workspace)
+    if not output_dir.exists():
+        return {
+            "removed": True,
+            "removedPackCount": 0,
+            "removedPackNames": [],
+            "outputDir": str(output_dir),
+        }
+    targets = sorted(
+        path
+        for path in output_dir.iterdir()
+        if path.is_file() and not path.is_symlink() and path.suffix == ".aljpack"
+    )
+    for target in targets:
+        ensure_inside(target, output_dir).unlink()
+    return {
+        "removed": True,
+        "removedPackCount": len(targets),
+        "removedPackNames": [path.name for path in targets],
+        "outputDir": str(output_dir),
+    }
 
 
 def discover_source_root(workspace: Path) -> Path:

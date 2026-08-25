@@ -2228,6 +2228,76 @@ class JudgeWebE2ETest(BrowserE2ETestCase):
                 page.locator("#jobsPanel").wait_for(state="visible")
                 self.assert_no_browser_errors()
 
+    def test_default_pack_install_accepts_official_source_fallback(self) -> None:
+        """release가 없는 공식 저장소는 기본 버튼에서도 고정된 source fallback으로 설치합니다."""
+        captured: dict[str, object] = {}
+        jobs: dict[str, dict] = {}
+
+        def capture_download(route):
+            captured["body"] = route.request.post_data_json
+            job = completed_job(
+                "pack-default-source",
+                "judge-pack-download",
+                "Install Official Problems",
+                {
+                    "installType": "source",
+                    "label": "tony9402--algorithm-package-main",
+                    "repository": "tony9402/algorithm-package",
+                    "ref": "main",
+                    "commitSha": "abc123",
+                },
+                problem_id="__packs__",
+                target={"repository": None, "assetName": None, "ref": None},
+            )
+            jobs[job["jobId"]] = job
+            route.fulfill(json=job)
+
+        with isolated_runtime("alj-judge-web-default-source-e2e-") as (_directory, runtime):
+            with temporary_env(judge_env(runtime)), run_app(create_app()) as server:
+                page = self.new_page(server.url)
+                route_jobs_list(page, jobs)
+                page.route("**/api/packs/download/jobs", capture_download)
+                page.goto(server.url)
+                page.locator("#sampleRunButton").wait_for(state="visible")
+
+                page.locator("#addProblemButton").click()
+                page.locator("#defaultPackInstallButton").click()
+
+                wait_for_text(page, "#packStatus", "소스 fallback 설치 완료")
+                self.assertEqual(
+                    captured["body"],
+                    {"repository": None, "asset_name": None, "ref": None},
+                )
+                self.assert_no_browser_errors()
+
+    def test_remove_all_installed_packs_from_browser_preserves_other_data(self) -> None:
+        with isolated_runtime("alj-judge-web-remove-all-packs-e2e-") as (
+            _directory,
+            runtime,
+        ):
+            first = create_minimal_pack(runtime / "first.aljpack", "first", "first-problem")
+            second = create_minimal_pack(runtime / "second.aljpack", "second", "second-problem")
+            submission_marker = runtime / "submissions" / "preserved.json"
+            submission_marker.parent.mkdir()
+            submission_marker.write_text('{"status":"accepted"}\n', encoding="utf-8")
+            with temporary_env(judge_env(runtime)):
+                services.install_problem_pack(str(first))
+                services.install_problem_pack(str(second))
+                app = create_app(submission_history_root=submission_marker.parent)
+                with run_app(app) as server:
+                    page = self.new_page(server.url)
+                    page.goto(server.url)
+                    page.locator("#sampleRunButton").wait_for(state="visible")
+                    page.locator("#packSectionToggle").click()
+                    page.locator("#removeAllPacksButton").wait_for(state="visible")
+                    page.once("dialog", lambda dialog: dialog.accept("모두 제거"))
+                    page.locator("#removeAllPacksButton").click()
+
+                    wait_for_text(page, "#packList", "설치된 문제 팩이 없습니다.")
+                    wait_for_text(page, "#toastHost", "문제 팩 2개")
+                    self.assertTrue(submission_marker.is_file())
+                    self.assert_no_browser_errors()
+
     def test_official_pack_download_error_guidance_in_browser(self) -> None:
         """공식 패키지 다운로드 오류 안내 브라우저 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         jobs: dict[str, dict] = {}

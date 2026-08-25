@@ -10,7 +10,7 @@ from typing import Any
 from alj_core.errors import JudgeError
 from alj_core.pack_archive import safe_extract_tar, single_pack_dir
 from alj_core.pack_verify import verify_pack_dir
-from alj_core.paths import problem_pack_root, validate_safe_id
+from alj_core.paths import ensure_inside, problem_pack_root, validate_safe_id
 from alj_core.utils.fs import read_json, transactional_replace_directory
 
 
@@ -48,3 +48,24 @@ def remove_pack(pack_id: str) -> Path:
         raise JudgeError(f"problem pack not installed: {pack_id}")
     shutil.rmtree(target)
     return target
+
+
+def remove_all_packs() -> list[dict[str, Any]]:
+    """검증된 설치 팩 디렉터리를 모두 제거하고 제거 전 메타데이터를 반환합니다."""
+    root = problem_pack_root().resolve()
+    packs = installed_packs()
+    pack_ids: list[str] = []
+    for pack in packs:
+        pack_id = pack.get("packId")
+        path = pack.get("path")
+        if not isinstance(pack_id, str) or not isinstance(path, str):
+            raise JudgeError("installed problem pack metadata is incomplete")
+        validate_safe_id("pack id", pack_id)
+        expected = ensure_inside(root / pack_id, root)
+        actual = ensure_inside(Path(path), root)
+        if actual != expected:
+            raise JudgeError(f"installed problem pack path does not match its ID: {pack_id}")
+        pack_ids.append(pack_id)
+    for pack_id in pack_ids:
+        remove_pack(pack_id)
+    return packs

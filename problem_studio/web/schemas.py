@@ -20,6 +20,12 @@ class WorkspaceOpenRequest(BaseModel):
     path: str = Field(min_length=1)
 
 
+class GeneratedPackRemoveRequest(BaseModel):
+    """생성된 문제 팩 전체 제거 확인 문구를 검증합니다."""
+
+    confirm_phrase: str = Field(min_length=1)
+
+
 class GitCloneRequest(BaseModel):
     """API에서 주고받는 Git clone 요청 필드를 검증하는 스키마입니다."""
 

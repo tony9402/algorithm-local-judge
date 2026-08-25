@@ -12,6 +12,10 @@ function renderPacksDisclosure() {
   if (!toggle || !list) return;
   toggle.setAttribute("aria-expanded", String(state.packsExpanded));
   list.classList.toggle("hidden", !state.packsExpanded);
+  app.optional("removeAllPacksButton")?.classList.toggle(
+    "hidden",
+    !state.packsExpanded || !state.packs?.length
+  );
   const chevron = toggle.querySelector(".sidebar-section-chevron");
   if (chevron) chevron.textContent = state.packsExpanded ? "▾" : "▸";
 }
@@ -158,6 +162,7 @@ async function runPackAction(action, pendingMessage, errorMessage = (error) => e
  * @param {Array} packs 문제팩을 계산하거나 검증할 때 필요한 문제팩 입력입니다.
  */
 function renderPacks(packs) {
+  state.packs = packs;
   const list = app.$("packList");
   list.innerHTML = "";
   if (!packs.length) {
@@ -231,6 +236,43 @@ async function removeInstalledPack(pack, trigger) {
     }
   }
 }
+
+async function removeAllInstalledPacks() {
+  const packs = Array.isArray(state.packs) ? state.packs : [];
+  if (!packs.length) return;
+  const problemCount = packs.reduce(
+    (count, pack) => count + (Array.isArray(pack.problems) ? pack.problems.length : 0),
+    0
+  );
+  const confirmation = window.prompt(
+    `설치된 문제 팩 ${packs.length}개와 포함 문제 복사본 ${problemCount}개를 모두 제거합니다.\n`
+      + `사용자 제출 기록, 코드, 문제 소스는 유지됩니다.\n`
+      + `계속하려면 "모두 제거"를 입력하세요.`,
+    ""
+  );
+  if (confirmation === null) return;
+  if (confirmation !== "모두 제거") {
+    app.showToast("확인 문구가 일치하지 않아 제거하지 않았습니다.", "error");
+    app.optional("removeAllPacksButton")?.focus();
+    return;
+  }
+  const trigger = app.optional("removeAllPacksButton");
+  if (trigger) trigger.disabled = true;
+  try {
+    const result = await app.api("/api/packs", {
+      method: "DELETE",
+      body: JSON.stringify({ confirm_phrase: confirmation }),
+    });
+    app.clearSampleCache();
+    await app.refresh();
+    app.showToast(
+      `문제 팩 ${result.removedPackCount || 0}개와 문제 복사본 ${result.removedProblemCount || 0}개를 제거했습니다.`
+    );
+    app.optional("packSectionToggle")?.focus();
+  } finally {
+    if (trigger?.isConnected) trigger.disabled = false;
+  }
+}
 /**
  * 업로드 문제팩 장시간 작업을 큐에 등록하고 UI가 추적할 작업 상태를 구성합니다.
  */
@@ -254,6 +296,7 @@ async function downloadOfficialPack({ advanced = true } = {}) {
   const repository = advanced ? app.$("officialRepoInput").value.trim() : "";
   const assetName = advanced ? app.$("packAssetInput").value.trim() : "";
   const ref = advanced ? app.optional("packRefInput")?.value.trim() || "" : "";
+  const allowSourceFallback = !advanced || Boolean(ref);
   return runPackAction(async () => {
     const result = await app.runQueuedJob("/api/packs/download/jobs", {
       method: "POST",
@@ -264,9 +307,9 @@ async function downloadOfficialPack({ advanced = true } = {}) {
       }),
       onQueued: onPackQueued,
     });
-    verifyOfficialInstall(result, !advanced || !ref);
+    verifyOfficialInstall(result, !allowSourceFallback);
     return result;
-  }, "검증된 공식 문제 팩을 설치하는 중...", officialPackErrorMessage);
+  }, "공식 문제 세트를 설치하는 중...", officialPackErrorMessage);
 }
 
 async function installDefaultPack() {
@@ -310,4 +353,7 @@ Object.assign(app, {
 });
 
 app.optional("packSectionToggle")?.addEventListener("click", togglePacksDisclosure);
+app.optional("removeAllPacksButton")?.addEventListener("click", () => {
+  void app.withErrors(removeAllInstalledPacks);
+});
 renderPacksDisclosure();

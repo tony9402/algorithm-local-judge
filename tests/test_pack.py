@@ -14,7 +14,13 @@ from unittest.mock import patch
 from judge.core.checksums import verify_sha256_sidecar
 from judge.core.errors import JudgeError
 from judge.core.generation import generate
-from judge.core.pack import build_pack, install_pack, installed_packs, verify_pack
+from judge.core.pack import (
+    build_pack,
+    install_pack,
+    installed_packs,
+    remove_all_packs,
+    verify_pack,
+)
 from judge.core.pack_archive import safe_extract_tar
 from judge.core.paths import current_platform_id, executable_suffix
 
@@ -93,6 +99,28 @@ class ProblemPackTest(unittest.TestCase):
                 self.assertEqual(installed_packs()[0]["packId"], "basic")
                 generated = generate("06", "sample", force=True)
                 self.assertTrue((generated / "manifest.json").exists())
+
+    def test_remove_all_packs_preserves_unmanaged_directories(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-pack-remove-all-") as tmp:
+            pack_root = Path(tmp) / "packs"
+            for pack_id in ("basic", "extra"):
+                pack_dir = pack_root / pack_id
+                pack_dir.mkdir(parents=True)
+                (pack_dir / "pack.json").write_text(
+                    f'{{"packId":"{pack_id}","problems":["{pack_id}-problem"]}}\n',
+                    encoding="utf-8",
+                )
+            unmanaged = pack_root / "notes"
+            unmanaged.mkdir()
+            (unmanaged / "README.txt").write_text("preserve\n", encoding="utf-8")
+
+            with patch.dict(os.environ, {"ALJ_PACK_HOME": str(pack_root)}, clear=True):
+                removed = remove_all_packs()
+
+            self.assertEqual([pack["packId"] for pack in removed], ["basic", "extra"])
+            self.assertFalse((pack_root / "basic").exists())
+            self.assertFalse((pack_root / "extra").exists())
+            self.assertTrue((unmanaged / "README.txt").is_file())
 
     def test_pack_archive_rejects_links_and_special_members(self) -> None:
         """패키지 아카이브 거부 링크 및 특수 멤버 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""

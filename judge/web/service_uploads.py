@@ -84,9 +84,10 @@ def download_official_problem_pack(
     asset_name: str | None = None,
     ref: str | None = None,
 ) -> dict[str, Any]:
+    default_install = repository is None and asset_name is None and ref is None
     return download_problem_pack_from_github(
         repository,
         asset_name,
         ref,
-        require_pack=True,
+        require_pack=not default_install,
     )

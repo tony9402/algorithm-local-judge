@@ -16,7 +16,7 @@ from judge.web.server import run_server
 def print_next_steps() -> None:
     print("Local Judge is ready.")
     print("  Check: judge doctor --verbose")
-    print("  Start: judge web")
+    print("  Start: judge web start")
 
 
 def configure_toolchain_mode(mode: str) -> None:

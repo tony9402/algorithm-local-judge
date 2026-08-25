@@ -7,6 +7,12 @@ import argparse
 
 def add_web_arguments(parser: argparse.ArgumentParser) -> None:
     """Problem Studio 웹 서버 옵션을 argparse parser에 추가합니다."""
+    parser.add_argument(
+        "web_action",
+        nargs="?",
+        choices=["start", "stop", "restart"],
+        help="run in the background, stop it, or restart it; omit for foreground mode",
+    )
     parser.add_argument("--workspace", default=".")
     parser.add_argument("--clone")
     parser.add_argument("--branch")
@@ -17,6 +23,7 @@ def add_web_arguments(parser: argparse.ArgumentParser) -> None:
     web_open = parser.add_mutually_exclusive_group()
     web_open.add_argument("--open", dest="open", action="store_true", default=True)
     web_open.add_argument("--no-open", dest="open", action="store_false")
+    parser.add_argument("--service-runner", help=argparse.SUPPRESS)
 
 
 __all__ = ["add_web_arguments"]

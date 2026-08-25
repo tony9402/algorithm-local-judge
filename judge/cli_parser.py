@@ -136,6 +136,8 @@ def build_parser() -> argparse.ArgumentParser:
     pack_sub.add_parser("list", allow_abbrev=False)
     pack_remove = pack_sub.add_parser("remove", allow_abbrev=False)
     pack_remove.add_argument("pack_id")
+    pack_remove_all = pack_sub.add_parser("remove-all", allow_abbrev=False)
+    pack_remove_all.add_argument("--confirm", action="store_true", required=True)
     pack_trust = pack_sub.add_parser("trust", allow_abbrev=False)
     pack_trust_sub = pack_trust.add_subparsers(dest="trust_command", required=True)
     pack_trust_sub.add_parser("list", allow_abbrev=False)
@@ -157,6 +159,12 @@ def build_parser() -> argparse.ArgumentParser:
     problem_sub.add_parser("list", allow_abbrev=False)
 
     web_parser = add_parser(subparsers, "web")
+    web_parser.add_argument(
+        "web_action",
+        nargs="?",
+        choices=["start", "stop", "restart"],
+        help="run in the background, stop it, or restart it; omit for foreground mode",
+    )
     web_parser.add_argument("--host", default="127.0.0.1")
     web_parser.add_argument("--port", type=int, default=8765)
     web_open = web_parser.add_mutually_exclusive_group()
@@ -168,6 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="allow run APIs when binding judge web to a non-local host",
     )
+    web_parser.add_argument("--service-runner", help=argparse.SUPPRESS)
 
     studio_parser = add_parser(subparsers, "studio")
     add_studio_web_arguments(studio_parser)

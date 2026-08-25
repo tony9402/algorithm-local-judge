@@ -13,7 +13,7 @@
 문제 저장소를 clone해서 열려면:
 
 ```bash
-problem-studio web --clone owner/repo --branch main --workspace ./workspace
+problem-studio web start --clone owner/repo --branch main --workspace ./workspace
 ```
 
 이 명령은 저장소를 `./workspace/problems/{repo명}` 아래에 clone하고, 해당 저장소를 바로 선택해 엽니다. 예를 들어 `owner/algorithm-package`는 `./workspace/problems/algorithm-package`에 받아옵니다.
@@ -23,7 +23,7 @@ problem-studio web --clone owner/repo --branch main --workspace ./workspace
 이미 있는 문제 저장소를 열려면:
 
 ```bash
-problem-studio web --workspace /path/to/algorithm-package
+problem-studio web start --workspace /path/to/algorithm-package
 ```
 
 여러 문제 저장소를 한 workspace에서 관리하려면 다음 구조를 사용합니다.
@@ -50,11 +50,17 @@ Problem Studio UI의 `저장소` selector에서 작업할 repository를 고르�
 ## 실행 옵션
 
 ```bash
-problem-studio web --workspace ./algorithm-package
-problem-studio web --clone owner/repo --branch main --workspace ./workspace
-problem-studio web --workspace ./workspace --repo algorithm-package
-problem-studio web --host 127.0.0.1 --port 8775 --no-open
+problem-studio web start --workspace ./algorithm-package
+problem-studio web start --clone owner/repo --branch main --workspace ./workspace
+problem-studio web start --workspace ./workspace --repo algorithm-package
+problem-studio web start --host 127.0.0.1 --port 8775 --no-open
+problem-studio web stop
+problem-studio web restart
 ```
+
+`start`는 백그라운드에서 실행하고 PID와 로그 경로를 출력합니다. `restart`는 마지막으로
+시작한 workspace, repository, host와 port를 그대로 사용합니다. 전면 실행이 필요하면
+`start`를 생략하고 `problem-studio web`을 사용합니다.
 
 - `--workspace`: 작업할 문제 저장소 폴더입니다. 기본값은 현재 폴더입니다.
 - `--clone`: 실행 전에 GitHub 저장소나 Git URL을 `workspace/problems/{repo명}`으로 clone합니다.
@@ -144,9 +150,11 @@ slow_solution.tle.java
 - pack ID와 검증 프로필 지정
 - 빌드된 pack 다운로드
 - 여러 문제를 선택해 workspace 전체 pack bulk build
+- 현재 작업공간의 `dist/packs/*.aljpack` 생성물 전체 제거
 - 오래 걸리는 검사/build job 진행 상태 확인, 취소, stale 작업 정리
 
 Pack 빌드는 전체 테스트를 통과한 뒤 진행하는 흐름입니다. 실패한 상태에서는 먼저 실패 원인을 고치도록 안내합니다.
+`생성된 문제 팩 모두 제거`는 빌드 산출물만 삭제하며 문제 소스와 Git 저장소는 유지합니다.
 
 ### Git
 

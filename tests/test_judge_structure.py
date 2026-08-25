@@ -111,6 +111,13 @@ class JudgeStructureTest(unittest.TestCase):
         self.assertTrue(parser.parse_args(normalize_argv(["web", "--open"])).open)
         self.assertFalse(parser.parse_args(normalize_argv(["web", "--no-open"])).open)
 
+    def test_web_parser_accepts_background_lifecycle_actions(self) -> None:
+        parser = build_parser()
+
+        for action in ("start", "stop", "restart"):
+            args = parser.parse_args(normalize_argv(["web", action]))
+            self.assertEqual(args.web_action, action)
+
     def test_validate_safe_id_rejects_path_escape(self) -> None:
         """검증 안전 식별자 거부 경로 경로 이탈 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""
         with self.assertRaises(JudgeError):

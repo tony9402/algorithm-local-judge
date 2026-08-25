@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 README = ROOT / "README.md"
 INSTALL_GUIDE = ROOT / "INSTALL.md"
 INSTALLER = ROOT / "install.sh"
+UNINSTALLER = ROOT / "uninstall.sh"
 
 
 class InstallDocumentationTest(unittest.TestCase):
@@ -54,13 +55,14 @@ class InstallDocumentationTest(unittest.TestCase):
 
 class UnixInstallerTest(unittest.TestCase):
     def test_shell_syntax_and_help(self) -> None:
-        syntax = subprocess.run(
-            ["bash", "-n", str(INSTALLER)],
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+        for script in (INSTALLER, UNINSTALLER):
+            syntax = subprocess.run(
+                ["bash", "-n", str(script)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(syntax.returncode, 0, syntax.stderr)
         help_result = subprocess.run(
             ["bash", str(INSTALLER), "--help"],
             text=True,
@@ -70,6 +72,152 @@ class UnixInstallerTest(unittest.TestCase):
         self.assertEqual(help_result.returncode, 0, help_result.stderr)
         self.assertIn("macOS", help_result.stdout)
         self.assertIn("Linux", help_result.stdout)
+        uninstall_help = subprocess.run(
+            ["bash", str(UNINSTALLER), "--help"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(uninstall_help.returncode, 0, uninstall_help.stderr)
+        self.assertIn("사용자 데이터", uninstall_help.stdout)
+
+    def test_uninstaller_removes_only_owned_runtime_and_command_links(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-uninstall-") as tmp:
+            root = Path(tmp)
+            runtime = root / "runtime"
+            command_dir = root / "commands"
+            preserved_data = root / "data" / "problem-packs" / "basic" / "pack.json"
+            service_dir = root / "data" / "services"
+            stop_log = root / "stopped-services.txt"
+            (runtime / "bin").mkdir(parents=True)
+            command_dir.mkdir()
+            preserved_data.parent.mkdir(parents=True)
+            service_dir.mkdir(parents=True)
+            preserved_data.write_text("{}\n", encoding="utf-8")
+            for service in ("judge-web", "problem-studio-web"):
+                (service_dir / f"{service}.json").write_text("{}\n", encoding="utf-8")
+            (runtime / ".algorithm-local-judge-runtime").write_text(
+                "algorithm-local-judge user runtime\n",
+                encoding="utf-8",
+            )
+            (runtime / "pyvenv.cfg").write_text("home = test\n", encoding="utf-8")
+            for name in ("judge", "problem-studio"):
+                executable = runtime / "bin" / name
+                executable.write_text(
+                    '#!/bin/sh\nprintf \'%s %s\\n\' "$0" "$*" >> "$TEST_STOP_LOG"\n',
+                    encoding="utf-8",
+                )
+                executable.chmod(0o755)
+                (command_dir / name).symlink_to(executable)
+
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "ALJ_DATA_HOME": str(root / "data"),
+                    "TEST_STOP_LOG": str(stop_log),
+                }
+            )
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(UNINSTALLER),
+                    "--install-dir",
+                    str(runtime),
+                    "--bin-dir",
+                    str(command_dir),
+                    "--yes",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env=environment,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(runtime.exists())
+            self.assertFalse((command_dir / "judge").exists())
+            self.assertFalse((command_dir / "problem-studio").exists())
+            self.assertTrue(preserved_data.is_file())
+            self.assertIn("사용자 데이터", result.stdout)
+            stopped_services = stop_log.read_text(encoding="utf-8")
+            self.assertIn("judge web stop", stopped_services)
+            self.assertIn("problem-studio web stop", stopped_services)
+
+    def test_uninstaller_rejects_unmarked_runtime_without_deleting_anything(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-uninstall-unmarked-") as tmp:
+            root = Path(tmp)
+            runtime = root / "runtime"
+            command_dir = root / "commands"
+            (runtime / "bin").mkdir(parents=True)
+            command_dir.mkdir()
+            (runtime / "pyvenv.cfg").write_text("home = test\n", encoding="utf-8")
+            executable = runtime / "bin" / "judge"
+            executable.write_text("#!/bin/sh\n", encoding="utf-8")
+            (command_dir / "judge").symlink_to(executable)
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(UNINSTALLER),
+                    "--install-dir",
+                    str(runtime),
+                    "--bin-dir",
+                    str(command_dir),
+                    "--yes",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(runtime.is_dir())
+            self.assertTrue((command_dir / "judge").is_symlink())
+            self.assertIn("사용자 런타임이 아니므로", result.stderr)
+
+    def test_uninstaller_normalizes_paths_and_preserves_foreign_commands(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="alj-uninstall-paths-") as tmp:
+            root = Path(tmp)
+            runtime = root / "runtime"
+            command_dir = root / "commands"
+            nested = root / "nested"
+            foreign_target = root / "foreign-problem-studio"
+            (runtime / "bin").mkdir(parents=True)
+            command_dir.mkdir()
+            nested.mkdir()
+            foreign_target.write_text("#!/bin/sh\n", encoding="utf-8")
+            (runtime / ".algorithm-local-judge-runtime").write_text(
+                "algorithm-local-judge user runtime\n",
+                encoding="utf-8",
+            )
+            (runtime / "pyvenv.cfg").write_text("home = test\n", encoding="utf-8")
+            judge = runtime / "bin" / "judge"
+            judge.write_text("#!/bin/sh\n", encoding="utf-8")
+            (command_dir / "judge").symlink_to(judge)
+            (command_dir / "problem-studio").symlink_to(foreign_target)
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(UNINSTALLER),
+                    "--install-dir",
+                    str(nested / ".." / "runtime"),
+                    "--bin-dir",
+                    str(nested / ".." / "commands"),
+                    "--yes",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(runtime.exists())
+            self.assertFalse((command_dir / "judge").exists())
+            self.assertTrue((command_dir / "problem-studio").is_symlink())
+            self.assertEqual((command_dir / "problem-studio").resolve(), foreign_target.resolve())
+            self.assertIn("다른 설치가 관리하는 명령은 유지합니다", result.stderr)
 
     def test_unsupported_host_fails_before_installing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="alj-fake-host-") as tmp:

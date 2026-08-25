@@ -91,10 +91,15 @@ checkout의 `problems/`에 포함되어 있지 않습니다.
 ```bash
 judge problem install tony9402/algorithm-package
 judge list
-judge web
+judge web start
 ```
 
 웹 브라우저에서 `http://127.0.0.1:8765`로 접속합니다. CLI로 바로 채점할 수도 있습니다.
+
+```bash
+judge web stop
+judge web restart
+```
 
 ```bash
 judge run --problem <problem-id> --profile sample path/to/main.cpp
@@ -105,10 +110,33 @@ judge run --problem <problem-id> --profile sample path/to/main.py
 접속합니다.
 
 ```bash
-problem-studio web
+problem-studio web start
+problem-studio web stop
+problem-studio web restart
 ```
 
+`start`는 터미널과 분리해 실행하고 로그 경로를 출력합니다. `restart`는 마지막 `start`의
+포트와 작업공간 설정을 재사용합니다. 기존처럼 터미널에서 직접 실행하려면 `judge web` 또는
+`problem-studio web`을 사용합니다.
+
 설치 상태와 컴파일러 누락 여부는 `judge doctor --verbose`로 확인합니다.
+
+## 제거
+
+clone한 저장소에서는 제거 스크립트를 실행합니다.
+
+```bash
+./uninstall.sh
+```
+
+저장소가 없다면 curl로 실행할 수 있습니다.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tony9402/algorithm-local-judge/main/uninstall.sh | bash -s -- --yes
+```
+
+`judge`, `problem-studio`와 전용 Python 런타임만 제거하며 문제 팩, 문제 소스,
+제출 기록과 캐시는 보존합니다.
 
 ## 문서
 

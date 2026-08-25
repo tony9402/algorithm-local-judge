@@ -7,13 +7,15 @@ from typing import Any
 
 from commons.generate import load_config
 from judge.core.errors import JudgeError
-from judge.core.pack import installed_packs, remove_pack
+from judge.core.pack import installed_packs, remove_all_packs, remove_pack
 from judge.core.paths import ensure_inside, problem_pack_root, validate_safe_id
 from judge.core.problem import discover_problem_ids, load_problem, tool_paths
 from judge.core.problem_folders import list_problem_folders, problem_folder_payload
 from judge.core.remote import official_pack_repository
 from judge.web.service_cache import cache_status
 from judge.web.service_common import FULL_PROFILE, SAMPLE_PROFILE, web_debug_enabled
+
+REMOVE_ALL_PACKS_CONFIRMATION = "모두 제거"
 
 
 def problem_profiles(problem_id: str) -> list[str]:
@@ -87,6 +89,27 @@ def remove_problem_pack(pack_id: str, confirmation: str) -> dict[str, Any]:
         "packId": pack_id,
         "removedProblems": removed_problems,
         "removedProblemCount": len(removed_problems),
+    }
+
+
+def remove_all_problem_packs(confirmation: str) -> dict[str, Any]:
+    """명시적 확인 후 설치된 모든 문제 팩을 제거하고 보존 범위를 보고합니다."""
+    if confirmation != REMOVE_ALL_PACKS_CONFIRMATION:
+        raise JudgeError(
+            f'모든 문제 팩을 제거하려면 "{REMOVE_ALL_PACKS_CONFIRMATION}"를 입력하세요.'
+        )
+    removed_packs = remove_all_packs()
+    removed_problem_count = sum(
+        len(pack.get("problems", []))
+        for pack in removed_packs
+        if isinstance(pack.get("problems"), list)
+    )
+    return {
+        "removed": True,
+        "removedPackIds": [str(pack.get("packId")) for pack in removed_packs],
+        "removedPackCount": len(removed_packs),
+        "removedProblemCount": removed_problem_count,
+        "preserved": ["submissions", "source-history", "problem-sources"],
     }
 
 

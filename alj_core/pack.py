@@ -17,7 +17,7 @@ from alj_core.pack_build import (
     manifest_files,
     sanitize_problem_metadata,
 )
-from alj_core.pack_install import install_pack, installed_packs, remove_pack
+from alj_core.pack_install import install_pack, installed_packs, remove_all_packs, remove_pack
 from alj_core.pack_verify import verify_pack, verify_pack_dir
 
 __all__ = [
@@ -32,6 +32,7 @@ __all__ = [
     "installed_packs",
     "manifest_files",
     "reject_forbidden_release_file",
+    "remove_all_packs",
     "remove_pack",
     "safe_extract_tar",
     "safe_tar_members",

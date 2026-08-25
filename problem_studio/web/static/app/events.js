@@ -168,6 +168,12 @@ export function bindAppEvents(actions) {
   optional("packStartButton")?.addEventListener("click", () => {
     void actions.withInlineErrors(actions.buildPack);
   });
+  optional("removeGeneratedPacksButton")?.addEventListener("click", () => {
+    void actions.withErrors(
+      actions.removeGeneratedPacks,
+      "생성된 문제 팩을 제거하는 중입니다."
+    );
+  });
   optional("lastRunClose")?.addEventListener("click", () => {
     actions.hideLastRunPanel();
   });

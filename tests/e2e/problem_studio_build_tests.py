@@ -1183,3 +1183,31 @@ class ProblemStudioBuildE2ETest(BrowserE2ETestCase):
                         page.locator("[data-bulk-problem]").first.input_value(), "beta"
                     )
                     self.assert_no_browser_errors()
+
+    def test_remove_all_generated_packs_from_build_tab_preserves_sources(self) -> None:
+        with isolated_runtime("alj-problem-studio-remove-packs-e2e-") as (
+            _directory,
+            workspace,
+        ):
+            create_problem(workspace, "alpha", "Alpha Packs", "E2E")
+            output_dir = workspace / "dist" / "packs"
+            output_dir.mkdir(parents=True)
+            (output_dir / "alpha.aljpack").write_bytes(b"alpha")
+            (output_dir / "bundle.aljpack").write_bytes(b"bundle")
+            preserved = output_dir / "README.txt"
+            preserved.write_text("keep\n", encoding="utf-8")
+
+            with run_app(create_app(workspace)) as server:
+                page = self.new_page(server.url)
+                page.goto(server.url)
+                page.locator("#newProblemButton").wait_for(state="visible")
+                page.locator('[data-tab="build"]').click()
+                page.once("dialog", lambda dialog: dialog.accept("모두 제거"))
+                page.locator("#removeGeneratedPacksButton").click()
+
+                wait_for_text(page, "#alertStack", "생성된 문제 팩 2개")
+                self.assertFalse((output_dir / "alpha.aljpack").exists())
+                self.assertFalse((output_dir / "bundle.aljpack").exists())
+                self.assertTrue(preserved.is_file())
+                self.assertTrue((workspace / "problems" / "alpha" / "problem.json").is_file())
+                self.assert_no_browser_errors()

@@ -96,8 +96,10 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertIn("repositoryCloneButton", page.text)
         self.assertIn("repositoryRefreshButton", page.text)
         self.assertIn("repositoryModal", page.text)
+        self.assertIn("removeGeneratedPacksButton", page.text)
         self.assertIn("unsavedChangesModal", page.text)
         self.assertIn("unsavedChangesSaveButton", page.text)
+
         self.assertIn("repositoryCloneStartButton", page.text)
         self.assertIn("repositoryOpenModal", page.text)
         self.assertIn("repositoryOpenSelect", page.text)
@@ -600,6 +602,37 @@ class ProblemStudioTest(unittest.TestCase):
         self.assertEqual(data["problems"], [])
         self.assertEqual(data["folders"], [])
         self.assertNotIn("warning", data)
+
+    def test_remove_generated_packs_requires_phrase_and_preserves_problem_sources(self) -> None:
+        directory, client, workspace = self.make_client()
+        self.addCleanup(directory.cleanup)
+        create_problem(workspace, "alpha", "Alpha", "E2E")
+        output_dir = workspace / "dist" / "packs"
+        output_dir.mkdir(parents=True)
+        for name in ("alpha.aljpack", "bundle.aljpack"):
+            (output_dir / name).write_bytes(b"pack")
+        preserved = output_dir / "README.txt"
+        preserved.write_text("keep\n", encoding="utf-8")
+
+        rejected = client.request(
+            "DELETE",
+            "/api/workspace/packs",
+            json={"confirm_phrase": "wrong"},
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.text)
+        self.assertTrue((output_dir / "alpha.aljpack").is_file())
+
+        removed = client.request(
+            "DELETE",
+            "/api/workspace/packs",
+            json={"confirm_phrase": "모두 제거"},
+        )
+        self.assertEqual(removed.status_code, 200, removed.text)
+        self.assertEqual(removed.json()["removedPackCount"], 2)
+        self.assertFalse((output_dir / "alpha.aljpack").exists())
+        self.assertFalse((output_dir / "bundle.aljpack").exists())
+        self.assertTrue(preserved.is_file())
+        self.assertTrue((workspace / "problems" / "alpha" / "problem.json").is_file())
 
     def test_workspace_status_warns_for_non_local_binding_policy(self) -> None:
         """작업공간 상태 경고 비 로컬 바인딩 정책 시나리오에서 공개 동작, 오류 처리, 사용자 표시 계약이 유지되는지 검증합니다."""

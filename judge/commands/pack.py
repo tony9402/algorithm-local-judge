@@ -6,7 +6,14 @@ import argparse
 from pathlib import Path
 
 from judge.core.errors import JudgeError
-from judge.core.pack import build_pack, install_pack, installed_packs, remove_pack, verify_pack
+from judge.core.pack import (
+    build_pack,
+    install_pack,
+    installed_packs,
+    remove_all_packs,
+    remove_pack,
+    verify_pack,
+)
 from judge.core.pack_signatures import default_bundle_path, sign_pack, verify_pack_signature
 from judge.core.paths import current_platform_id, rel
 from judge.core.problem_install_policy import PACK_INSTALL_TRUST_WARNING
@@ -89,6 +96,11 @@ def handle(args: argparse.Namespace) -> int:
     if args.pack_command == "remove":
         removed = remove_pack(args.pack_id)
         print(f"Removed pack: {rel(removed)}")
+        return 0
+    if args.pack_command == "remove-all":
+        removed = remove_all_packs()
+        print(f"Removed problem packs: {len(removed)}")
+        print("Preserved submissions, source history, and problem sources.")
         return 0
     if args.pack_command == "trust":
         if args.trust_command == "list":

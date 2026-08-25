@@ -25,7 +25,10 @@ def resolve_studio_executable() -> Path:
 
 def studio_argv(args: argparse.Namespace) -> list[str]:
     """Judge의 Studio 옵션을 기존 Problem Studio CLI 인자로 변환합니다."""
-    command = ["web", "--workspace", str(args.workspace)]
+    command = ["web"]
+    if action := getattr(args, "web_action", None):
+        command.append(action)
+    command.extend(["--workspace", str(args.workspace)])
     for option, attribute in [
         ("--clone", "clone"),
         ("--branch", "branch"),

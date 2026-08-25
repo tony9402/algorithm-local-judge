@@ -38,11 +38,17 @@ judge doctor --json
 ## 웹 UI
 
 ```bash
-judge web
-judge web --no-open
-judge web --host 127.0.0.1 --port 8765
-judge web --debug
+judge web start
+judge web stop
+judge web restart
+judge web start --no-open
+judge web start --host 127.0.0.1 --port 8765
+judge web start --debug
 ```
+
+`start`는 백그라운드에서 실행하고 PID와 로그 경로를 출력합니다. 중복 시작은 거부되며,
+`restart`는 마지막 `start`의 host와 port 설정을 재사용합니다. 전면 실행이 필요하면 동작
+인자를 생략하고 `judge web`을 사용합니다.
 
 웹 화면 사용 순서:
 
@@ -142,7 +148,11 @@ judge pack verify path/to/problem-pack.aljpack
 judge pack install path/to/problem-pack.aljpack
 judge pack list
 judge pack remove <pack-id>
+judge pack remove-all --confirm
 ```
+
+웹 화면의 `문제 팩` 목록에서도 개별 팩 또는 모든 팩을 제거할 수 있습니다. 전체 제거는
+제출 기록과 문제 소스를 보존하며 확인 문구를 요구합니다.
 
 로컬 파일은 사용자가 직접 선택한 비공식 입력이므로 설치 결과에 서명 미검증
 경고가 표시됩니다. 공식 release pack은 반드시 `.sha256`과 `.sigstore.json`
@@ -198,12 +208,12 @@ judge run --problem <problem-id> --profile sample path/to/main.cpp
 judge show <run-id> <case-id>
 judge diff <run-id> <case-id>
 judge cache status
-judge web
+judge web start
 ```
 
 ## 안전하게 사용하기
 
-`judge web`은 기본적으로 내 컴퓨터에서만 접속하는 `127.0.0.1`에 열립니다. 외부 접근 가능한 host에 열면 run/generate/sample API는 기본 차단됩니다.
+`judge web start`는 기본적으로 내 컴퓨터에서만 접속하는 `127.0.0.1`에 열립니다. 외부 접근 가능한 host에 열면 run/generate/sample API는 기본 차단됩니다.
 
 host의 `--allow-remote-run`은 OS 격리를 제공하지 않으므로 권장하지 않습니다.
 비신뢰 풀이를 실행할 때는 Docker Engine 28 이상과 Cosign을 준비한 뒤 서명된

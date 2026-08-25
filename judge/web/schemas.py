@@ -27,6 +27,12 @@ class PackRemoveRequest(BaseModel):
     confirm_pack_id: str = Field(min_length=1)
 
 
+class PackRemoveAllRequest(BaseModel):
+    """설치된 모든 문제 팩 제거에 필요한 확인 문구를 검증합니다."""
+
+    confirm_phrase: str = Field(min_length=1)
+
+
 class GenerateRequest(BaseModel):
     """API에서 주고받는 generate 요청 필드를 검증하는 스키마입니다."""
 
