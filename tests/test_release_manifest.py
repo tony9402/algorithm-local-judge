@@ -521,6 +521,8 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
         self.assertIn("for artifact in release-assets/*.tar.gz", workflow)
         self.assertIn("cosign sign-blob", workflow)
         self.assertIn("cosign sign --yes", workflow)
+        self.assertIn("runner: ubuntu-24.04-arm", workflow)
+        self.assertNotIn("docker/setup-qemu-action", workflow)
         for unsupported_step in (
             "scripts/build_rpm.py",
             "scripts/build_windows_installer.py",
