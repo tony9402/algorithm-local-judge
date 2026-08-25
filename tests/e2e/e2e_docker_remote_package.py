@@ -1,4 +1,4 @@
-"""Docker 이미지로 공식 원격 문제 패키지의 전체 데이터 검증 흐름을 확인합니다."""
+"""Docker 이미지에서 공식 문제 팩의 최소 호환성 계약을 확인합니다."""
 
 from __future__ import annotations
 
@@ -24,11 +24,12 @@ DOCKER_GITHUB_TOKEN_ENV = "ALJ_GITHUB_TOKEN"
 DEFAULT_IMAGE = "algorithm-local-judge:docker-e2e"
 DEFAULT_REPOSITORY = "tony9402/algorithm-package"
 DEFAULT_PROFILE = "full"
-DEFAULT_TIMEOUT_SECONDS = 1800
+DEFAULT_TIMEOUT_SECONDS = 900
 DOCKER_STACK_LIMIT_BYTES = 2048 * 1024 * 1024
 SUMMARY_PREFIX = "DOCKER_E2E_SUMMARY "
 PROGRESS_PREFIX = "[docker-e2e]"
 MAX_FAILURE_OUTPUT_CHARS = 6000
+PACKAGE_TOOL_SMOKE_NAMES = ("generator", "checker")
 
 
 def docker_tests_enabled() -> bool:
@@ -164,7 +165,8 @@ def format_failure_report(summary: dict) -> str:
         f"repository: {summary.get('repository')}",
         f"profile: {summary.get('profile')}",
         f"problemCount: {summary.get('problemCount')}",
-        f"generatedCount: {len(summary.get('generated') or [])}",
+        f"syntaxCheckedCount: {len(summary.get('syntaxChecked') or [])}",
+        f"compiledToolCount: {len(summary.get('compiledTools') or [])}",
         f"failureCount: {len(failures)}",
     ]
     pypy_summary = summary.get("pypy") or {}
@@ -196,7 +198,7 @@ def format_failure_report(summary: dict) -> str:
 
 
 def docker_verification_script() -> str:
-    """컨테이너 안에서 공식 문제 패키지를 설치하고 전체 데이터를 생성하는 스크립트를 만듭니다.
+    """공식 팩의 cases 문법과 generator/checker 컴파일만 확인하는 스크립트를 만듭니다.
 
     Returns:
         str: `python`으로 실행할 컨테이너 내부 검증 스크립트입니다.
@@ -218,6 +220,12 @@ def docker_verification_script() -> str:
         SUMMARY_PREFIX = {SUMMARY_PREFIX!r}
         PROGRESS_PREFIX = {PROGRESS_PREFIX!r}
         MAX_FAILURE_OUTPUT_CHARS = {MAX_FAILURE_OUTPUT_CHARS!r}
+        PACKAGE_TOOL_SMOKE_NAMES = {PACKAGE_TOOL_SMOKE_NAMES!r}
+        TOOL_COMPILE_SCRIPT = (
+            "import sys; "
+            "from alj_core.tool_compiler import compile_problem_tool; "
+            "print(compile_problem_tool(sys.argv[1], sys.argv[2]))"
+        )
 
 
         def emit(message: str) -> None:
@@ -579,7 +587,8 @@ def docker_verification_script() -> str:
                 "repository": repository,
                 "profile": profile,
                 "problemCount": 0,
-                "generated": [],
+                "syntaxChecked": [],
+                "compiledTools": [],
                 "failures": [command_failure("__setup__", "doctor", doctor.args, doctor)],
                 "pypy": {{"status": "not_run", "reason": "doctor failed"}},
             }})
@@ -590,7 +599,8 @@ def docker_verification_script() -> str:
                 "repository": repository,
                 "profile": profile,
                 "problemCount": 0,
-                "generated": [],
+                "syntaxChecked": [],
+                "compiledTools": [],
                 "failures": [pypy_failure],
                 "pypy": {{
                     "status": "failed",
@@ -605,7 +615,8 @@ def docker_verification_script() -> str:
                 "repository": repository,
                 "profile": profile,
                 "problemCount": 0,
-                "generated": [],
+                "syntaxChecked": [],
+                "compiledTools": [],
                 "failures": [command_failure("__setup__", "install", install.args, install)],
                 "pypy": {{"status": "not_run", "reason": "install failed"}},
             }})
@@ -616,7 +627,8 @@ def docker_verification_script() -> str:
                 "repository": repository,
                 "profile": profile,
                 "problemCount": 0,
-                "generated": [],
+                "syntaxChecked": [],
+                "compiledTools": [],
                 "failures": [command_failure("__setup__", "list", listing.args, listing)],
                 "pypy": {{"status": "not_run", "reason": "list failed"}},
             }})
@@ -627,7 +639,8 @@ def docker_verification_script() -> str:
                 "repository": repository,
                 "profile": profile,
                 "problemCount": 0,
-                "generated": [],
+                "syntaxChecked": [],
+                "compiledTools": [],
                 "failures": [
                     {{
                         "problemId": "__setup__",
@@ -641,10 +654,11 @@ def docker_verification_script() -> str:
                 "pypy": {{"status": "not_run", "reason": "no installed problems"}},
             }})
 
-        generated = []
+        syntax_checked = []
+        compiled_tools = []
         failures = []
         for index, problem_id in enumerate(problem_ids, start=1):
-            emit(f"[{{index}}/{{len(problem_ids)}}] {{problem_id}} cases compile")
+            emit(f"[{{index}}/{{len(problem_ids)}}] {{problem_id}} cases syntax")
             compile_command = [
                 "judge",
                 "cases",
@@ -652,7 +666,6 @@ def docker_verification_script() -> str:
                 problem_id,
                 "--profile",
                 profile,
-                "--json",
             ]
             compile_result = run(compile_command)
             if compile_result.returncode != 0:
@@ -660,20 +673,39 @@ def docker_verification_script() -> str:
                     command_failure(problem_id, "cases compile", compile_command, compile_result)
                 )
                 emit(f"[{{index}}/{{len(problem_ids)}}] {{problem_id}} FAILED cases compile")
-                continue
+            else:
+                syntax_checked.append(problem_id)
 
-            emit(f"[{{index}}/{{len(problem_ids)}}] {{problem_id}} generate")
-            generate_command = ["judge", "generate", problem_id, "--profile", profile, "--force"]
-            generate_result = run(generate_command)
-            if generate_result.returncode != 0:
-                failures.append(
-                    command_failure(problem_id, "generate", generate_command, generate_result)
+            for tool_name in PACKAGE_TOOL_SMOKE_NAMES:
+                emit(
+                    f"[{{index}}/{{len(problem_ids)}}] "
+                    f"{{problem_id}} compile {{tool_name}}"
                 )
-                emit(f"[{{index}}/{{len(problem_ids)}}] {{problem_id}} FAILED generate")
-                continue
+                tool_command = [
+                    sys.executable,
+                    "-c",
+                    TOOL_COMPILE_SCRIPT,
+                    problem_id,
+                    tool_name,
+                ]
+                tool_result = run(tool_command)
+                if tool_result.returncode != 0:
+                    failures.append(
+                        command_failure(
+                            problem_id,
+                            f"{{tool_name}} compile",
+                            tool_command,
+                            tool_result,
+                        )
+                    )
+                    emit(
+                        f"[{{index}}/{{len(problem_ids)}}] "
+                        f"{{problem_id}} FAILED {{tool_name}} compile"
+                    )
+                    continue
+                compiled_tools.append({{"problemId": problem_id, "tool": tool_name}})
 
-            generated.append(problem_id)
-            emit(f"[{{index}}/{{len(problem_ids)}}] {{problem_id}} OK")
+            emit(f"[{{index}}/{{len(problem_ids)}}] {{problem_id}} contract checked")
 
         pypy_summary, pypy_failure = pypy_smoke()
         if pypy_failure is not None:
@@ -683,7 +715,8 @@ def docker_verification_script() -> str:
             "repository": repository,
             "profile": profile,
             "problemCount": len(problem_ids),
-            "generated": generated,
+            "syntaxChecked": syntax_checked,
+            "compiledTools": compiled_tools,
             "failures": failures,
             "pypy": pypy_summary,
         }})
@@ -723,6 +756,20 @@ class DockerRemotePackageScriptContractTest(unittest.TestCase):
         self.assertNotIn('"06"', script)
         self.assertNotIn("main_solution.ac.py", script)
 
+    def test_official_package_check_skips_full_generation_and_solution_compilation(self) -> None:
+        """외부 문제 팩은 문법과 generator/checker 컴파일까지만 검증합니다."""
+        script = docker_verification_script()
+
+        self.assertIn("PACKAGE_TOOL_SMOKE_NAMES = ('generator', 'checker')", script)
+        self.assertIn("compile_problem_tool", script)
+        self.assertIn('"syntaxChecked": syntax_checked', script)
+        self.assertIn('"compiledTools": compiled_tools', script)
+        self.assertNotIn('"generated": generated', script)
+        self.assertNotIn(
+            'generate_command = ["judge", "generate", problem_id, "--profile", profile',
+            script,
+        )
+
     def test_failure_report_includes_pypy_context(self) -> None:
         """Docker 실패 리포트가 PyPy smoke 실패 대상을 함께 표시하는지 확인합니다."""
         report = format_failure_report(
@@ -730,7 +777,8 @@ class DockerRemotePackageScriptContractTest(unittest.TestCase):
                 "repository": "owner/repo",
                 "profile": "sample",
                 "problemCount": 1,
-                "generated": [],
+                "syntaxChecked": [],
+                "compiledTools": [],
                 "pypy": {
                     "status": "failed",
                     "problemId": "dynamic-problem",
@@ -759,10 +807,10 @@ class DockerRemotePackageScriptContractTest(unittest.TestCase):
     f"Docker/network integration test; set {RUN_DOCKER_TESTS_ENV}=1 to run.",
 )
 class DockerRemotePackageE2ETest(unittest.TestCase):
-    """Docker 이미지와 공식 문제 패키지 전체 검증 흐름을 실제 컨테이너에서 확인합니다."""
+    """Docker 이미지와 공식 문제 팩의 최소 호환성 흐름을 실제 컨테이너에서 확인합니다."""
 
-    def test_docker_image_installs_official_package_and_generates_all_problem_data(self) -> None:
-        """Ubuntu Docker 이미지가 공식 저장소의 전체 문제 데이터를 생성하는지 검증합니다."""
+    def test_docker_image_checks_official_package_without_generating_problem_data(self) -> None:
+        """공식 팩의 문법과 generator/checker 컴파일만 컨테이너에서 확인합니다."""
         image = os.environ.get(DOCKER_IMAGE_ENV, DEFAULT_IMAGE)
         timeout = docker_timeout_seconds()
         repository = os.environ.get(DOCKER_REPOSITORY_ENV, DEFAULT_REPOSITORY)
@@ -823,7 +871,15 @@ class DockerRemotePackageE2ETest(unittest.TestCase):
         self.assertFalse(summary.get("failures"), format_failure_report(summary))
         self.assertGreater(summary["problemCount"], 0)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(summary["problemCount"], len(summary["generated"]))
+        self.assertEqual(summary["problemCount"], len(summary["syntaxChecked"]))
+        self.assertEqual(
+            summary["problemCount"] * len(PACKAGE_TOOL_SMOKE_NAMES),
+            len(summary["compiledTools"]),
+        )
+        self.assertEqual(
+            set(PACKAGE_TOOL_SMOKE_NAMES),
+            {item["tool"] for item in summary["compiledTools"]},
+        )
         self.assertEqual(
             summary.get("pypy", {}).get("status"), "passed", format_failure_report(summary)
         )

@@ -1,0 +1,16 @@
+profiles:
+  sample:
+    cases:
+      - name: sample-1
+        type: fixed
+        content: |
+          3 1
+      - name: sample-2
+        type: fixed
+        content: |
+          4 2
+  hidden:
+    cases:
+      - name: hidden-1
+        type: generator
+        seed: 1

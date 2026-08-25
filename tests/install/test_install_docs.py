@@ -792,14 +792,18 @@ class InstallWorkflowContractTest(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         self.assertIn("uv sync --dev --locked", workflow)
         self.assertNotIn("UV_FROZEN", workflow)
-        self.assertIn("repository: tony9402/algorithm-package", workflow)
-        self.assertIn("ref: ca9d816bd8a8fca57a686ec0752c69c7f7ce3c23", workflow)
-        self.assertIn("path: .ci/problem-fixtures/algorithm-package", workflow)
+
+    def test_ci_does_not_checkout_external_problems_for_unit_tests(self) -> None:
+        """일반 단위 테스트는 외부 문제 저장소의 상태와 분리되어야 합니다."""
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertNotIn("repository: tony9402/algorithm-package", workflow)
+        self.assertNotIn(".ci/problem-fixtures", workflow)
+        self.assertNotIn("problems/algorithm-package", workflow)
         self.assertIn(
-            "cp testlib.h .ci/problem-fixtures/algorithm-package/problems/testlib.h",
+            "Build image and smoke-check the official package contract in Docker",
             workflow,
         )
-        self.assertIn("problems/algorithm-package", workflow)
 
     def test_release_checks_install_docs_before_upload(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")

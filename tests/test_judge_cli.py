@@ -15,13 +15,12 @@ from judge.cli_parser import build_parser
 
 ROOT = Path(__file__).resolve().parents[1]
 JUDGE = [sys.executable, "-m", "judge"]
-PROBLEM_PACKAGE_ROOT = ROOT / "problems" / "algorithm-package"
+PROBLEM_PACKAGE_ROOT = ROOT / "tests" / "fixtures" / "problem-package"
 PROBLEM_SOURCE_ROOT = PROBLEM_PACKAGE_ROOT / "problems"
 TEST_TOOL_COMPILE_TIMEOUT_MIN_MS = "30000"
 ISOLATED_RUNTIME = tempfile.TemporaryDirectory(prefix="alj-unit-cli-runtime-")
 ISOLATED_PROJECT_ROOT = Path(ISOLATED_RUNTIME.name) / "project"
 shutil.copytree(PROBLEM_SOURCE_ROOT / "06", ISOLATED_PROJECT_ROOT / "problems" / "06")
-shutil.copy2(ROOT / "testlib.h", ISOLATED_PROJECT_ROOT / "testlib.h")
 
 
 def run_judge(
@@ -344,7 +343,7 @@ profiles:
         result = run_judge(
             "--prof",
             "sample",
-            "problems/algorithm-package/problems/06/solutions/main_solution.ac.cpp",
+            str(ISOLATED_PROJECT_ROOT / "problems" / "06" / "solutions" / "main_solution.ac.cpp"),
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unrecognized arguments", result.stderr)

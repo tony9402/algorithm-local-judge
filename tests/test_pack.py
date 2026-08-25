@@ -25,7 +25,7 @@ from judge.core.pack_archive import safe_extract_tar
 from judge.core.paths import current_platform_id, executable_suffix
 
 ROOT = Path(__file__).resolve().parents[1]
-PROBLEM_SOURCE_ROOT = ROOT / "problems" / "algorithm-package" / "problems"
+PROBLEM_SOURCE_ROOT = ROOT / "tests" / "fixtures" / "problem-package" / "problems"
 
 
 class ProblemPackTest(unittest.TestCase):
@@ -43,7 +43,6 @@ class ProblemPackTest(unittest.TestCase):
             isolated_project_root = tmp_path / "pack-project"
             isolated_problem_root = isolated_project_root / "problems" / "06"
             shutil.copytree(PROBLEM_SOURCE_ROOT / "06", isolated_problem_root)
-            shutil.copy2(ROOT / "testlib.h", isolated_project_root / "testlib.h")
             result = build_pack(
                 isolated_problem_root,
                 "basic",

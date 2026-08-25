@@ -691,6 +691,9 @@ class ProblemStudioAuthoringE2ETest(BrowserE2ETestCase):
                     compact.locator("#studioSidebar").get_attribute("aria-modal"), "true"
                 )
                 self.assertEqual(compact.locator(".workspace").get_attribute("inert"), "")
+                compact.wait_for_function(
+                    "() => document.activeElement?.id === 'problemFilterInput'"
+                )
                 self.assertEqual(
                     compact.evaluate("() => document.activeElement?.id"), "problemFilterInput"
                 )

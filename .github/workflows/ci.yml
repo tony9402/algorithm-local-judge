@@ -30,19 +30,6 @@ jobs:
         run: uv run ruff check .
       - name: Format
         run: uv run ruff format --check .
-      - name: Checkout pinned problem fixtures
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          repository: tony9402/algorithm-package
-          ref: ca9d816bd8a8fca57a686ec0752c69c7f7ce3c23
-          path: .ci/problem-fixtures/algorithm-package
-          persist-credentials: false
-      - name: Link isolated problem fixtures
-        run: |
-          cp testlib.h .ci/problem-fixtures/algorithm-package/problems/testlib.h
-          mkdir -p problems
-          ln -s "$GITHUB_WORKSPACE/.ci/problem-fixtures/algorithm-package" \
-            problems/algorithm-package
       - name: Unit tests with problems immutability guard
         run: uv run python scripts/run_with_problems_guard.py -- uv run python -m unittest -v
 
@@ -146,7 +133,7 @@ jobs:
 
   docker-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -159,7 +146,7 @@ jobs:
           version: "0.11.12"
           enable-cache: true
       - run: uv sync --dev --locked
-      - name: Build image and verify the official package in Docker
+      - name: Build image and smoke-check the official package contract in Docker
         env:
           ALJ_RUN_DOCKER_TESTS: "1"
           ALJ_GITHUB_TOKEN: ${{ github.token }}

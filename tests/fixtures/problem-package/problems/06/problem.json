@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "problemId": "06",
+  "title": "Internal CLI Smoke Problem",
+  "version": 1,
+  "tools": {
+    "generator": "generator/generator.cpp",
+    "generatorConfig": "generator/cases.yml",
+    "validator": "validator/validator.cpp",
+    "checker": "checker/judge.cpp",
+    "solution": "solutions/main_solution.ac.cpp"
+  },
+  "defaultProfile": "sample",
+  "limits": {
+    "compileTimeoutMs": 5000,
+    "generationTimeoutMs": 5000,
+    "solutionTimeoutMs": 2000,
+    "userTimeoutMs": 2000
+  }
+}
